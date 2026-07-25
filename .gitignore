@@ -285,3 +285,20 @@ report/**/*.toc
 # --- Ảnh phần cứng thì GIỮ (cần cho báo cáo) ---
 !hardware/**/*.jpg
 !hardware/**/*.png
+
+# ==========================================================================
+# QUY TRÌNH CLAUDE ↔ GEMINI (xem CLAUDE.md §2.9)
+# ==========================================================================
+
+# --- Cấu hình cục bộ của công cụ (có thể chứa API key) ---
+.gemini/
+.claude/settings.local.json
+
+# --- Git worktree của Gemini nếu lỡ tạo bên trong repo ---
+#     (khuyến nghị tạo NGOÀI repo: git worktree add ../wt-<mã> -b feat/<mã>)
+wt-*/
+
+# --- GIỮ LẠI trong git: đặc tả và biên bản review là bằng chứng quy trình ---
+#     docs/dac-ta/**  và  docs/review/**  KHÔNG được ignore.
+#     Lưu ý: mẫu "*.spec" ở phần PyInstaller phía trên chỉ chặn file đuôi .spec —
+#     đặc tả của dự án dùng đuôi .md nên không bị ảnh hưởng.

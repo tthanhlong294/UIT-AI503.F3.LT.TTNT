@@ -16,7 +16,9 @@
 3. **Giả lập trước, phần cứng sau.** Code chạy được trên Docker ARM64 rồi mới deploy lên Pi 5.
 4. **Không tự mở rộng phạm vi.** Ngoài đề cương = không làm (xem §2.3).
 5. **Mỗi Phase có 4 cổng A→B→C→D.** Chưa qua cổng D (tài liệu) thì Phase chưa xong.
-6. Cần làm gì → tra bảng **§5 Bản đồ Phase** để biết dùng agent/skill/prompt nào.
+6. Cần làm gì → tra bảng **§6 Bản đồ nhanh** để biết dùng agent/skill/prompt nào.
+7. **Gemini viết code, Claude thiết kế – kiểm định – viết báo cáo.** Bàn giao qua file, không qua
+   hội thoại: đặc tả → code → biên bản review → commit (xem §2.9).
 
 ---
 
@@ -168,13 +170,56 @@ bị chấp nhận sai thì cận trên khoảng tin cậy 95 % của FAR vẫn 
   ghi rõ phần nào cần Pi 5 thật, rồi báo cáo.
 - **R37.** Không tự ý gọi subagent hoặc workflow trừ khi người dùng yêu cầu.
 
+### 2.9. Phân vai Claude ↔ Gemini — quy trình 5 nhịp
+
+**Gemini viết code. Claude thiết kế, kiểm định và viết báo cáo.**
+Hai công cụ **không chia sẻ ngữ cảnh hội thoại**, nên mọi bàn giao đi qua **file trong repo**.
+
+- **R38.** Claude **không viết code sản phẩm** vào `src/`, `tests/`, `scripts/`.
+  Claude viết **đặc tả** (`docs/dac-ta/`) và **biên bản review** (`docs/review/`).
+  *Ngoại lệ*: sửa vặt < 10 dòng — vẫn phải ghi một dòng vào biên bản review để không mất dấu vết.
+- **R39.** Mọi bàn giao qua file, **không qua hội thoại**. Câu trả lời trong phiên chat của Gemini
+  không lưu lại được → đặc tả mơ hồ thì **sửa đặc tả rồi commit**, không giải thích miệng.
+- **R40.** Code **chưa có biên bản review phán quyết ĐẠT** thì không được commit vào `dev`/`main`.
+- **R41.** Người review **không được tự sửa code** — nếu sửa thì không còn ai review bản sửa đó.
+  Agent `code-reviewer` cố ý **không có tool `Edit`**.
+
+```
+N1 ĐẶC TẢ (Claude/spec-writer) ──▶ docs/dac-ta/P<n>-<nn>-<slug>.md
+        ▼
+N2 SINH MÃ (Gemini, git worktree riêng, không commit)
+        ▼
+N3 REVIEW (Claude/code-reviewer) ──▶ docs/review/<mã>.review.md
+        ├── 🔴 TRẢ LẠI ──▶ N4 Gemini sửa ──▶ quay lại N3   (trần 2 vòng)
+        ▼
+N5 ✅ ĐẠT ──▶ commit + gộp nhánh ──▶ Cổng C (đo) ──▶ Cổng D (báo cáo)
+```
+
+**Ranh giới ghi file — kiểm được bằng `git diff --name-only`:**
+
+| Vai | Được ghi vào |
+|---|---|
+| Gemini (cài đặt) | `src/`, `tests/`, `scripts/` |
+| Claude · `spec-writer` | `docs/dac-ta/`, `configs/` |
+| Claude · `code-reviewer` | `docs/review/` — **chỉ đọc** code |
+| Claude · `training` | `results/` |
+| Claude · `paper-writer` | `report/`, `docs/nhat-ky/` |
+
+`configs/*.yaml` do Claude giữ vì mọi ngưỡng phải chốt từ `results/` (R7, R16) — không để AI tự chọn.
+
+**Mã việc** `P<Phase>-<nn>-<slug>` xuất hiện nguyên vẹn ở 5 chỗ, tạo chuỗi truy vết:
+đặc tả → tên nhánh → biên bản review → commit message → nhật ký tuần.
+
+Ánh xạ vào 4 cổng: **Cổng A** = N1 · **Cổng B** = N2–N5 · **Cổng C** = `training` đo · **Cổng D** = `paper-writer`.
+
 ---
 
 ## 3. Cấu trúc thư mục chuẩn
 
 ```
 UIT-AI503.F3.LT.TTNT/
-├── CLAUDE.md                        # File này — hiến pháp repo
+├── CLAUDE.md                        # File này — hiến pháp repo (Claude đọc)
+├── GEMINI.md                        # Hiến pháp cài đặt mã nguồn (Gemini đọc) — tự chứa
 ├── README.md
 ├── requirements.txt                 # Pin cứng phiên bản (==)
 ├── .env.example                     # Mẫu biến môi trường (KHÔNG chứa secret thật)
@@ -182,6 +227,8 @@ UIT-AI503.F3.LT.TTNT/
 ├── .claude/
 │   ├── agents/                      # Subagent chuyên trách (§4.1)
 │   │   ├── onboarding-with-skills.md
+│   │   ├── spec-writer.agent.md
+│   │   ├── code-reviewer.agent.md
 │   │   ├── paper-writer.agent.md
 │   │   └── training.agent.md
 │   ├── skills/                      # Kỹ năng tái sử dụng (§4.2)
@@ -190,10 +237,12 @@ UIT-AI503.F3.LT.TTNT/
 │   │   └── academic-editing/SKILL.md
 │   ├── prompts/                     # Prompt mẫu tham số hoá (§4.3)
 │   │   ├── data-pipeline.prompt.md
-│   │   └── eda.prompt.md
+│   │   ├── eda.prompt.md
+│   │   └── gemini-handoff.prompt.md # Lệnh bàn giao việc cho Gemini (§2.9)
 │   └── instructions/                # Chuẩn kỹ thuật bắt buộc (§4.4)
 │       ├── python-embedded.instructions.md
 │       ├── experiment-protocol.instructions.md
+│       ├── code-review.instructions.md
 │       ├── hardware-safety.instructions.md
 │       └── academic-writing.instructions.md
 │
@@ -203,6 +252,9 @@ UIT-AI503.F3.LT.TTNT/
 │   ├── Don DKDA ....docx            # Bản gốc
 │   ├── nguoi-tham-gia.md            # Danh sách người tham gia + ngày đồng ý (tự ghi, dạng bảng)
 │   ├── spoof-protocol.md            # Quy trình tạo bộ dữ liệu tấn công
+│   ├── dac-ta/                      # Đặc tả từng mã việc — Claude viết, Gemini thực thi (§2.9)
+│   │   └── P0-01-nen-tang.md
+│   ├── review/                      # Biên bản review mã nguồn — Claude viết (§2.9)
 │   └── nhat-ky/                     # Nhật ký tuần (tuan-01.md, tuan-02.md, ...)
 │
 ├── configs/                         # TẤT CẢ tham số ở đây (R16)
@@ -268,10 +320,15 @@ UIT-AI503.F3.LT.TTNT/
 | File | Gọi khi nào | Nhiệm vụ |
 |---|---|---|
 | `onboarding-with-skills.md` | **Đầu mỗi phiên làm việc mới**, hoặc khi mất ngữ cảnh | Quét repo, xác định đang ở Phase nào, tổng hợp việc đã/đang/sắp làm, chỉ ra skill/prompt cần dùng tiếp |
-| `training.agent.md` | Phase 2 – 3 (mô hình & thực nghiệm) | Chạy/giám sát export model, đo benchmark, so sánh 2 phương án nhận diện, tinh chỉnh threshold, ghi kết quả đúng chuẩn `results/` |
-| `paper-writer.agent.md` | Cổng D mỗi Phase & Phase 7 | Viết/cập nhật chương báo cáo từ dữ liệu thật trong `results/`, đúng văn phong học thuật, không bịa số |
+| `spec-writer.agent.md` | **Nhịp 1** (Cổng A) — trước mọi hạng mục code | Chuyển một bước trong §5 thành đặc tả có chữ ký hàm, danh sách trắng file, ánh xạ tham số → `configs/`, tiêu chí nghiệm thu chạy được |
+| `code-reviewer.agent.md` | **Nhịp 3 và 5** — sau khi Gemini báo xong | Chạy `black`/`ruff`/`pytest` + quét mẫu vi phạm, đối chiếu đặc tả, phân loại lỗi 4 mức, ra phán quyết, ghi `docs/review/` |
+| `training.agent.md` | Cổng C của Phase 2, 3, 4, 7 | **Thiết kế giao thức đo**, chạy benchmark, phân tích số liệu, chốt ngưỡng từ ROC, ghi kết quả đúng chuẩn `results/`. *Không tự viết script — viết đặc tả cho Gemini* |
+| `paper-writer.agent.md` | Cổng D mỗi Phase & Phase 8 | Viết/cập nhật chương báo cáo từ dữ liệu thật trong `results/`, đúng văn phong học thuật, không bịa số |
 
 > Gọi agent bằng cách nêu rõ tên trong yêu cầu, ví dụ: *"Dùng training agent chạy benchmark Phase 3"*.
+>
+> **Code do Gemini viết** — xem §2.9 và `.claude/prompts/gemini-handoff.prompt.md`.
+> Hiến pháp của Gemini là [`GEMINI.md`](GEMINI.md) ở gốc repo (tự chứa, Gemini không đọc file này).
 
 ### 4.2. Skills — `.claude/skills/`
 
@@ -287,6 +344,7 @@ UIT-AI503.F3.LT.TTNT/
 |---|---|
 | `data-pipeline.prompt.md` | Phase 1 — thu thập, chuẩn hoá, crop/align, kiểm chất lượng, tách train/test, đăng ký embedding |
 | `eda.prompt.md` | Phase 1 & 6 — phân tích thống kê CSDL khuôn mặt và phân tích kết quả benchmark |
+| `gemini-handoff.prompt.md` | Mọi Phase — lệnh bàn giao Nhịp 2/Nhịp 4 cho Gemini, quy ước worktree, xử lý sự cố (§2.9) |
 
 ### 4.4. Instructions — `.claude/instructions/`
 
@@ -294,8 +352,9 @@ Chuẩn kỹ thuật **luôn áp dụng** khi động vào loại file tương �
 
 | File | Áp dụng cho |
 |---|---|
-| `python-embedded.instructions.md` | Toàn bộ `src/**/*.py`, `scripts/**/*.py` |
+| `python-embedded.instructions.md` | Toàn bộ `src/**/*.py`, `scripts/**/*.py` — Claude tra khi **viết đặc tả**; bản rút gọn cho Gemini nằm trong `GEMINI.md` |
 | `experiment-protocol.instructions.md` | `scripts/benchmark*`, mọi thứ ghi vào `results/` |
+| `code-review.instructions.md` | Mọi lượt review code — rubric 4 mức, mẫu quét vi phạm, cách viết mục lỗi |
 | `hardware-safety.instructions.md` | `src/actuator/**`, `hardware/**` |
 | `academic-writing.instructions.md` | `report/**`, `docs/**/*.md` |
 
@@ -529,7 +588,10 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
 | Thu thập / chuẩn hoá dữ liệu khuôn mặt | prompt `data-pipeline` |
 | Phân tích thống kê dữ liệu hoặc kết quả | prompt `eda` |
 | Export model, chạy benchmark, so sánh 2 phương án | agent `training` + `experiment-protocol.instructions` |
-| Viết code cho `src/` | `python-embedded.instructions` |
+| **Bắt đầu một hạng mục code mới** | agent `spec-writer` → viết `docs/dac-ta/<mã>.md` |
+| **Giao code cho Gemini viết** | prompt `gemini-handoff` |
+| **Kiểm định code Gemini vừa viết** | agent `code-reviewer` + `code-review.instructions` |
+| Tra chuẩn viết code Python cho `src/` | `python-embedded.instructions` (Claude tra khi viết đặc tả) |
 | Đấu nối / lập trình GPIO, IR | `hardware-safety.instructions` |
 | Vẽ biểu đồ, bảng, sơ đồ cho báo cáo | skill `latex-visualization` |
 | Viết một chương báo cáo | agent `paper-writer` + skill `report-drafting` |

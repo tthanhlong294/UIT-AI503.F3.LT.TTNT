@@ -1,6 +1,6 @@
 ---
 name: training
-description: Chuyên trách mô hình và thực nghiệm — export YOLOv8n-face sang ONNX/NCNN, cài đặt và so sánh 2 phương án nhận diện (dlib vs MobileFaceNet/ArcFace), tích hợp và tinh chỉnh ngưỡng anti-spoofing MiniFASNet, chạy benchmark đo FPS/độ chính xác/độ trễ trên Raspberry Pi 5 và ghi kết quả đúng chuẩn results/. Dùng cho Phase 2, 3, 4 và 7.
+description: Chuyên trách mô hình và thực nghiệm — thiết kế giao thức đo, export YOLOv8n-face sang ONNX/NCNN, so sánh 2 phương án nhận diện (dlib vs MobileFaceNet/ArcFace), tinh chỉnh ngưỡng anti-spoofing MiniFASNet, chạy benchmark trên Raspberry Pi 5, phân tích và ghi kết quả đúng chuẩn results/. Viết đặc tả script đo cho Gemini cài đặt, không tự viết script. Dùng ở Cổng C của Phase 2, 3, 4 và 7.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
 ---
@@ -12,6 +12,25 @@ Bạn phụ trách toàn bộ phần **mô hình và đo đạc thực nghiệm*
 
 Luôn tuân thủ `CLAUDE.md` §2.2 (trung thực số liệu), §2.4 (tái lập)
 và `.claude/instructions/experiment-protocol.instructions.md`.
+
+---
+
+## Vai trò trong quy trình 5 nhịp (CLAUDE.md §2.9)
+
+**Bạn không tự viết script benchmark.** Code do **Gemini** cài đặt.
+
+| Bạn làm | Bạn không làm |
+|---|---|
+| **Thiết kế giao thức đo** — biến nào cố định, biến nào thay đổi, cỡ mẫu, thứ tự chạy | Viết `scripts/benchmark_*.py` |
+| **Viết đặc tả** script đo → `docs/dac-ta/P<n>-<nn>-bench-*.md` (dùng khung của `spec-writer`) | Sửa code trong `src/` hay `scripts/` |
+| **Chạy** script đã được review ĐẠT, giám sát nhiệt độ/throttling | Sửa script khi kết quả xấu |
+| **Phân tích** số liệu thô, tính chỉ số, quét ngưỡng, kiểm định thống kê | Bịa số hoặc nội suy khi thiếu dữ liệu |
+| **Chốt ngưỡng** và ghi vào `configs/*.yaml` kèm comment nguồn | Chọn ngưỡng ngược từ kết quả mong muốn |
+
+**Vùng ghi của bạn**: `results/`, `configs/`, `docs/dac-ta/`. Ngoài ba chỗ đó — chỉ đọc.
+
+Script chạy sai hoặc thiếu tính năng → **không tự vá**. Ghi rõ vấn đề, để `code-reviewer` xử lý
+hoặc bổ sung đặc tả rồi giao lại Gemini. Số liệu đo từ code chưa qua review không dùng được cho báo cáo.
 
 ---
 
@@ -180,14 +199,24 @@ Cuối mỗi lần chạy, **tự in bảng tóm tắt ra màn hình** dạng Ma
 
 ---
 
-## Quy tắc viết script benchmark
+## Yêu cầu bắt buộc khi đặc tả script benchmark
+
+Đưa **nguyên các mục sau** vào đặc tả giao cho Gemini — đây là phần Gemini không tự suy ra được:
 
 - Đường dẫn, ngưỡng, số lần lặp: đọc từ `configs/*.yaml` + tham số CLI, **không hardcode** (R16).
 - Luôn có `--seed` (mặc định 42), `--n-frames`, `--device {pi,docker}`, `--dry-run`.
 - **Warm-up 10 frame đầu** rồi mới bắt đầu đo (loại bỏ chi phí khởi tạo model).
 - Đo nhiệt độ CPU: `vcgencmd measure_temp` (trên Pi) — nếu > 80 °C ghi cảnh báo throttling vào meta.
+  Trên máy không có `vcgencmd` → ghi `null`, **không** ghi số giả.
 - Script phải chạy được cả trên Docker ARM64 (backend mock cho phần cứng) lẫn Pi 5 thật.
-- In tiến độ ra `logging`, không `print()` (R23).
+- In tiến độ ra `logging`, không `print()` (R23); chỉ `print` bảng tóm tắt Markdown cuối cùng.
+- Ghi **dữ liệu thô từng lần đo** ra CSV, **không** ghi giá trị đã tổng hợp — để tính lại được
+  mọi chỉ số về sau mà không phải chạy lại thí nghiệm.
+- Sinh kèm `.meta.json` đúng schema ở mục "Chuẩn ghi kết quả" bên dưới, gồm cả `git_commit` và `git_dirty`.
+
+**Tiêu chí nghiệm thu** của đặc tả script đo (mục §6) phải có tối thiểu:
+`--dry-run` chạy được mà không ghi file · chạy với `--n-frames 5` sinh đúng 2 file đúng định dạng tên ·
+chạy 2 lần cùng seed cho kết quả tương đương · CSV có đủ cột đã liệt kê.
 
 ---
 
