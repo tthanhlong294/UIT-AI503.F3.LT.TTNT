@@ -216,3 +216,72 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ==========================================================================
+# QUY TẮC RIÊNG CỦA ĐỒ ÁN (xem CLAUDE.md §2.6 — R25)
+# TUYỆT ĐỐI KHÔNG commit dữ liệu sinh trắc học, secret, hay model weights lớn
+# ==========================================================================
+
+# --- Dữ liệu khuôn mặt: cấm commit toàn bộ ---
+data/
+!data/.gitkeep
+!data/README.md
+
+# --- Model weights (dung lượng lớn) — link tải ghi trong models/README.md ---
+models/
+!models/README.md
+*.onnx
+*.pt
+*.pth
+*.ncnn.bin
+*.ncnn.param
+*.dat
+shape_predictor_*.dat
+dlib_face_recognition_*.dat
+
+# --- Kết quả thực nghiệm: GIỮ số liệu (.csv/.json), BỎ ảnh/video ---
+results/**/*.jpg
+results/**/*.jpeg
+results/**/*.png
+results/**/*.mp4
+results/**/*.avi
+results/alerts/
+
+# --- Embedding đã đăng ký (dữ liệu sinh trắc học) ---
+*.npy
+*.npz
+
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+*.token
+telegram_token*
+secrets.yaml
+
+# --- CSDL vận hành ---
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Sản phẩm biên dịch LaTeX ---
+report/**/*.aux
+report/**/*.bbl
+report/**/*.blg
+report/**/*.fdb_latexmk
+report/**/*.fls
+report/**/*.lof
+report/**/*.log
+report/**/*.lot
+report/**/*.out
+report/**/*.synctex.gz
+report/**/*.toc
+
+# --- Hình sinh tự động từ script (chạy lại được, không cần commit) ---
+# Bỏ comment nếu muốn giữ hình trong git để nộp kèm báo cáo:
+# report/figures/*.pdf
+# report/figures/*.png
+
+# --- Ảnh phần cứng thì GIỮ (cần cho báo cáo) ---
+!hardware/**/*.jpg
+!hardware/**/*.png
