@@ -12,15 +12,29 @@ Tham số cần điền:
 
 Gemini làm việc trong **git worktree riêng** để không đụng được vào nhánh đang mở của bạn.
 
+Đồng bộ `dev` trước, rồi tạo worktree **tách từ `dev`** (R30 — `feat/*` luôn phân nhánh từ `dev`,
+không phải từ `main`):
+
 ```bash
-git worktree add ../wt-<mã> -b feat/<mã>
+git checkout dev && git pull
 ```
+
+```bash
+git worktree add ../wt-<mã> -b feat/<mã> dev
+```
+
+Tham số `dev` ở cuối là **điểm xuất phát của nhánh mới**. Thiếu nó, Git lấy HEAD hiện tại —
+nếu bạn đang đứng ở `main` hay một `feat/*` khác thì nhánh mới sẽ mọc sai chỗ và lần gộp sau
+sẽ kéo theo commit lạ.
 
 Thư mục `../wt-<mã>` là một bản sao làm việc độc lập, **cùng repo, khác nhánh**.
 `GEMINI.md` và `docs/dac-ta/` có sẵn trong đó vì đã được commit.
 
-> ⚠️ Đặc tả phải **đã commit** trước khi tạo worktree, nếu không Gemini sẽ không thấy file.
-> Kiểm nhanh: `git status --short docs/dac-ta/`
+> ⚠️ Đặc tả phải **đã commit và đã có trên `dev`** trước khi tạo worktree, nếu không Gemini
+> sẽ không thấy file. Kiểm nhanh:
+> ```bash
+> git status --short docs/dac-ta/ && git log --oneline -1 dev -- docs/dac-ta/
+> ```
 
 ---
 
@@ -80,15 +94,25 @@ Commit ngay trong worktree (bạn commit, không phải Gemini):
 git add -A && git commit -m "feat(<phạm vi>): <mô tả> — <MÃ>"
 ```
 
-Về repo chính rồi gộp và dọn worktree:
+Về repo chính, gộp **vào `dev`** (không phải `main`), rồi dọn worktree và xoá nhánh:
 
 ```bash
-git merge --no-ff feat/<mã>
-git worktree remove ../wt-<mã>
+git checkout dev && git merge --no-ff feat/<mã> && git push
+```
+
+```bash
+git worktree remove ../wt-<mã> && git branch -d feat/<mã>
 ```
 
 Commit message theo `CLAUDE.md` R29, **luôn kèm mã việc ở cuối** để truy vết được sang
 `docs/dac-ta/`, `docs/review/` và nhật ký tuần.
+
+> `main` **chỉ nhận từ `dev`** khi một Phase đã qua đủ 4 cổng A→B→C→D, kèm tag `phase-<n>-done` (R32):
+> ```bash
+> git checkout main && git merge --no-ff dev && git tag phase-<n>-done && git push --follow-tags
+> ```
+> Nếu làm qua Pull Request: PR của mã việc để `--base dev`; chỉ PR cuối Phase mới `--base main`.
+> `gh pr create` mặc định lấy nhánh mặc định của repo (`main`) — **phải ghi rõ `--base dev`**.
 
 ---
 
