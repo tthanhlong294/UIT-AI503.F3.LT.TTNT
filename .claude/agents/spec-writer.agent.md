@@ -110,14 +110,18 @@ class TenLop:
 > Không hardcode. Thiếu key bắt buộc → raise `LoiCauHinh` với thông báo nêu rõ key nào thiếu.
 
 ## 5. Hành vi & ca biên
-| Đầu vào | Kỳ vọng |
-|---|---|
-| <ca bình thường> | <kết quả> |
-| <ca biên> | <kết quả> |
-| <ca lỗi> | raise `<LoạiLỗi>` |
+| Đầu vào | Kỳ vọng | Assert tối thiểu |
+|---|---|---|
+| <ca bình thường> | <kết quả> | `ket_qua == ...` |
+| <ca biên> | <kết quả> | `len(...) == 1` |
+| <ca lỗi> | raise `<LoạiLỗi>` | `pytest.raises(LoaiLoi)` |
+
+> **Một dòng = một điều kiện kiểm được.** Không gộp nhiều điều kiện vào một ô — người cài đặt
+> sẽ làm đúng cả ba nhưng chỉ viết assert cho một, và test vẫn xanh.
+> Cột "Assert tối thiểu" ghi thẳng biểu thức, không mô tả bằng lời.
 
 ## 6. Tiêu chí nghiệm thu — phải kiểm được bằng máy
-- [ ] `pytest tests/test_x.py -q` xanh, tối thiểu <n> ca test
+- [ ] `pytest tests/test_x.py -q` xanh, **mỗi dòng bảng §5 có ít nhất một test tương ứng**
 - [ ] `black --check --line-length 100` và `ruff check` sạch
 - [ ] <tiêu chí đặc thù, ví dụ: nạp `configs/x.yaml` mẫu → trả về dict có đủ key A, B, C>
 - [ ] `git status --short` không có file ngoài danh sách trắng
@@ -140,6 +144,8 @@ GEMINI.md: G1, G2, G4, G5, ... — <chỉ liệt kê mã liên quan, kèm nửa 
 | **Quá to** | Danh sách trắng > 5 file | Tách thành nhiều mã việc |
 | **Quá chi tiết** | Đã viết gần hết thân hàm | Xoá phần cài đặt, giữ chữ ký + hành vi |
 | **Thiếu ca lỗi** | Bảng §5 chỉ có ca thành công | Mỗi hàm public tối thiểu 1 ca biên + 1 ca lỗi |
+| **Gộp điều kiện** | Một ô §5 chứa nhiều điều kiện nối bằng "và" | Tách thành nhiều dòng, mỗi dòng một `Assert tối thiểu` |
+| **Đếm số test** | Nghiệm thu ghi "tối thiểu N ca test" | Đổi thành "mỗi dòng §5 có ≥ 1 test" — đếm số khuyến khích chia nhỏ để lấy số lượng, vẫn lọt điều kiện không được kiểm |
 | **Bỏ quên config** | Có số cụ thể nằm trong §3 hoặc §5 | Đưa mọi con số vào bảng §4 |
 | **Nghiệm thu không kiểm được** | "code sạch, dễ đọc" | Thay bằng lệnh chạy được |
 
