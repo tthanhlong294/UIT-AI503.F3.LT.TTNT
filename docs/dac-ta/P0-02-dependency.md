@@ -59,7 +59,8 @@ requirements-dev.txt     → chỉ cài trên PC (export model, kiểm thử, đ
 
 ### 3.3. `requirements-dev.txt` — công cụ phát triển
 
-Dòng đầu tiên **bắt buộc** là `-r requirements.txt`, sau đó bốn gói:
+Thứ tự trong file: **khối chú thích §3.5 trước**, rồi `-r requirements.txt` là **dòng lệnh đầu tiên**
+(dòng đầu tiên không phải chú thích và không rỗng), sau đó bốn gói:
 
 | Gói | Dùng cho |
 |---|---|
@@ -117,10 +118,12 @@ Không áp dụng. Mã việc này không sinh mã và không đọc `configs/`.
 
 | Điều kiện | Kỳ vọng | Assert / lệnh kiểm |
 |---|---|---|
+| **Không có file ngoài danh sách trắng** | Đúng 3 file | `git status --short \| wc -l` trả `3` |
+| **Mọi phiên bản đều lấy từ môi trường thật** | Không có số bịa | `for p in $(grep -hoE "^[a-zA-Z0-9_-]+==[^ ]+" requirements*.txt); do pip freeze \| grep -qix "$p" \|\| echo "KHONG KHOP: $p"; done` không in gì |
 | Mọi dòng gói trong `requirements.txt` đều pin cứng | Không có `>=`, `~=`, hoặc gói trần | `grep -E "^[a-zA-Z]" requirements.txt \| grep -v "==" ` không có kết quả |
 | `requirements.txt` đúng 6 gói | Không thừa không thiếu | `grep -cE "^[a-zA-Z].*==" requirements.txt` trả `6` |
 | `requirements.txt` **không** chứa torch/ultralytics | Runtime của Pi không kéo theo torch | `grep -iE "torch\|ultralytics" requirements.txt` không có kết quả |
-| `requirements-dev.txt` tham chiếu file runtime | Cài dev là có đủ runtime | Dòng đầu tiên đúng bằng `-r requirements.txt` |
+| `requirements-dev.txt` tham chiếu file runtime | Cài dev là có đủ runtime | `grep -vE "^\s*(#\|$)" requirements-dev.txt \| head -1` trả đúng `-r requirements.txt` |
 | `requirements-dev.txt` đúng 4 gói ngoài dòng tham chiếu | | `grep -cE "^[a-zA-Z].*==" requirements-dev.txt` trả `4` |
 | `.env.example` không chứa secret thật | | `grep -iE "[0-9]{8,}:[A-Za-z0-9_-]{30,}" .env.example` không có kết quả |
 | `.env.example` có đủ 4 biến | | `grep -cE "^[A-Z_]+=" .env.example` trả `4` |

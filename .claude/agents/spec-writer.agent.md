@@ -118,7 +118,20 @@ class TenLop:
 
 > **Một dòng = một điều kiện kiểm được.** Không gộp nhiều điều kiện vào một ô — người cài đặt
 > sẽ làm đúng cả ba nhưng chỉ viết assert cho một, và test vẫn xanh.
-> Cột "Assert tối thiểu" ghi thẳng biểu thức, không mô tả bằng lời.
+>
+> **Cột "Assert tối thiểu" phải là biểu thức hoặc lệnh dán-chạy-được**, không mô tả bằng lời.
+> Viết *"dòng đầu tiên đúng bằng `-r requirements.txt`"* là hỏng: không chạy được, và câu chữ mơ hồ
+> đó có thể mâu thuẫn với một mục khác của chính đặc tả mà không ai phát hiện cho tới lúc review.
+
+**Hai dòng bắt buộc có ở MỌI bảng §5**, đặt lên đầu bảng:
+
+| Điều kiện | Assert tối thiểu |
+|---|---|
+| Không có file ngoài danh sách trắng | `git status --short \| wc -l` trả đúng số file ở §2 |
+| Mọi số liệu/phiên bản lấy từ môi trường thật, không bịa | lệnh đối chiếu với nguồn thật (`pip freeze`, file trong `results/`…) |
+
+Thiếu dòng thứ nhất thì file rác lọt qua toàn bộ các lệnh kiểm còn lại. Thiếu dòng thứ hai thì rủi ro
+bịa số phải soi bằng mắt thay vì để máy bắt.
 
 ## 6. Tiêu chí nghiệm thu — phải kiểm được bằng máy
 - [ ] `pytest tests/test_x.py -q` xanh, **mỗi dòng bảng §5 có ít nhất một test tương ứng**
