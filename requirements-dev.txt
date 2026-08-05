@@ -1,0 +1,12 @@
+# File này dùng cho Python >= 3.11
+# Phiên bản được pin từ môi trường phát triển (Windows x86-64)
+# Cảnh báo: máy phát triển là Windows x86-64, còn đích triển khai là ARM64 Linux. Một số gói
+# có tập phiên bản wheel khác nhau giữa hai nền tảng. Các phiên bản ở đây là bản nháp đầu tiên,
+# sẽ được kiểm chứng lại khi dựng container ARM64 ở mã việc P0-03; nếu có xung đột thì điều chỉnh
+# ở mã việc đó.
+# Lệnh cài: pip install -r requirements.txt (và -r requirements-dev.txt cho máy phát triển)
+-r requirements.txt
+ultralytics==8.4.39
+pytest==9.1.1
+black==24.4.2
+ruff==0.16.1
