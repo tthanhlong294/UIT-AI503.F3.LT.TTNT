@@ -127,7 +127,7 @@ class TenLop:
 
 | Điều kiện | Assert tối thiểu |
 |---|---|
-| Không có file ngoài danh sách trắng | `git status --short \| wc -l` trả đúng số file ở §2 |
+| Không có file ngoài danh sách trắng | `git status --short \| grep -v "docs/review/" \| wc -l` trả đúng số file ở §2 |
 | Mọi số liệu/phiên bản lấy từ môi trường thật, không bịa | lệnh đối chiếu với nguồn thật (`pip freeze`, file trong `results/`…) |
 
 Thiếu dòng thứ nhất thì file rác lọt qua toàn bộ các lệnh kiểm còn lại. Thiếu dòng thứ hai thì rủi ro
