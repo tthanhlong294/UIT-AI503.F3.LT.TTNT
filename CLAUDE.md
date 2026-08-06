@@ -187,7 +187,7 @@ Hai công cụ **không chia sẻ ngữ cảnh hội thoại**, nên mọi bàn 
 ```
 N1 ĐẶC TẢ (Claude/spec-writer) ──▶ docs/dac-ta/P<n>-<nn>-<slug>.md
         ▼
-N2 SINH MÃ (Gemini, git worktree riêng, không commit)
+N2 SINH MÃ (Gemini, nhánh feat/<mã> riêng, cây làm việc phải sạch, không commit)
         ▼
 N3 REVIEW (Claude/code-reviewer) ──▶ docs/review/<mã>.review.md
         ├── 🔴 TRẢ LẠI ──▶ N4 Gemini sửa ──▶ quay lại N3   (trần 2 vòng)
@@ -344,7 +344,7 @@ UIT-AI503.F3.LT.TTNT/
 |---|---|
 | `data-pipeline.prompt.md` | Phase 1 — thu thập, chuẩn hoá, crop/align, kiểm chất lượng, tách train/test, đăng ký embedding |
 | `eda.prompt.md` | Phase 1 & 6 — phân tích thống kê CSDL khuôn mặt và phân tích kết quả benchmark |
-| `gemini-handoff.prompt.md` | Mọi Phase — lệnh bàn giao Nhịp 2/Nhịp 4 cho Gemini, quy ước worktree, xử lý sự cố (§2.9) |
+| `gemini-handoff.prompt.md` | Mọi Phase — lệnh bàn giao Nhịp 2/Nhịp 4 cho Gemini, quy ước nhánh `feat/`, xử lý sự cố (§2.9) |
 
 ### 4.4. Instructions — `.claude/instructions/`
 
@@ -623,6 +623,9 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
 
 ## 8. Ghi chú vận hành
 
-- **Vị trí hiện tại (24/07/2026)**: Phase 1 — Dữ liệu khuôn mặt (Tuần 2).
+- **Vị trí hiện tại (06/08/2026 — Tuần 4)**: **Phase 0 — Khởi tạo & Môi trường**, còn bước 0.3
+  (Docker ARM64, đã có đặc tả `P0-03`) và bước 0.4 (Pi 5 — **chặn, chưa có phần cứng**).
+  Đã xong: 0.2 (`P0-02`), 0.5 (`P0-01`), phần lớn 0.1 và 0.6.
+  Ngoài pipeline: Chương 1 §1.1–1.3 đã viết, Chương 5 có khung, nhật ký tuần 1–3 đã ghi.
 - Cập nhật mục này mỗi khi qua Phase mới.
 - Nhật ký tuần lưu ở `docs/nhat-ky/tuan-XX.md`, viết vào **cuối mỗi tuần**, không dồn.

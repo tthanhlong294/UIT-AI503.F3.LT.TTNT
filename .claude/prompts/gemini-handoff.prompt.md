@@ -4,15 +4,17 @@ Dùng ở **Nhịp 2** (sinh mã) và **Nhịp 4** (sửa theo review) của quy
 
 Tham số cần điền:
 - `<MÃ>` — mã việc, ví dụ `P0-01-nen-tang`
-- `<mã>` — mã việc viết thường, dùng cho tên nhánh/worktree
+- `<mã>` — mã việc viết thường, dùng cho tên nhánh
 
 ---
 
-## 0. Chuẩn bị worktree (làm một lần cho mỗi mã việc)
+## 0. Chuẩn bị nhánh (làm một lần cho mỗi mã việc)
 
-Gemini làm việc trong **git worktree riêng** để không đụng được vào nhánh đang mở của bạn.
+Gemini làm việc **ngay trong thư mục dự án**, trên một nhánh `feat/` riêng. Bảo vệ đến từ git:
+mọi thứ đã commit đều khôi phục được, nên **điều kiện bắt buộc là cây làm việc phải sạch trước khi
+gọi Gemini**.
 
-Đồng bộ `dev` trước, rồi tạo worktree **tách từ `dev`** (R30 — `feat/*` luôn phân nhánh từ `dev`,
+Đồng bộ `dev`, rồi tạo nhánh **tách từ `dev`** (R30 — `feat/*` luôn phân nhánh từ `dev`,
 không phải từ `main`):
 
 ```bash
@@ -20,27 +22,27 @@ git checkout dev && git pull
 ```
 
 ```bash
-git worktree add ../wt-<mã> -b feat/<mã> dev
+git checkout -b feat/<mã>
 ```
 
-Tham số `dev` ở cuối là **điểm xuất phát của nhánh mới**. Thiếu nó, Git lấy HEAD hiện tại —
-nếu bạn đang đứng ở `main` hay một `feat/*` khác thì nhánh mới sẽ mọc sai chỗ và lần gộp sau
-sẽ kéo theo commit lạ.
-
-Thư mục `../wt-<mã>` là một bản sao làm việc độc lập, **cùng repo, khác nhánh**.
-`GEMINI.md` và `docs/dac-ta/` có sẵn trong đó vì đã được commit.
-
-> ⚠️ Đặc tả phải **đã commit và đã có trên `dev`** trước khi tạo worktree, nếu không Gemini
-> sẽ không thấy file. Kiểm nhanh:
+> ⚠️ **Hai điều kiện, kiểm trước khi chạy Gemini:**
 > ```bash
-> git status --short docs/dac-ta/ && git log --oneline -1 dev -- docs/dac-ta/
+> git status --short && git log --oneline -1 -- docs/dac-ta/<MÃ>.md
 > ```
+> Lệnh đầu **không được in gì** — còn việc chưa commit thì commit hoặc `git stash` trước.
+> Lệnh sau phải in ra commit chứa đặc tả; chưa commit đặc tả thì Gemini vẫn đọc được file trên đĩa,
+> nhưng lịch sử sẽ mất dấu vết bàn giao.
+
+> 💡 **Khi nào vẫn nên dùng worktree**: chỉ khi bạn muốn làm việc khác song song trong lúc Gemini
+> chạy lâu (ví dụ build Docker vài chục phút). Khi đó:
+> `git worktree add ../wt-<mã> -b feat/<mã> dev` — nhưng nhớ rằng đặc tả sửa giữa chừng sẽ **không**
+> tự có trong worktree, phải `git checkout dev -- docs/dac-ta/<MÃ>.md` hoặc trỏ reviewer sang repo chính.
 
 ---
 
 ## 1. Nhịp 2 — Sinh mã
 
-Chạy trong thư mục worktree:
+Chạy trong thư mục dự án, trên nhánh `feat/<mã>`:
 
 ```bash
 gemini --approval-mode auto_edit -p "Đọc GEMINI.md, sau đó đọc docs/dac-ta/<MÃ>.md. Cài đặt ĐÚNG đặc tả đó. Chỉ được tạo/sửa các file trong DANH SÁCH TRẮNG mục 2 của đặc tả. Giữ nguyên chữ ký hàm ở mục 3, không đổi tên và không đổi kiểu trả về. Chạy black, ruff, pytest cho tới khi sạch và xanh. TUYỆT ĐỐI KHÔNG git commit. Kết thúc bằng báo cáo theo mẫu mục 12 của GEMINI.md."
@@ -60,8 +62,9 @@ gemini --approval-mode auto_edit -p "Đọc GEMINI.md, docs/dac-ta/<MÃ>.md và 
 - [ ] Đặc tả có đủ 8 mục theo khung của `spec-writer`
 - [ ] Mục 2 (danh sách trắng) liệt kê đủ file, **có cả file test**
 - [ ] File `configs/*.yaml` mà đặc tả tham chiếu đã tồn tại
-- [ ] Đang đứng trong worktree đúng nhánh: `git branch --show-current` → `feat/<mã>`
-- [ ] Cây làm việc sạch: `git status --short` không có gì
+- [ ] Đang đứng đúng nhánh: `git branch --show-current` → `feat/<mã>`
+- [ ] **Cây làm việc sạch**: `git status --short` không in gì — đây là lớp bảo vệ duy nhất khi
+      Gemini chạy `--approval-mode auto_edit` ngay trong thư mục dự án
 
 ---
 
@@ -74,7 +77,7 @@ git diff --stat
 
 Rồi gọi review — **luôn dùng agent, không tự đọc lướt**:
 
-> Dùng agent `code-reviewer` review `<MÃ>` trong worktree `../wt-<mã>`, đối chiếu `docs/dac-ta/<MÃ>.md`.
+> Dùng agent `code-reviewer` review `<MÃ>` trên nhánh `feat/<mã>`, đối chiếu `docs/dac-ta/<MÃ>.md`.
 
 Phán quyết:
 
@@ -88,20 +91,17 @@ Phán quyết:
 
 ## 5. Gộp về sau khi ĐẠT
 
-Commit ngay trong worktree (bạn commit, không phải Gemini):
+Commit trên nhánh `feat/<mã>` (bạn commit, không phải Gemini). Dùng `-A` để lấy cả biên bản
+review — nó là bằng chứng quy trình, phải đi cùng commit mã nguồn:
 
 ```bash
 git add -A && git commit -m "feat(<phạm vi>): <mô tả> — <MÃ>"
 ```
 
-Về repo chính, gộp **vào `dev`** (không phải `main`), rồi dọn worktree và xoá nhánh:
+Gộp **vào `dev`** (không phải `main`) rồi xoá nhánh:
 
 ```bash
-git checkout dev && git merge --no-ff feat/<mã> && git push
-```
-
-```bash
-git worktree remove ../wt-<mã> && git branch -d feat/<mã>
+git checkout dev && git merge --no-ff feat/<mã> && git branch -d feat/<mã>
 ```
 
 Commit message theo `CLAUDE.md` R29, **luôn kèm mã việc ở cuối** để truy vết được sang
@@ -120,9 +120,11 @@ Commit message theo `CLAUDE.md` R29, **luôn kèm mã việc ở cuối** để 
 
 | Tình huống | Xử lý |
 |---|---|
-| Gemini sửa file ngoài danh sách trắng | `git checkout -- <file>` khôi phục file đó, ghi CHẶN-A vào biên bản, nêu rõ trong lệnh Nhịp 4 |
+| Gemini sửa file ngoài danh sách trắng | `git checkout -- <file>` khôi phục file đó (file mới thì `rm`), ghi CHẶN-A vào biên bản, nêu rõ trong lệnh Nhịp 4 |
+| Gemini làm hỏng nhiều thứ, muốn quay về mốc sạch | `git reset --hard` đưa cây làm việc về commit gần nhất. **Chỉ an toàn nếu đã commit trước khi chạy** — đó là lý do checklist §3 bắt cây làm việc sạch |
 | Gemini lỡ `git commit` | Không hoảng: `git reset --soft HEAD~1` giữ nguyên nội dung. Nhắc lại lệnh cấm ở lượt sau |
 | Gemini đòi thêm dependency | Không cho tự thêm. `spec-writer` cập nhật đặc tả trước, rồi chạy lại |
 | Gemini hỏi lại vì đặc tả mơ hồ | **Dấu hiệu tốt.** Sửa đặc tả (`spec-writer`), commit, rồi chạy lại — đừng trả lời trực tiếp trong hội thoại Gemini vì câu trả lời đó không lưu lại được |
-| Cần chạy nhiều mã việc song song | Mỗi mã việc một worktree riêng. Không chạy 2 Gemini trên cùng thư mục |
+| Cần chạy nhiều mã việc song song | Lúc này mới dùng worktree: mỗi mã việc một thư mục riêng. Không chạy 2 Gemini trên cùng thư mục |
+| `git worktree remove` báo `Permission denied` | Có chương trình đang mở thư mục đó. Đóng editor/terminal rồi xoá tay bằng `rm -rf`. Git đã bỏ đăng ký worktree nên `git branch -d` vẫn chạy được |
 | Việc quá nhỏ (< 10 dòng, sửa lỗi chính tả) | Claude được sửa trực tiếp, **nhưng phải ghi một dòng vào biên bản review** để không mất dấu vết |
