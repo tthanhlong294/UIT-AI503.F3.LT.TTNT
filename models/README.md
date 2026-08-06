@@ -12,34 +12,62 @@ hệ thống" trong checklist trước khi nộp (`CLAUDE.md` §7).
 
 ---
 
-## 1. Bảng weights
+## 1. Hai loại file — ghi nhận khác nhau
+
+| Loại | Đặc điểm | Cần ghi gì để tái lập |
+|---|---|---|
+| **A — Tải về** | Do bên thứ ba phát hành | Nguồn, giấy phép, kích thước, SHA256, ngày tải |
+| **B — Sinh tại chỗ** | Do chính nghiên cứu này chuyển đổi từ file loại A | Sinh từ file nào, **lệnh và tham số**, phiên bản công cụ, kích thước, SHA256, ngày sinh |
+
+File loại B **không có "nguồn tải"**. Thứ khiến nó tái lập được là **lệnh sinh ra nó**, không phải
+đường dẫn tải. Ghi kích thước của file gốc `.pt` vào dòng của file `.onnx` là sai dữ liệu.
+
+### Bảng A — File tải về
 
 | # | File | Khối | Nguồn tải | Giấy phép | Kích thước | SHA256 | Ngày tải |
 |---|---|---|---|---|---|---|---|
-| 1 | `yolov8n-face.onnx` | Phát hiện khuôn mặt | `[…]` | `[…]` | `[…]` | `[…]` | `[…]` |
-| 2 | `yolov8n-face.ncnn.param` + `.bin` | Phát hiện — bản NCNN | *(tự export từ #1 ở Phase 2)* | — | `[…]` | `[…]` | `[…]` |
-| 3 | `dlib/shape_predictor_68_face_landmarks.dat` | Nhận diện — phương án A | `[…]` | `[…]` | `[…]` | `[…]` | `[…]` |
-| 4 | `dlib/dlib_face_recognition_resnet_model_v1.dat` | Nhận diện — phương án A | `[…]` | `[…]` | `[…]` | `[…]` | `[…]` |
-| 5 | `mobilefacenet.onnx` | Nhận diện — phương án B | `[…]` | `[…]` | `[…]` | `[…]` | `[…]` |
-| 6 | `minifasnet.onnx` | Chống giả mạo | `[…]` | `[…]` | `[…]` | `[…]` | `[…]` |
+| A1 | `yolov8n-face.pt` | Phát hiện khuôn mặt | `[…]` | `[…]` | `[…]` | `[…]` | `[…]` |
+| A2 | `dlib/shape_predictor_68_face_landmarks.dat` | Nhận diện — phương án A | `[…]` | `[…]` | `[…]` | `[…]` | `[…]` |
+| A3 | `dlib/dlib_face_recognition_resnet_model_v1.dat` | Nhận diện — phương án A | `[…]` | `[…]` | `[…]` | `[…]` | `[…]` |
+| A4 | `mobilefacenet.onnx` | Nhận diện — phương án B | `[…]` | `[…]` | `[…]` | `[…]` | `[…]` |
+| A5 | `minifasnet.pth` *(hoặc định dạng gốc)* | Chống giả mạo | `[…]` | `[…]` | `[…]` | `[…]` | `[…]` |
 
-**Cây thư mục sau khi tải đủ:**
+### Bảng B — File sinh tại chỗ
+
+| # | File | Sinh từ | Lệnh và tham số | Phiên bản công cụ | Kích thước | SHA256 | Ngày sinh |
+|---|---|---|---|---|---|---|---|
+| B1 | `yolov8n-face-320.onnx` | A1 | `yolo export model=... format=onnx imgsz=320 opset=12 simplify=True` | ultralytics `[…]` | `[…]` | `[…]` | `[…]` |
+| B2 | `yolov8n-face-640.onnx` | A1 | như trên, `imgsz=640` | ultralytics `[…]` | `[…]` | `[…]` | `[…]` |
+| B3 | `yolov8n-face-320.ncnn.param` + `.bin` | A1 | `yolo export model=... format=ncnn imgsz=320` | ultralytics `[…]` | `[…]` | `[…]` | `[…]` |
+| B4 | `minifasnet.onnx` | A5 | `[…]` — ghi script hoặc lệnh chuyển đổi | `[…]` | `[…]` | `[…]` | `[…]` |
+
+> Phase 2 chạy ma trận benchmark `{ONNX, NCNN} × {320, 640} × {1, 2, 4 thread}`, nên **cần cả hai
+> kích thước đầu vào**. Tên file mang hậu tố kích thước để phân biệt; sau khi Phase 2 chốt cấu hình
+> tối ưu, `configs/detect.yaml` trỏ tới đúng file đã chọn.
+
+**Cây thư mục sau khi có đủ:**
 
 ```
 models/
-├── README.md                    ← file này (được commit)
-├── yolov8n-face.onnx
-├── yolov8n-face.ncnn.param
-├── yolov8n-face.ncnn.bin
-├── mobilefacenet.onnx
-├── minifasnet.onnx
+├── README.md                        ← file này (được commit)
+├── yolov8n-face.pt                  ← A1, tải về
+├── yolov8n-face-320.onnx            ← B1, sinh tại chỗ
+├── yolov8n-face-640.onnx            ← B2
+├── yolov8n-face-320.ncnn.param      ← B3
+├── yolov8n-face-320.ncnn.bin        ← B3
+├── mobilefacenet.onnx               ← A4, tải về
+├── minifasnet.pth                   ← A5, tải về
+├── minifasnet.onnx                  ← B4, sinh tại chỗ
 └── dlib/
-    ├── shape_predictor_68_face_landmarks.dat
-    └── dlib_face_recognition_resnet_model_v1.dat
+    ├── shape_predictor_68_face_landmarks.dat        ← A2
+    └── dlib_face_recognition_resnet_model_v1.dat    ← A3
 ```
 
 Tên file phải **khớp đúng** giá trị `model_path` trong `configs/*.yaml`. Đổi tên file thì phải sửa
 config tương ứng, không sửa đường dẫn cứng trong code (R16).
+
+> 💡 **Điền dần, không dồn.** Bảng A điền ngay lúc tải (Phase 2 bước 2.1). Bảng B điền ngay sau khi
+> chạy lệnh export (bước 2.2) — lúc đó mới có kích thước và SHA256 thật.
 
 ---
 
@@ -117,9 +145,11 @@ lần lại từ đầu và dễ ghi sai.
 
 ## 5. Checklist sau khi tải đủ
 
-- [ ] Bảng §1 không còn ô `[…]` nào
+- [ ] **Bảng A** không còn ô `[…]` — điền lúc tải
+- [ ] **Bảng B** không còn ô `[…]` — điền sau khi export, gồm cả lệnh và phiên bản `ultralytics`
+- [ ] Không lấy kích thước / SHA256 của file gốc điền cho file đã export
 - [ ] Mọi file nằm đúng vị trí theo cây thư mục §1
-- [ ] SHA256 đã tính và ghi cho từng file
+- [ ] SHA256 đã tính và ghi cho từng file, **tính trên chính file đó**
 - [ ] Giấy phép từng mô hình đã ghi, và đã thêm mục tương ứng vào `report/refs.bib`
 - [ ] `git status` **không** hiện file weights nào (xác nhận `.gitignore` hoạt động đúng)
 - [ ] Đường dẫn trong `configs/*.yaml` khớp tên file thật
