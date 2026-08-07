@@ -1,0 +1,33 @@
+# Cấu hình khối thu hình (KHỐI 1a)
+# Mọi tham số của camera nằm ở đây — không hardcode trong code (R16).
+
+# auto   : tự dò, có camera thì dùng opencv, không thì dùng mock
+# opencv : bắt buộc dùng camera thật, không mở được thì báo lỗi
+# mock   : bắt buộc dùng khung hình giả lập, dùng cho kiểm thử và máy không có camera
+backend: auto
+
+# --- Camera thật ---
+opencv:
+  device_index: 0 # chỉ số thiết bị, thường là 0 cho webcam đầu tiên
+  width: 1280
+  height: 720
+  fps: 30
+  # Số khung hình bỏ đi sau khi mở camera. Webcam thường trả về vài khung đầu
+  # thiếu sáng hoặc chưa lấy nét do cảm biến đang tự hiệu chỉnh.
+  warmup_frames: 5
+  # Số lần thử đọc lại trước khi coi là mất kết nối
+  max_retry: 3
+
+# --- Khung hình giả lập ---
+mock:
+  width: 1280
+  height: 720
+  # Nguồn khung hình:
+  #   synthetic : sinh ảnh tổng hợp xác định theo seed, không cần file
+  #   directory : đọc lần lượt ảnh trong source_dir
+  source: synthetic
+  source_dir: "" # chỉ dùng khi source = directory
+  seed: 42 # bảo đảm tái lập (R15)
+  loop: true # hết nguồn thì quay lại từ đầu
+  # Số khung hình tối đa trước khi báo hết nguồn (0 = không giới hạn)
+  max_frames: 0
