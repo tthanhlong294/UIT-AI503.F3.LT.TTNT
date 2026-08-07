@@ -32,6 +32,8 @@ Thay đổi về cách làm, quy mô dữ liệu, công cụ, cấu trúc báo c
 | ≤ 25/07/2026 | Số ảnh mỗi người ~50 | **≥ 100 ảnh/người** | Bù đắp cho việc giảm số danh tính trong gallery | `CLAUDE.md` §1 |
 | 25/07/2026 | Không nêu quy trình phát triển | Quy trình **5 nhịp** Claude ↔ Gemini, đặc tả và biên bản review lưu trong `docs/` | Phân vai để mọi dòng code đều qua kiểm định; đồng thời tạo bằng chứng quy trình cho phụ lục báo cáo | `CLAUDE.md` §2.9, PR #1 |
 | 02/08/2026 | Không nêu số lượng công trình khảo sát | §1.2 phân tích sâu **4 công trình: 2 nước ngoài + 2 trong nước** (bài báo hoặc đồ án/luận văn) | Yêu cầu về thành phần tài liệu khảo sát; ít công trình hơn nhưng mỗi công trình được phân tích kỹ 0,5–0,7 trang thay vì điểm lướt | `report/chapters/ch1-tong-quan.md` §1.2 |
+| 07/08/2026 | Phase 0 gồm 6 bước, hoàn tất trong tuần 1 | **Bước 0.4 (cài Raspberry Pi OS, bật camera) hoãn sang khi có phần cứng.** Phase 0 đóng với 5/6 bước, gắn thẻ `phase-0-done` | Chưa mua được Raspberry Pi 5. Theo R36, làm hết phần không phụ thuộc phần cứng rồi ghi rõ phần còn lại. Giữ Phase 0 mở sẽ chặn toàn bộ tiến độ phía sau trong khi phần lớn Phase 1 và Phase 2 không cần thiết bị | `docs/nhat-ky/tuan-04.md`, thẻ `phase-0-done` |
+| 07/08/2026 | Đề cương nêu MiniFASNet, không nói rõ cấu hình | **Dùng một mô hình MiniFASNetV2** thay vì tổ hợp hai mô hình như kho nguồn | Ngân sách tốc độ xử lý là chỉ tiêu cam kết; tổ hợp làm chi phí khối chống giả mạo tăng gấp đôi. Hệ quả: kết quả không đối chiếu trực tiếp được với số liệu công bố của nhóm tác giả — phải nêu rõ ở Chương 4 | `models/README.md` §3.4 |
 
 ## B. Thay đổi mục tiêu / chỉ tiêu cam kết
 
