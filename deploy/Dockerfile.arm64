@@ -1,0 +1,17 @@
+FROM --platform=linux/arm64 python:3.11-slim-bookworm
+
+WORKDIR /app
+
+RUN apt-get update \
+ && apt-get install -y libgl1 libglib2.0-0 \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY requirements-dev.txt .
+RUN grep -E "^(pytest|black|ruff)==" requirements-dev.txt > /tmp/test-req.txt \
+ && pip install --no-cache-dir -r /tmp/test-req.txt \
+ && rm /tmp/test-req.txt
+
+COPY . .
