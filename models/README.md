@@ -125,26 +125,48 @@ có thể khác nhau về chuẩn hoá đầu vào; ghi lại cách chuẩn hoá
 
 ### 3.4. MiniFASNet — chống giả mạo
 
-Weights gốc do MiniVision phát hành ở định dạng PyTorch `.pth`, nhưng **đã có sẵn bản chuyển đổi
-ONNX**, nên không cần tự chuyển. Nguồn đã khảo sát:
+#### Nguồn gốc — dùng để trích dẫn
 
-| Nguồn | Ghi chú |
-|---|---|
-| `garciafido/minifasnet-v2-anti-spoofing-onnx` (Hugging Face) | Chuyển từ `2.7_80x80_MiniFASNetV2.pth`, opset 11, khoảng 1,7 MB |
-| `QingHeYang/Silent-Face-Anti-Spoofing-onnx` (GitHub) | Bản chuyển đổi kèm mã suy luận |
-| `yakhyo/face-anti-spoofing` (GitHub) | Mã suy luận tối giản cho PyTorch và ONNX Runtime |
+**`minivision-ai/Silent-Face-Anti-Spoofing`** — <https://github.com/minivision-ai/Silent-Face-Anti-Spoofing>
 
-**Bốn thông số bắt buộc ghi lại** khi tải — thiếu là không tái lập được:
+Kho gốc của nhóm tác giả. Weights **được commit thẳng trong repo**, không tải rời:
 
-1. **Kích thước ảnh đầu vào** — tên file gốc thường mã hoá sẵn, ví dụ `80x80`.
-2. **Tỉ lệ mở rộng khung bao** — con số đứng đầu tên file (ví dụ `2.7`) là hệ số nới rộng khung bao
-   khuôn mặt trước khi cắt. **MiniFASNet rất nhạy với tỉ lệ cắt**; cắt sai tỉ lệ thì điểm số lệch
-   nhiều mà không có dấu hiệu lỗi nào.
-3. **Số lớp đầu ra** — bản MiniFASNetV2 thường có **3 lớp**, không phải 2. Interface của đồ án là
-   `is_live(face_crop) -> (bool, score)`, nên phải xác định rõ lớp nào là "thật" và gộp hai lớp còn
-   lại thành "giả" thế nào. Ghi cách ánh xạ vào `configs/antispoof.yaml`.
-4. Kho gốc dùng **một mô hình hay kết hợp nhiều mô hình** — nếu bản phát hành gốc chạy tổ hợp mà bạn
-   chỉ lấy một, kết quả sẽ thấp hơn con số họ công bố. Kiểm trước khi kết luận mô hình kém.
+```
+resources/anti_spoof_models/2.7_80x80_MiniFASNetV2.pth
+```
+
+Đây là nguồn ghi vào `report/refs.bib` và cột "Giấy phép" của A5, **kể cả khi lấy file ONNX từ nơi
+khác** — bản chuyển đổi của bên thứ ba chỉ đổi định dạng, không tạo ra giấy phép mới.
+
+#### Nguồn ONNX sẵn — chọn một
+
+| Nguồn | Nội dung | Đánh giá |
+|---|---|---|
+| **`yakhyo/face-anti-spoofing`** (GitHub, mục Releases) | ONNX cho **cả MiniFASNetV1SE lẫn MiniFASNetV2**, opset 11; tuyên bố weights tương đương bit với `.pth` gốc; kèm mã suy luận tối giản | **Ưu tiên** — có cả hai mô hình và mã để đối chiếu tiền xử lý |
+| `garciafido/minifasnet-v2-anti-spoofing-onnx` (Hugging Face) | Chỉ MiniFASNetV2, chuyển từ `2.7_80x80_MiniFASNetV2.pth`, opset 11, ~1,7 MB | Gọn hơn nếu chỉ dùng một mô hình |
+| `QingHeYang/Silent-Face-Anti-Spoofing-onnx` (GitHub) | Bản chuyển đổi kèm mã suy luận | Phương án dự phòng |
+
+Lý do ưu tiên nguồn có **cả hai mô hình**: kho gốc chạy **tổ hợp** rồi cộng kết quả. Chỉ lấy
+`MiniFASNetV2` mà bỏ `MiniFASNetV1SE` sẽ cho kết quả thấp hơn con số nhóm tác giả công bố — và rất dễ
+bị hiểu nhầm thành "mô hình kém" trong khi thực ra là cài thiếu.
+
+#### Bốn điểm phải xác minh trước khi dùng
+
+Đây là những chỗ sai mà **không có thông báo lỗi nào**, chỉ biểu hiện thành kết quả tệ:
+
+1. **Thứ tự kênh màu là BGR, không phải RGB.** Mô hình nhận ảnh cắt 80×80 theo thứ tự BGR — trùng mặc
+   định của OpenCV. Nếu pipeline có chỗ nào chuyển sang RGB thì điểm số sai hoàn toàn.
+2. **Chỉ số của lớp "thật" — đọc từ mã suy luận gốc, tuyệt đối không đoán.** Đầu ra là softmax **3 lớp**
+   (thật / tấn công in / tấn công phát lại), không phải 2. Nhầm một chỉ số là hệ thống đảo ngược kết
+   luận: người thật bị chặn, ảnh in được cho qua. Ghi cách ánh xạ 3 lớp → `is_live` vào
+   `configs/antispoof.yaml`.
+3. **Số `2.7` trong tên file là hệ số nới khung bao, không phải phiên bản.** Khung bao từ YOLO phải
+   được nới đúng hệ số này trước khi cắt về 80×80. Cắt sát quá hay rộng quá đều làm điểm số lệch nhiều.
+4. **Một mô hình hay hai.** Đọc mã suy luận của kho gốc xem nó cộng kết quả của mấy mô hình, rồi quyết
+   định và **ghi rõ** — lựa chọn này ảnh hưởng cả độ chính xác lẫn chi phí FPS, phải nêu trong Chương 4.
+
+> Bốn điểm trên sẽ trở thành nội dung bắt buộc của đặc tả `P4-01` khi tới Phase 4. Xác minh ngay lúc
+> tải và ghi vào đây thì lúc viết đặc tả chỉ việc chép sang.
 
 > 💡 **Biến thể đã khảo sát nhưng chưa dùng: MiniFASNetV2-SE.**
 > Kho `face-antispoof-onnx` phát hành bản ONNX chỉ khoảng 600 KB, có thêm khối SE và hàm mất mát phụ
