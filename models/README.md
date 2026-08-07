@@ -174,12 +174,13 @@ và `configs/antispoof.yaml` ở Phase 4.
 |---|---|---|---|
 | 1 | Hình dạng đầu vào | `[batch, 3, 80, 80]`, kiểu `float32` | Nạp bằng `onnxruntime`, đọc `get_inputs()[0].shape` — 07/08/2026 |
 | 2 | Hình dạng đầu ra | `[batch, 3]` — xác nhận **3 lớp** | Nạp bằng `onnxruntime`, đọc `get_outputs()[0].shape` — 07/08/2026 |
-| 3 | **Thứ tự kênh màu** | `[…]` BGR hay RGB | `[…]` — ghi file và dòng trong mã tiền xử lý của kho nguồn |
-| 4 | **Chỉ số lớp "thật"** | `[…]` 0, 1 hay 2 | `[…]` — ghi file và dòng trong mã suy luận của kho nguồn |
-| 5 | Ý nghĩa hai lớp còn lại | `[…]` in / phát lại | `[…]` |
-| 6 | **Hệ số nới khung bao** | `[…]` — tên file gốc `2.7_80x80` gợi ý là `2.7`, cần xác nhận | `[…]` |
-| 7 | Khoảng giá trị chuẩn hoá | `[…]` `[0,1]` hay `[-1,1]` hay chia 255 | `[…]` |
-| 8 | Kho gốc dùng **một hay hai** mô hình | `[…]` | `[…]` — đọc vòng lặp suy luận của kho gốc |
+| 3 | **Thứ tự kênh màu** | BGR | BGR. test/inference.test.py 'image = cv2.imread(SAMPLE_IMAGE_PATH + image_name)' |
+| 4 | **Chỉ số lớp "thật"** | 1 | test/inference.test.py<br>"label = np.argmax(prediction);value = prediction[0][label]/2;if label == 1:;   print("Image '{}' is Real Face. Score: {:.2f}.".format(image_name, value))"  |
+| 5 | Ý nghĩa hai lớp còn lại | Lớp `0` và `2` đều là **tấn công** (ảnh in, phát lại màn hình, mặt nạ). Hệ thống chỉ cần phân biệt `label == 1` hay không | Bộ dữ liệu huấn luyện gồm ảnh in, video phát lại và mặt nạ silicon |
+| 6 | **Hệ số nới khung bao** | **`2.7`** — đã xác nhận | Parse từ tên file gốc `2.7_80x80_MiniFASNetV2`, khớp hàm `parse_model_name` của kho gốc |
+| 7 | Khoảng giá trị chuẩn hoá | Không chuẩn hoá — pixel gốc `[0,255]` dạng float, kênh BGR. ⚠️ **cần xác nhận bằng thực nghiệm** | Đọc mã tiền xử lý kho gốc. Chưa chạy thử đối chứng — xem cảnh báo bên dưới |
+| 8 | Kho gốc dùng một hay hai mô hình | Kho gốc **chạy tổ hợp**: duyệt mọi file trong `resources/anti_spoof_models`, mỗi mô hình cắt ảnh theo hệ số riêng parse từ tên file, cộng dồn xác suất rồi mới `argmax`.<br>**Nghiên cứu này dùng MỘT mô hình** — xem quyết định bên dưới | `test/inference.test.py`, vòng lặp qua `model_dir` |
+| 9 | **Hệ số chia điểm số** | **Không chia** (kho gốc chia 2 vì có 2 mô hình) | Suy ra từ dòng 8 — xem cảnh báo bên dưới |
 
 Cách xác minh dòng 1 và 2 — đã chạy, kết quả ghi sẵn ở trên:
 
@@ -194,6 +195,42 @@ nguồn. Mở mã suy luận của `yakhyo/face-anti-spoofing` hoặc kho gốc 
 > ⚠️ Dòng 4 là dòng nguy hiểm nhất. Nhầm chỉ số lớp "thật" thì hệ thống **đảo ngược hoàn toàn**:
 > người thật bị chặn, ảnh in được cho qua — mà không có thông báo lỗi nào. Kiểm bằng cách chạy thử
 > một ảnh mặt thật và một ảnh chụp lại màn hình, xem lớp nào có xác suất cao hơn ở từng trường hợp.
+
+#### Quyết định: dùng MỘT mô hình
+
+Kho gốc chạy tổ hợp hai mô hình. Nghiên cứu này **chỉ dùng `MiniFASNetV2`**.
+
+**Lý do**: ngân sách tốc độ xử lý là chỉ tiêu cam kết (≥ 5 FPS toàn luồng trên Raspberry Pi 5, riêng
+khối phát hiện đã cần ≥ 10 FPS). Chạy tổ hợp làm chi phí khối chống giả mạo tăng gấp đôi, và phải cắt
+ảnh hai lần theo hai hệ số khác nhau.
+
+**Ba hệ quả bắt buộc tuân thủ khi cài đặt:**
+
+1. **Không chia điểm số cho 2.** Mã gốc có `value = prediction[0][label] / 2` — số 2 đó là **số mô hình
+   trong tổ hợp**, không phải hằng số. Với một mô hình, tổng xác suất đã bằng 1, chia nữa là sai hệ số
+   đúng gấp đôi và mọi ngưỡng liveness lệch theo.
+2. **Chỉ dùng hệ số nới khung `2.7`.** Mô hình thứ hai của kho gốc có hệ số khác; không áp nhầm.
+3. **Không đối chiếu trực tiếp với số liệu công bố của nhóm tác giả.** Họ đo trên tổ hợp. Chương 4 phải
+   ghi rõ nghiên cứu này dùng một mô hình, nên kết quả không cùng thang so sánh.
+
+**Khi nào xem lại**: nếu APCER đo trên bộ tấn công thật không đạt chỉ tiêu ≥ 90 %, việc bổ sung mô hình
+thứ hai là bước tối ưu có căn cứ — cùng logic với biến thể SE ở ghi chú cuối mục.
+
+> ⚠️ **Dòng 7 chưa xác nhận bằng thực nghiệm.** Pipeline PyTorch của kho gốc thường dùng
+> `transforms.ToTensor()`, mà hàm này **tự chia 255** để đưa về `[0,1]`. Nếu bản ONNX không nhúng sẵn
+> bước đó thì đưa pixel `[0,255]` vào là sai **255 lần**. Chốt bằng lệnh sau — cách nào cho phân bố
+> xác suất hợp lý (không bão hoà tuyệt đối về 0 hoặc 1) là cách đúng:
+>
+> ```bash
+> python -c "
+> import onnxruntime as ort, numpy as np
+> s = ort.InferenceSession('models/minifasnet.onnx', providers=['CPUExecutionProvider'])
+> n = s.get_inputs()[0].name
+> x = np.random.randint(0,256,(1,3,80,80)).astype('float32')
+> print('pixel  [0,255]:', s.run(None,{n:x})[0][0])
+> print('chia 255 [0,1]:', s.run(None,{n:x/255.0})[0][0])
+> "
+> ```
 
 > 💡 **Biến thể đã khảo sát nhưng chưa dùng: MiniFASNetV2-SE.**
 > Kho `face-antispoof-onnx` phát hành bản ONNX chỉ khoảng 600 KB, có thêm khối SE và hàm mất mát phụ
