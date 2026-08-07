@@ -180,6 +180,7 @@ GEMINI.md: G1, G2, G4, G5, ... — <chỉ liệt kê mã liên quan, kèm nửa 
 | **Đếm số test** | Nghiệm thu ghi "tối thiểu N ca test" | Đổi thành "mỗi dòng §5 có ≥ 1 test" — đếm số khuyến khích chia nhỏ để lấy số lượng, vẫn lọt điều kiện không được kiểm |
 | **Bỏ quên config** | Có số cụ thể nằm trong §3 hoặc §5 | Đưa mọi con số vào bảng §4 |
 | **Nghiệm thu không kiểm được** | "code sạch, dễ đọc" | Thay bằng lệnh chạy được |
+| **Cho lựa chọn mà một lựa chọn sai** | Đặc tả viết "dùng A **hoặc** B" | Trước khi viết "hoặc", tự kiểm **từng phương án có thực sự thoả yêu cầu không**. Ví dụ thật ở `P0-03`: đặc tả cho `--platform=$TARGETPLATFORM` hoặc `linux/arm64`; vế đầu **không** sinh image ARM64 khi build không cờ. Không chắc cả hai đều đúng → **chốt một phương án duy nhất và viết nguyên dòng mã** |
 
 ---
 

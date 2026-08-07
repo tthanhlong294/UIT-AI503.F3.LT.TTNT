@@ -48,7 +48,7 @@ lại ở mã việc này. Do đó được phép sửa, **nhưng chỉ khi tho�
 | Yêu cầu | Giá trị | Lý do |
 |---|---|---|
 | Ảnh nền | `python:3.11-slim-bookworm` | Raspberry Pi OS 64-bit (Bookworm) dùng Python 3.11. Container phải khớp môi trường đích, **không** dùng 3.12 dù máy dev đang chạy 3.12 |
-| Nền tảng | `linux/arm64` | Khai báo `--platform=$TARGETPLATFORM` hoặc cố định `linux/arm64` |
+| Nền tảng | `linux/arm64` | **Bắt buộc dòng đầu tiên là** `FROM --platform=linux/arm64 python:3.11-slim-bookworm` |
 | Thư mục làm việc | `/app` | |
 | Gói hệ thống | `libgl1`, `libglib2.0-0` | **Bắt buộc**. `opencv-python` (bản đầy đủ, đã chốt ở `P0-02`) liên kết động tới `libGL.so.1`; thiếu hai gói này thì `import cv2` sẽ ném `ImportError: libGL.so.1: cannot open shared object file` — lỗi kinh điển và tốn thời gian nhất khi đóng gói OpenCV |
 | Dọn cache apt | `rm -rf /var/lib/apt/lists/*` cùng lớp `RUN` | Giảm dung lượng image |
@@ -112,6 +112,7 @@ Không áp dụng. Mã việc này không sinh mã Python và không đọc `con
 | Mọi phiên bản trong requirements là thật, cài được trên ARM64 | Không có số bịa | `docker run --rm --platform linux/arm64 faceid:arm64 pip freeze > /tmp/f.txt; for p in $(grep -hoE "^[a-z0-9_-]+==[^ ]+" requirements.txt); do grep -qix "$p" /tmp/f.txt \|\| echo "KHONG KHOP: $p"; done` không in gì |
 | Build thành công | | `docker build --platform linux/arm64 -f deploy/Dockerfile.arm64 -t faceid:arm64 .` thoát mã 0 |
 | Image đúng kiến trúc ARM64 | Không phải x86 | `docker image inspect faceid:arm64 --format "{{.Architecture}}"` trả `arm64` |
+| **Dockerfile tự khai báo nền tảng** — build KHÔNG cờ vẫn ra ARM64 | Không phụ thuộc người build nhớ truyền cờ | `docker build -f deploy/Dockerfile.arm64 -t faceid:nofl . && docker image inspect faceid:nofl --format "{{.Architecture}}"` trả `arm64` |
 | Python trong image là 3.11 | Khớp Pi OS Bookworm | `docker run --rm --platform linux/arm64 faceid:arm64 python -V` khớp `Python 3.11.` |
 | **Cổng C của Phase 0** | Nạp được hai thư viện cốt lõi | `docker run --rm --platform linux/arm64 faceid:arm64 python -c "import cv2, onnxruntime; print('ok')"` in `ok` |
 | Không thiếu thư viện hệ thống của OpenCV | Không lỗi `libGL.so.1` | Bao gồm trong lệnh trên — nếu thiếu `libgl1` lệnh sẽ ném `ImportError` |
