@@ -181,6 +181,7 @@ và `configs/antispoof.yaml` ở Phase 4.
 | 7 | Khoảng giá trị chuẩn hoá | Không chuẩn hoá — pixel gốc `[0,255]` dạng float, kênh BGR. ⚠️ **cần xác nhận bằng thực nghiệm** | Đọc mã tiền xử lý kho gốc. Chưa chạy thử đối chứng — xem cảnh báo bên dưới |
 | 8 | Kho gốc dùng một hay hai mô hình | Kho gốc **chạy tổ hợp**: duyệt mọi file trong `resources/anti_spoof_models`, mỗi mô hình cắt ảnh theo hệ số riêng parse từ tên file, cộng dồn xác suất rồi mới `argmax`.<br>**Nghiên cứu này dùng MỘT mô hình** — xem quyết định bên dưới | `test/inference.test.py`, vòng lặp qua `model_dir` |
 | 9 | **Hệ số chia điểm số** | **Không chia** (kho gốc chia 2 vì có 2 mô hình) | Suy ra từ dòng 8 — xem cảnh báo bên dưới |
+| 10 | **Dạng đầu ra: logits hay xác suất** | **Logits** — bản ONNX xuất ra **trước** softmax. Có giá trị âm, tổng ≠ 1. `is_live()` **phải tự áp softmax** trước khi so ngưỡng | Chạy suy luận thử, thu được `[-2.66, 3.75, -1.09]` — 07/08/2026 |
 
 Cách xác minh dòng 1 và 2 — đã chạy, kết quả ghi sẵn ở trên:
 
@@ -216,21 +217,24 @@ khối phát hiện đã cần ≥ 10 FPS). Chạy tổ hợp làm chi phí kh�
 **Khi nào xem lại**: nếu APCER đo trên bộ tấn công thật không đạt chỉ tiêu ≥ 90 %, việc bổ sung mô hình
 thứ hai là bước tối ưu có căn cứ — cùng logic với biến thể SE ở ghi chú cuối mục.
 
-> ⚠️ **Dòng 7 chưa xác nhận bằng thực nghiệm.** Pipeline PyTorch của kho gốc thường dùng
-> `transforms.ToTensor()`, mà hàm này **tự chia 255** để đưa về `[0,1]`. Nếu bản ONNX không nhúng sẵn
-> bước đó thì đưa pixel `[0,255]` vào là sai **255 lần**. Chốt bằng lệnh sau — cách nào cho phân bố
-> xác suất hợp lý (không bão hoà tuyệt đối về 0 hoặc 1) là cách đúng:
+> ⚠️ **Dòng 7 vẫn CHƯA chốt được.** Đã chạy thử với đầu vào nhiễu ngẫu nhiên (07/08/2026):
 >
-> ```bash
-> python -c "
-> import onnxruntime as ort, numpy as np
-> s = ort.InferenceSession('models/minifasnet.onnx', providers=['CPUExecutionProvider'])
-> n = s.get_inputs()[0].name
-> x = np.random.randint(0,256,(1,3,80,80)).astype('float32')
-> print('pixel  [0,255]:', s.run(None,{n:x})[0][0])
-> print('chia 255 [0,1]:', s.run(None,{n:x/255.0})[0][0])
-> "
 > ```
+> pixel  [0,255]: [-2.6569,  3.7462, -1.0917]   → argmax = 1 (thật)
+> chia 255 [0,1]: [-3.5192, -0.7289,  4.2491]   → argmax = 2 (tấn công)
+> ```
+>
+> Phép thử này **không kết luận được** vì ảnh nhiễu ngẫu nhiên nằm ngoài phân bố huấn luyện của cả hai
+> cách. Có một dấu hiệu yếu nghiêng về `/255`: ảnh nhiễu lẽ ra phải bị phân loại là tấn công chứ không
+> phải mặt thật — nhưng đây chỉ là suy đoán, không đủ làm căn cứ.
+>
+> **Cách chốt dứt điểm** — cần một **ảnh khuôn mặt thật**:
+> 1. Cắt khuôn mặt theo hệ số nới khung `2.7`, resize về 80×80, giữ thứ tự kênh BGR
+> 2. Chạy cả hai cách, áp softmax lên logits
+> 3. Cách đúng phải cho **lớp 1 xác suất cao rõ rệt**
+>
+> Làm được ngay với bất kỳ ảnh chân dung nào, hoặc để tới Phase 1 khi đã có dữ liệu thật.
+> **Chốt trước khi bắt đầu Phase 4** — sai chuẩn hoá thì mọi số APCER/BPCER đo được đều vô nghĩa.
 
 > 💡 **Biến thể đã khảo sát nhưng chưa dùng: MiniFASNetV2-SE.**
 > Kho `face-antispoof-onnx` phát hành bản ONNX chỉ khoảng 600 KB, có thêm khối SE và hàm mất mát phụ
