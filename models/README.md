@@ -29,8 +29,8 @@ File loại B **không có "nguồn tải"**. Thứ khiến nó tái lập đư�
 | A1 | `yolov8n-face.pt` | Phát hiện khuôn mặt | `[https://github.com/akanametov/yolo-face]` | `[GPL-3.0 license]` | `[6.09 mb]` | `[D545BF1ADD5AA736A4FEBAC4F4F9245A6D596CD0FE70D5D57989FE0CB9E626CA]` | `[06/8/2026]` |
 | A2 | `dlib/shape_predictor_68_face_landmarks.dat` | Nhận diện — phương án A | `[https://huggingface.co/matt3ounstable/dlib_predictor_recognition]` | `[iBUG 300-W]` | `[99.7 mb]` | `[fbdc2cb80eb9aa7a758672cbfdda32ba6300efe9b6e6c7a299ff7e736b11b92f]` | `[7/8/2026]` |
 | A3 | `dlib/dlib_face_recognition_resnet_model_v1.dat` | Nhận diện — phương án A | `[https://huggingface.co/matt3ounstable/dlib_predictor_recognition]` | `[iBUG 300-W]` | `[22.5 mb]` | `[55533b28a95800a551ba546ba62fe69625c7e95a7061c338adffead08719da30]` | `[7/8/2026]` |
-| A4 | `mobilefacenet.onnx` | Nhận diện — phương án B | `[https://github.com/deepinsight/insightface/tree/master/model_zoo]` | `[12.9 mb]` | `[Phi thương mại]` | `[9CC6E4A75F0E2BF0B1AED94578F144D15175F357BDC05E815E5C4A02B319EB4F]` | `[7/8/2026]` |
-| A5 | `minifasnet.onnx` | Chống giả mạo | `[…]` | `[…]` | `[…]` | `[…]` | `[…]` |
+| A4 | `mobilefacenet.onnx` | Nhận diện — phương án B | `[https://github.com/deepinsight/insightface/tree/master/model_zoo]` | `[Phi thương mại]` | `[12.9 mb]` | `[9CC6E4A75F0E2BF0B1AED94578F144D15175F357BDC05E815E5C4A02B319EB4F]` | `[7/8/2026]` |
+| A5 | `minifasnet.onnx` | Chống giả mạo | `[ONNX: https://github.com/yakhyo/face-anti-spoofing/releases · gốc: https://github.com/minivision-ai/Silent-Face-Anti-Spoofing]` | `[Apache-2.0 — Minivision, 2020]` | `[…]` | `[…]` | `[…]` |
 
 ### Bảng B — File sinh tại chỗ
 
@@ -193,6 +193,15 @@ từng mô hình**, tương tự yêu cầu đã đặt ra với bộ dữ liệ
 Khi tải mỗi mô hình, mở file `LICENSE` trong kho nguồn, ghi vào cột "Giấy phép" của bảng §1, và trích
 dẫn công trình gốc trong `report/refs.bib`. Làm lúc tải mất hai phút; để đến lúc viết báo cáo thì phải
 lần lại từ đầu và dễ ghi sai.
+
+> ⚠️ **Giấy phép của hệ thống bị ràng buộc bởi thành phần chặt nhất.** Các mô hình đang dùng có điều
+> khoản rất khác nhau — từ Apache-2.0 (cho phép cả thương mại) tới nghiên cứu phi thương mại. Chỉ cần
+> **một** thành phần giới hạn nghiên cứu là **toàn hệ thống** không thương mại hoá được.
+>
+> Với đồ án tốt nghiệp thì không vướng, vì đây là nghiên cứu học thuật. Nhưng cần nêu một câu trong
+> phần đạo đức nghiên cứu hoặc Chương 5 §Hạn chế: hệ thống ở dạng hiện tại **chỉ dùng cho mục đích
+> nghiên cứu**; muốn triển khai thương mại phải thay các thành phần có giấy phép hạn chế. Đây là loại
+> chi tiết hội đồng đánh giá cao khi thấy sinh viên chủ động nêu.
 
 ---
 
