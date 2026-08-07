@@ -133,6 +133,25 @@ class TenLop:
 Thiếu dòng thứ nhất thì file rác lọt qua toàn bộ các lệnh kiểm còn lại. Thiếu dòng thứ hai thì rủi ro
 bịa số phải soi bằng mắt thay vì để máy bắt.
 
+> ⛔ **Lệnh kiểm KHÔNG được tự cấp thứ mà mã nguồn phải tự khai báo.**
+>
+> Một phép kiểm tự truyền vào tham số đang thiếu thì **không bao giờ phát hiện được nó thiếu**.
+> Ví dụ thật từ `P0-03`: đặc tả yêu cầu Dockerfile khai `--platform=linux/arm64`, nhưng cả 13 lệnh
+> kiểm đều tự truyền `--platform` khi build. Dockerfile thiếu dòng đó mà **13/13 lệnh vẫn xanh** —
+> chỉ lộ ra khi người khác build không kèm cờ và nhận về image sai kiến trúc.
+>
+> Với mỗi yêu cầu ở §3, tự hỏi: *"nếu người cài đặt bỏ sót yêu cầu này, có lệnh nào ở §5 đỏ không?"*
+> Không có → thêm một dòng kiểm **chạy ở điều kiện trần**, không cờ trợ giúp.
+
+> 📁 **Yêu cầu ghi số liệu phải chỉ rõ ghi VÀO ĐÂU.**
+>
+> §6 viết "báo cáo thời gian build và dung lượng image" mà không nói ghi vào file nào thì số liệu chỉ
+> nằm trong phiên chat của Gemini — mất ngay khi đóng cửa sổ, và người review phải đo lại từ đầu
+> (ở `P0-03` là 18 phút build lại).
+>
+> Mã việc nào sinh số liệu thì **cấp cho Gemini một file trong danh sách trắng để ghi**, và thêm một
+> dòng §5 kiểm file đó tồn tại và có nội dung.
+
 ## 6. Tiêu chí nghiệm thu — phải kiểm được bằng máy
 - [ ] `pytest tests/test_x.py -q` xanh, **mỗi dòng bảng §5 có ít nhất một test tương ứng**
 - [ ] `black --check --line-length 100` và `ruff check` sạch
