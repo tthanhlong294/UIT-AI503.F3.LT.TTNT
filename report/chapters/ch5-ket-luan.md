@@ -80,6 +80,10 @@ có nhãn đầy đủ — bản thân việc này là một hướng nghiên c�
 
 - Nhận diện **nhiều người đồng thời** trong khung hình và ở khoảng cách xa hơn.
 - **Camera hồng ngoại** hoặc cảm biến chiều sâu để cải thiện chống giả mạo và hoạt động trong bóng tối.
+- **Biến thể MiniFASNetV2-SE** cho khối chống giả mạo — bản ONNX khoảng 600 KB, bổ sung khối SE và
+  hàm mất mát phụ trên miền tần số nhằm khai thác vân lưới của màn hình và mạng lưới của ảnh in.
+  Đã khảo sát ở giai đoạn chọn mô hình nhưng chưa thử nghiệm, vì trục so sánh chính thức của nghiên
+  cứu này đặt ở khối nhận diện. Dẫn lại chỉ số APCER đo được ở Chương 4 làm căn cứ. `[CHƯA ĐO]`
 - Đánh giá mức **suy giảm độ chính xác khi quy mô gallery tăng** — trực tiếp giải quyết hạn chế §5.2.1.
 
 ### 5.3.4. Tăng tốc phần cứng
