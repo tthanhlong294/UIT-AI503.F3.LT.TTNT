@@ -119,10 +119,11 @@ Thiếu key bắt buộc → `LoiCauHinh` nêu rõ tên key.
 
 ## 5. Hành vi & ca biên
 
+> **Bảng này chỉ chứa ca kiểm thử pytest.** Kiểm phạm vi file và kiểm số liệu là **lệnh shell**, đã
+> chuyển xuống §6 — tuyệt đối **không viết ca test gọi `subprocess`** để chạy `git` hay `docker`.
+
 | # | Điều kiện | Kỳ vọng | Assert tối thiểu |
 |---|---|---|---|
-| 1 | Không có file ngoài danh sách trắng | đúng 7 file | `git status --short \| grep -v "docs/review/" \| wc -l` trả `7` |
-| 2 | Không có số liệu bịa | mọi giá trị đọc từ config | `grep -nE "= *(1280\|720\|30\|0\.[0-9])" src/capture/*.py` — rà tay, không được là tham số cấu hình |
 | 3 | `mock`: `doc_frame` trả đúng định dạng | ảnh BGR | `f.shape == (h, w, 3) and f.dtype == np.uint8` |
 | 4 | `mock`: cùng `seed` cho cùng khung hình | tái lập được (R15) | `np.array_equal(cam1.doc_frame(), cam2.doc_frame())` với hai đối tượng cùng seed |
 | 5 | `mock`: khác `seed` cho khung hình khác nhau | không phải ảnh hằng | `not np.array_equal(...)` với hai seed khác nhau |
@@ -136,6 +137,9 @@ Thiếu key bắt buộc → `LoiCauHinh` nêu rõ tên key.
 | 13 | `mock.max_frames = N`, đọc quá N, `loop=false` | raise `LoiCamera` | `pytest.raises(LoiCamera)` ở lần đọc thứ N+1 |
 | 14 | `mock.max_frames = N`, `loop=true` | quay vòng, không lỗi | Đọc `N+2` lần không ném ngoại lệ |
 | 15 | `mock.source = directory`, `source_dir` rỗng hoặc không tồn tại | raise `LoiCauHinh` | `pytest.raises(LoiCauHinh)` |
+| 15a | `mock.source = directory`, thư mục **có ảnh hợp lệ** | **Đọc đúng ảnh từ thư mục**, không sinh ảnh tổng hợp | Ghi 2 ảnh khác nhau vào `tmp_path` bằng `cv2.imwrite`, đọc lần lượt: `np.array_equal(cam.doc_frame(), anh_1)` và `np.array_equal(cam.doc_frame(), anh_2)` |
+| 15b | `directory` và `synthetic` **không** cho cùng kết quả | Hai chế độ phải thực sự khác nhau | `not np.array_equal(cam_dir.doc_frame(), cam_syn.doc_frame())` với cùng `seed` |
+| 15c | `mock.source = directory`, thư mục tồn tại nhưng **không có ảnh nào** | raise `LoiCauHinh` | `pytest.raises(LoiCauHinh)` |
 | 16 | `backend = mock` | trả về `CameraGiaLap` | `isinstance(tao_bo_thu_hinh(cfg), CameraGiaLap)` |
 | 17 | `backend` không hợp lệ (`"xyz"`) | raise `LoiCauHinh`, thông báo nêu tên backend | `pytest.raises(LoiCauHinh)` |
 | 18 | Thiếu key bắt buộc `mock.width` | raise `LoiCauHinh`, thông báo nêu tên key | `pytest.raises(LoiCauHinh)` |
@@ -151,8 +155,15 @@ Thiếu key bắt buộc → `LoiCauHinh` nêu rõ tên key.
 
 ## 6. Tiêu chí nghiệm thu
 
-- [ ] **Mỗi dòng bảng §5 có ít nhất một ca kiểm thử tương ứng**
+- [ ] **Mỗi dòng bảng §5 có ít nhất một ca kiểm thử tương ứng**, và **mỗi ca có assert thật** —
+      hàm test rỗng hoặc chỉ gọi hàm mà không kiểm gì là **test giả**, tính lỗi CHẶN-B
+- [ ] **Không ca test nào gọi `subprocess`** để chạy `git`, `docker` hay lệnh hệ thống —
+      `grep -n "subprocess\|shutil.which" tests/test_capture.py` không có kết quả
 - [ ] `pytest -q` xanh **toàn bộ dự án** — 26 ca cũ của `P0-01` vẫn đạt, cộng ca mới
+- [ ] **Kiểm phạm vi file** (lệnh shell, không phải ca test):
+      `git status --short | grep -v "docs/review/" | wc -l` trả `7`
+- [ ] **Kiểm không hardcode**: rà `src/capture/*.py`, mọi giá trị `1280`, `720`, `30`, `42` đều phải
+      đến từ config chứ không nằm trong mã
 - [ ] `black --check --line-length 100 src tests` và `ruff check src tests` sạch
 - [ ] Nạp được cấu hình thật: `python -c "from src.common.config import nap_cau_hinh; from src.capture.factory import tao_bo_thu_hinh; c=nap_cau_hinh('configs/capture.yaml'); c['backend']='mock'; print(type(tao_bo_thu_hinh(c)).__name__)"` in `CameraGiaLap`
 - [ ] Chạy được **trong container ARM64**: `docker run --rm -v "$(pwd)":/app -w /app faceid:arm64 pytest -q`

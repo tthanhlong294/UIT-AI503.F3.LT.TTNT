@@ -123,15 +123,29 @@ class TenLop:
 > Viết *"dòng đầu tiên đúng bằng `-r requirements.txt`"* là hỏng: không chạy được, và câu chữ mơ hồ
 > đó có thể mâu thuẫn với một mục khác của chính đặc tả mà không ai phát hiện cho tới lúc review.
 
-**Hai dòng bắt buộc có ở MỌI bảng §5**, đặt lên đầu bảng:
+> ⛔ **§5 chứa ca kiểm thử, §6 chứa lệnh kiểm ở cổng — KHÔNG trộn hai loại.**
+>
+> Cột "Assert tối thiểu" của §5 phải là **biểu thức pytest** (`assert x == y`, `pytest.raises(...)`).
+> Lệnh shell (`git status`, `pip freeze`, `docker build`…) thuộc về **§6 Tiêu chí nghiệm thu**.
+>
+> Hậu quả thật khi trộn, từ `P1-01`: hai dòng kiểm phạm vi file viết bằng lệnh `git` được đặt trong
+> bảng §5, và người cài đặt đã viết một ca test gọi `git` qua `subprocess` — ca test này **sập trong
+> container** vì ảnh không cài `git`, đồng thời tự nới điều kiện để luôn xanh.
+>
+> **Hai kiểm tra sau đặt ở §6, không đặt ở §5:**
+> - `git status --short | grep -v "docs/review/" | wc -l` trả đúng số file ở §2
+> - Mọi số liệu/phiên bản đối chiếu được với nguồn thật (`pip freeze`, file trong `results/`…)
 
-| Điều kiện | Assert tối thiểu |
-|---|---|
-| Không có file ngoài danh sách trắng | `git status --short \| grep -v "docs/review/" \| wc -l` trả đúng số file ở §2 |
-| Mọi số liệu/phiên bản lấy từ môi trường thật, không bịa | lệnh đối chiếu với nguồn thật (`pip freeze`, file trong `results/`…) |
-
-Thiếu dòng thứ nhất thì file rác lọt qua toàn bộ các lệnh kiểm còn lại. Thiếu dòng thứ hai thì rủi ro
-bịa số phải soi bằng mắt thay vì để máy bắt.
+> ⛔ **Mỗi dòng "X sai → báo lỗi" phải có dòng cặp "X đúng → hành vi gì".**
+>
+> Đặc tả chỉ mô tả đường lỗi thì người cài đặt sẽ cài đúng đường lỗi và **bỏ trống đường thành công** —
+> không sai đặc tả, nhưng tính năng không hoạt động.
+>
+> Ví dụ thật từ `P1-01`: đặc tả chỉ yêu cầu "`source_dir` không tồn tại → `LoiCauHinh`". Kết quả là
+> mã nguồn kiểm thư mục tồn tại rồi **phớt lờ hoàn toàn**, vẫn sinh ảnh tổng hợp. Hai chế độ cho ra
+> mảng giống nhau từng bit mà không có dấu hiệu gì.
+>
+> Rà bảng §5: với mỗi dòng ca lỗi, tự hỏi *"đường thành công của tính năng này được kiểm ở dòng nào?"*
 
 > ⛔ **Lệnh kiểm KHÔNG được tự cấp thứ mà mã nguồn phải tự khai báo.**
 >
