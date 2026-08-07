@@ -1,0 +1,12 @@
+.git/
+data/
+models/
+results/
+report/
+docs/
+__pycache__/
+*.pyc
+.venv/
+venv/
+wt-*/
+.env

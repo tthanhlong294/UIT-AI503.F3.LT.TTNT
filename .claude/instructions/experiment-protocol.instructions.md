@@ -28,6 +28,17 @@ Trước mỗi lần đo, ghi lại và giữ **cố định** trong suốt phi�
 | Yếu tố | Cách ghi | Ghi chú |
 |---|---|---|
 | Thiết bị | `Raspberry Pi 5 8GB` / `Docker ARM64 trên <CPU>` | Không trộn kết quả từ 2 nền tảng trong cùng bảng |
+
+> ⛔ **TUYỆT ĐỐI không dùng thời gian đo trong container ARM64 giả lập làm số hiệu năng.**
+>
+> Container chạy qua QEMU nên thời gian **không ổn định và không quy đổi được**. Bằng chứng thực tế
+> từ `P0-03`: cùng một bộ `pytest`, cùng kiến trúc, cùng image — đo được **16,21 s** ở lần chạy nguội
+> và **2,22 s** ở lần chạy ấm. Chênh hơn 7 lần chỉ do trạng thái cache của máy chủ.
+>
+> Container dùng để kiểm **tính đúng đắn** (code chạy được trên ARM64, test xanh, thư viện nạp được).
+> Mọi con số **FPS, latency, thông lượng** phải đo trên **Raspberry Pi 5 thật**. Số đo từ container
+> chỉ được ghi vào `results/` khi cột `device` nói rõ là môi trường giả lập, và **không được đưa vào
+> bảng đối chiếu chỉ tiêu** ở Chương 4.
 | Tản nhiệt | `tản nhiệt nhôm + quạt` / `không tản nhiệt` | Ảnh hưởng lớn tới FPS do throttling |
 | Nguồn điện | `27W USB-C chính hãng` | Nguồn yếu gây throttle |
 | OS & kernel | `Raspberry Pi OS 64-bit, kernel 6.6` | |

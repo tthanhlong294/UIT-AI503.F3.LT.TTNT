@@ -1,0 +1,11 @@
+services:
+  faceid-dev:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.arm64
+    platform: linux/arm64
+    volumes:
+      - ..:/app
+    working_dir: /app
+    command: sleep infinity
+    # Phần camera sẽ bổ sung khi triển khai lên Pi 5 thật (không ánh xạ được camera trên máy phát triển Windows)

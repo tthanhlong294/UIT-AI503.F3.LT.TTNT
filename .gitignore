@@ -223,12 +223,14 @@ __marimo__/
 # ==========================================================================
 
 # --- Dữ liệu khuôn mặt: cấm commit toàn bộ ---
-data/
+# Dùng "data/*" chứ KHÔNG dùng "data/": nếu loại trừ cả thư mục thì git không đi vào bên trong,
+# và mọi dòng "!" bên dưới sẽ không bao giờ có tác dụng.
+data/*
 !data/.gitkeep
 !data/README.md
 
 # --- Model weights (dung lượng lớn) — link tải ghi trong models/README.md ---
-models/
+models/*
 !models/README.md
 *.onnx
 *.pt

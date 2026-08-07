@@ -110,14 +110,50 @@ class TenLop:
 > Không hardcode. Thiếu key bắt buộc → raise `LoiCauHinh` với thông báo nêu rõ key nào thiếu.
 
 ## 5. Hành vi & ca biên
-| Đầu vào | Kỳ vọng |
+| Đầu vào | Kỳ vọng | Assert tối thiểu |
+|---|---|---|
+| <ca bình thường> | <kết quả> | `ket_qua == ...` |
+| <ca biên> | <kết quả> | `len(...) == 1` |
+| <ca lỗi> | raise `<LoạiLỗi>` | `pytest.raises(LoaiLoi)` |
+
+> **Một dòng = một điều kiện kiểm được.** Không gộp nhiều điều kiện vào một ô — người cài đặt
+> sẽ làm đúng cả ba nhưng chỉ viết assert cho một, và test vẫn xanh.
+>
+> **Cột "Assert tối thiểu" phải là biểu thức hoặc lệnh dán-chạy-được**, không mô tả bằng lời.
+> Viết *"dòng đầu tiên đúng bằng `-r requirements.txt`"* là hỏng: không chạy được, và câu chữ mơ hồ
+> đó có thể mâu thuẫn với một mục khác của chính đặc tả mà không ai phát hiện cho tới lúc review.
+
+**Hai dòng bắt buộc có ở MỌI bảng §5**, đặt lên đầu bảng:
+
+| Điều kiện | Assert tối thiểu |
 |---|---|
-| <ca bình thường> | <kết quả> |
-| <ca biên> | <kết quả> |
-| <ca lỗi> | raise `<LoạiLỗi>` |
+| Không có file ngoài danh sách trắng | `git status --short \| grep -v "docs/review/" \| wc -l` trả đúng số file ở §2 |
+| Mọi số liệu/phiên bản lấy từ môi trường thật, không bịa | lệnh đối chiếu với nguồn thật (`pip freeze`, file trong `results/`…) |
+
+Thiếu dòng thứ nhất thì file rác lọt qua toàn bộ các lệnh kiểm còn lại. Thiếu dòng thứ hai thì rủi ro
+bịa số phải soi bằng mắt thay vì để máy bắt.
+
+> ⛔ **Lệnh kiểm KHÔNG được tự cấp thứ mà mã nguồn phải tự khai báo.**
+>
+> Một phép kiểm tự truyền vào tham số đang thiếu thì **không bao giờ phát hiện được nó thiếu**.
+> Ví dụ thật từ `P0-03`: đặc tả yêu cầu Dockerfile khai `--platform=linux/arm64`, nhưng cả 13 lệnh
+> kiểm đều tự truyền `--platform` khi build. Dockerfile thiếu dòng đó mà **13/13 lệnh vẫn xanh** —
+> chỉ lộ ra khi người khác build không kèm cờ và nhận về image sai kiến trúc.
+>
+> Với mỗi yêu cầu ở §3, tự hỏi: *"nếu người cài đặt bỏ sót yêu cầu này, có lệnh nào ở §5 đỏ không?"*
+> Không có → thêm một dòng kiểm **chạy ở điều kiện trần**, không cờ trợ giúp.
+
+> 📁 **Yêu cầu ghi số liệu phải chỉ rõ ghi VÀO ĐÂU.**
+>
+> §6 viết "báo cáo thời gian build và dung lượng image" mà không nói ghi vào file nào thì số liệu chỉ
+> nằm trong phiên chat của Gemini — mất ngay khi đóng cửa sổ, và người review phải đo lại từ đầu
+> (ở `P0-03` là 18 phút build lại).
+>
+> Mã việc nào sinh số liệu thì **cấp cho Gemini một file trong danh sách trắng để ghi**, và thêm một
+> dòng §5 kiểm file đó tồn tại và có nội dung.
 
 ## 6. Tiêu chí nghiệm thu — phải kiểm được bằng máy
-- [ ] `pytest tests/test_x.py -q` xanh, tối thiểu <n> ca test
+- [ ] `pytest tests/test_x.py -q` xanh, **mỗi dòng bảng §5 có ít nhất một test tương ứng**
 - [ ] `black --check --line-length 100` và `ruff check` sạch
 - [ ] <tiêu chí đặc thù, ví dụ: nạp `configs/x.yaml` mẫu → trả về dict có đủ key A, B, C>
 - [ ] `git status --short` không có file ngoài danh sách trắng
@@ -140,8 +176,11 @@ GEMINI.md: G1, G2, G4, G5, ... — <chỉ liệt kê mã liên quan, kèm nửa 
 | **Quá to** | Danh sách trắng > 5 file | Tách thành nhiều mã việc |
 | **Quá chi tiết** | Đã viết gần hết thân hàm | Xoá phần cài đặt, giữ chữ ký + hành vi |
 | **Thiếu ca lỗi** | Bảng §5 chỉ có ca thành công | Mỗi hàm public tối thiểu 1 ca biên + 1 ca lỗi |
+| **Gộp điều kiện** | Một ô §5 chứa nhiều điều kiện nối bằng "và" | Tách thành nhiều dòng, mỗi dòng một `Assert tối thiểu` |
+| **Đếm số test** | Nghiệm thu ghi "tối thiểu N ca test" | Đổi thành "mỗi dòng §5 có ≥ 1 test" — đếm số khuyến khích chia nhỏ để lấy số lượng, vẫn lọt điều kiện không được kiểm |
 | **Bỏ quên config** | Có số cụ thể nằm trong §3 hoặc §5 | Đưa mọi con số vào bảng §4 |
 | **Nghiệm thu không kiểm được** | "code sạch, dễ đọc" | Thay bằng lệnh chạy được |
+| **Cho lựa chọn mà một lựa chọn sai** | Đặc tả viết "dùng A **hoặc** B" | Trước khi viết "hoặc", tự kiểm **từng phương án có thực sự thoả yêu cầu không**. Ví dụ thật ở `P0-03`: đặc tả cho `--platform=$TARGETPLATFORM` hoặc `linux/arm64`; vế đầu **không** sinh image ARM64 khi build không cờ. Không chắc cả hai đều đúng → **chốt một phương án duy nhất và viết nguyên dòng mã** |
 
 ---
 

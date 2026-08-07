@@ -1,0 +1,167 @@
+% ===========================================================================
+% Tài liệu tham khảo — chuẩn IEEE
+% Đồ án: Nhận diện khuôn mặt trên Raspberry Pi 5 điều khiển thiết bị nhà thông minh
+% SV: Trần Thanh Long – 25410088
+%
+% QUY TẮC (CLAUDE.md §4.2, paper-writer):
+%   - Tối thiểu 20 tài liệu cho toàn báo cáo; riêng Chương 1 cần 10–12.
+%   - Đánh số theo THỨ TỰ XUẤT HIỆN trong bài.
+%   - Không tài liệu "mồ côi": mọi mục ở đây phải được dẫn ít nhất một lần.
+%   - KHÔNG trích Wikipedia, blog cá nhân, hay nội dung do AI sinh ra.
+%   - Lấy thông tin thư mục từ TRANG CHÍNH THỨC của công trình (IEEE Xplore, arXiv,
+%     trang hội nghị) — không chép từ bài tổng hợp hay từ file này.
+%
+% File hiện chỉ chứa MẪU ĐỊNH DẠNG. Chưa có mục thật nào.
+% ===========================================================================
+
+
+% --- MẪU: bài hội nghị (dùng cho ArcFace, FaceNet, MobileFaceNets...) ---
+% @inproceedings{khoa_nam,
+%   author    = {Ho Ten Tac Gia and Tac Gia Hai},
+%   title     = {Tieu de bai bao},
+%   booktitle = {Proc. IEEE/CVF Conf. Computer Vision and Pattern Recognition (CVPR)},
+%   year      = {20XX},
+%   pages     = {1--10},
+%   doi       = {10.xxxx/xxxxx}
+% }
+
+
+% --- MẪU: bài tạp chí ---
+% @article{khoa_nam,
+%   author  = {...},
+%   title   = {...},
+%   journal = {IEEE Access},
+%   volume  = {XX},
+%   pages   = {1--10},
+%   year    = {20XX},
+%   doi     = {...}
+% }
+
+
+% --- MẪU: kho mã nguồn / tài liệu kỹ thuật ---
+% ⚠️ Dùng dạng này cho YOLOv8 (Ultralytics) và Silent-Face-Anti-Spoofing (MiniFASNet).
+%    Hai công trình này KHÔNG có bài báo bình duyệt — ghi như paper là lỗi hội đồng bắt được.
+%    Bắt buộc có urldate (ngày truy cập).
+% @misc{khoa_nam,
+%   author       = {Ten to chuc hoac tac gia},
+%   title        = {Ten du an: mo ta ngan},
+%   howpublished = {Kho ma nguon GitHub},
+%   year         = {20XX},
+%   url          = {https://github.com/...},
+%   urldate      = {2026-08-02}
+% }
+
+
+% --- MẪU: báo cáo kỹ thuật (dùng cho bộ dữ liệu LFW) ---
+% @techreport{khoa_nam,
+%   author      = {...},
+%   title       = {...},
+%   institution = {University of Massachusetts, Amherst},
+%   number      = {07-49},
+%   year        = {20XX}
+% }
+
+
+% --- MẪU: đồ án / khoá luận / luận văn trong nước ---
+% ⚠️ Ghi RÕ loại tài liệu và tên trường. Không trình bày như bài báo bình duyệt.
+%    Khoá luận tốt nghiệp dùng @mastersthesis với type ghi đè như dưới.
+% @mastersthesis{khoa_nam,
+%   author = {Ho Ten Tac Gia},
+%   title  = {Ten de tai},
+%   type   = {Khoa luan tot nghiep},        % hoac {Luan van thac si}
+%   school = {Truong Dai hoc Cong nghe Thong tin, DHQG-HCM},
+%   year   = {20XX}
+% }
+
+
+% --- MẪU: bài báo trong nước (tạp chí / kỷ yếu hội nghị Việt Nam) ---
+% @inproceedings{khoa_nam,
+%   author    = {...},
+%   title     = {Tieu de bai bao},
+%   booktitle = {Ky yeu Hoi nghi Khoa hoc Quoc gia FAIR},
+%   year      = {20XX},
+%   pages     = {1--8}
+% }
+
+
+% --- MẪU: tiêu chuẩn (dùng cho ISO/IEC 30107-3 — APCER/BPCER/ACER) ---
+% @manual{iso30107_3,
+%   title        = {Information Technology --- Biometric Presentation Attack
+%                   Detection --- Part 3: Testing and Reporting},
+%   organization = {ISO/IEC},
+%   number       = {30107-3},
+%   year         = {20XX}
+% }
+
+
+% --- MẪU: văn bản pháp quy Việt Nam (Nghị định 13/2023/NĐ-CP về dữ liệu cá nhân) ---
+% @misc{nd13_2023,
+%   author       = {{Chinh phu nuoc CHXHCN Viet Nam}},
+%   title        = {Nghi dinh 13/2023/ND-CP ve bao ve du lieu ca nhan},
+%   year         = {2023},
+%   url          = {...},
+%   urldate      = {2026-08-02}
+% }
+
+
+% ===========================================================================
+% CÁC MỤC THẬT — điền từ đây trở xuống
+% ===========================================================================
+
+% ---------------------------------------------------------------------------
+% Bốn công trình khảo sát ở Chương 1 §1.2.
+% Thông tin lấy từ bảng làm việc trong report/chapters/ch1-tong-quan.md.
+% ⚠️ CÁC TRƯỜNG ĐÁNH DẤU "CAN KIEM TRA" phải mở lại trang gốc xác minh
+%    trước khi biên dịch bản nộp — đừng tin số suy ra từ URL.
+% ---------------------------------------------------------------------------
+
+@article{zamir2022face,
+  author  = {Zamir, Muhammad and Ali, Nouman and Naseem, Amad and
+             Frasteen, Areeb Ahmed and Zafar, Bushra and Assam, Muhammad and
+             Othman, Mahmoud and Attia, El-Awady},
+  title   = {Face Detection and Recognition from Images and Videos Based on
+             {CNN} and {Raspberry Pi}},
+  journal = {Computation},
+  volume  = {10},          % CAN KIEM TRA (suy ra tu URL .../10/9/148)
+  number  = {9},           % CAN KIEM TRA
+  pages   = {148},         % CAN KIEM TRA — so bai bao, khong phai so trang
+  year    = {2022},
+  url     = {https://www.mdpi.com/2079-3197/10/9/148},
+  doi     = {}             % CAN BO SUNG
+}
+
+@article{mohammad2024iotmfacenet,
+  author  = {Mohammad, Ahmad Saeed and Jarullah, Thoalfeqar G. and
+             Al-Kaltakchi, Musab T. S. and Alshehabi Al-Ani, Jabir and
+             Dey, Somdip},
+  title   = {{IoT-MFaceNet}: {Internet-of-Things}-Based Face Recognition Using
+             {MobileNetV2} and {FaceNet} Deep-Learning Implementations on a
+             {Raspberry Pi-400}},
+  journal = {Journal of Low Power Electronics and Applications},  % CAN KIEM TRA ten tap chi
+  volume  = {14},          % CAN KIEM TRA (suy ra tu URL .../14/3/46)
+  number  = {3},           % CAN KIEM TRA
+  pages   = {46},          % CAN KIEM TRA — so bai bao
+  year    = {2024},
+  url     = {https://www.mdpi.com/2079-9268/14/3/46},
+  doi     = {}             % CAN BO SUNG
+}
+
+@mastersthesis{phan2025giamsat,
+  author = {Phan Nguyen Quoc Bao and Hoang Cong Minh},
+  title  = {Giam sat va Dieu khien he thong dien trong nha thong minh},
+  type   = {Do an tot nghiep},
+  school = {Truong Dai hoc Bach khoa, Dai hoc Da Nang},
+  year   = {2025},
+  url    = {http://thuvienso.dut.udn.vn/handle/DUT/20276}
+}
+
+@article{truong2016nhandang,
+  author  = {Truong Van Truong and Huynh Viet Thang},
+  title   = {Nhan dang khuon mat tren may tinh nhung {Raspberry Pi}},
+  journal = {Tap chi Khoa hoc va Cong nghe - Dai hoc Da Nang},
+  volume  = {},            % CAN BO SUNG
+  number  = {},            % CAN BO SUNG
+  pages   = {},            % CAN BO SUNG
+  year    = {2016},
+  url     = {https://jst-ud.vn/jst-ud/article/view/3611}
+}
