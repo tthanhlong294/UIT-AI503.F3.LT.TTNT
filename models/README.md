@@ -27,10 +27,10 @@ File loại B **không có "nguồn tải"**. Thứ khiến nó tái lập đư�
 | # | File | Khối | Nguồn tải | Giấy phép | Kích thước | SHA256 | Ngày tải |
 |---|---|---|---|---|---|---|---|
 | A1 | `yolov8n-face.pt` | Phát hiện khuôn mặt | `[https://github.com/akanametov/yolo-face]` | `[GPL-3.0 license]` | `[6.09 mb]` | `[D545BF1ADD5AA736A4FEBAC4F4F9245A6D596CD0FE70D5D57989FE0CB9E626CA]` | `[06/8/2026]` |
-| A2 | `dlib/shape_predictor_68_face_landmarks.dat` | Nhận diện — phương án A | `[https://huggingface.co/matt3ounstable/dlib_predictor_recognition]` | `[iBUG 300-W]` | `[99.7 mb]` | `[fbdc2cb80eb9aa7a758672cbfdda32ba6300efe9b6e6c7a299ff7e736b11b92f]` | `[7/8/2026]` |
-| A3 | `dlib/dlib_face_recognition_resnet_model_v1.dat` | Nhận diện — phương án A | `[https://huggingface.co/matt3ounstable/dlib_predictor_recognition]` | `[iBUG 300-W]` | `[22.5 mb]` | `[55533b28a95800a551ba546ba62fe69625c7e95a7061c338adffead08719da30]` | `[7/8/2026]` |
+| A2 | `dlib/shape_predictor_68_face_landmarks.dat` | Nhận diện — phương án A | `[https://huggingface.co/matt3ounstable/dlib_predictor_recognition]` | `[Phi thương mại]` | `[99.7 mb]` | `[fbdc2cb80eb9aa7a758672cbfdda32ba6300efe9b6e6c7a299ff7e736b11b92f]` | `[7/8/2026]` |
+| A3 | `dlib/dlib_face_recognition_resnet_model_v1.dat` | Nhận diện — phương án A | `[https://huggingface.co/matt3ounstable/dlib_predictor_recognition]` | `[Phi thương mại]` | `[22.5 mb]` | `[55533b28a95800a551ba546ba62fe69625c7e95a7061c338adffead08719da30]` | `[7/8/2026]` |
 | A4 | `mobilefacenet.onnx` | Nhận diện — phương án B | `[https://github.com/deepinsight/insightface/tree/master/model_zoo]` | `[Phi thương mại]` | `[12.9 mb]` | `[9CC6E4A75F0E2BF0B1AED94578F144D15175F357BDC05E815E5C4A02B319EB4F]` | `[7/8/2026]` |
-| A5 | `minifasnet.onnx` | Chống giả mạo | `[ONNX: https://github.com/yakhyo/face-anti-spoofing/releases · gốc: https://github.com/minivision-ai/Silent-Face-Anti-Spoofing]` | `[Apache-2.0 — Minivision, 2020]` | `[…]` | `[…]` | `[…]` |
+| A5 | `minifasnet.onnx` | Chống giả mạo | `[ONNX: https://github.com/yakhyo/face-anti-spoofing/releases · gốc: https://github.com/minivision-ai/Silent-Face-Anti-Spoofing]` | `[Apache-2.0 — Minivision, 2020]` | `[1.66 mb]` | `[sha256:b32929adc2d9c34b9486f8c4c7bc97c1b69bc0ea9befefc380e4faae4e463907]` | `[7/8/2026]` |
 
 ### Bảng B — File sinh tại chỗ
 
@@ -165,8 +165,35 @@ bị hiểu nhầm thành "mô hình kém" trong khi thực ra là cài thiếu.
 4. **Một mô hình hay hai.** Đọc mã suy luận của kho gốc xem nó cộng kết quả của mấy mô hình, rồi quyết
    định và **ghi rõ** — lựa chọn này ảnh hưởng cả độ chính xác lẫn chi phí FPS, phải nêu trong Chương 4.
 
-> Bốn điểm trên sẽ trở thành nội dung bắt buộc của đặc tả `P4-01` khi tới Phase 4. Xác minh ngay lúc
-> tải và ghi vào đây thì lúc viết đặc tả chỉ việc chép sang.
+#### Kết quả xác minh — ĐIỀN VÀO ĐÂY
+
+Bảng này là nơi ghi câu trả lời cho bốn điểm trên. Điền xong thì chép thẳng sang đặc tả `P4-01`
+và `configs/antispoof.yaml` ở Phase 4.
+
+| # | Thông số | Giá trị | Xác minh bằng cách nào |
+|---|---|---|---|
+| 1 | Hình dạng đầu vào | `[batch, 3, 80, 80]`, kiểu `float32` | Nạp bằng `onnxruntime`, đọc `get_inputs()[0].shape` — 07/08/2026 |
+| 2 | Hình dạng đầu ra | `[batch, 3]` — xác nhận **3 lớp** | Nạp bằng `onnxruntime`, đọc `get_outputs()[0].shape` — 07/08/2026 |
+| 3 | **Thứ tự kênh màu** | `[…]` BGR hay RGB | `[…]` — ghi file và dòng trong mã tiền xử lý của kho nguồn |
+| 4 | **Chỉ số lớp "thật"** | `[…]` 0, 1 hay 2 | `[…]` — ghi file và dòng trong mã suy luận của kho nguồn |
+| 5 | Ý nghĩa hai lớp còn lại | `[…]` in / phát lại | `[…]` |
+| 6 | **Hệ số nới khung bao** | `[…]` — tên file gốc `2.7_80x80` gợi ý là `2.7`, cần xác nhận | `[…]` |
+| 7 | Khoảng giá trị chuẩn hoá | `[…]` `[0,1]` hay `[-1,1]` hay chia 255 | `[…]` |
+| 8 | Kho gốc dùng **một hay hai** mô hình | `[…]` | `[…]` — đọc vòng lặp suy luận của kho gốc |
+
+Cách xác minh dòng 1 và 2 — đã chạy, kết quả ghi sẵn ở trên:
+
+```bash
+python -c "import onnxruntime as ort; s=ort.InferenceSession('models/minifasnet.onnx'); print('vao:', s.get_inputs()[0].shape, '| ra:', s.get_outputs()[0].shape)"
+```
+
+Các dòng 3–8 **không đọc được từ file ONNX** — chúng nằm trong mã tiền xử lý và hậu xử lý của kho
+nguồn. Mở mã suy luận của `yakhyo/face-anti-spoofing` hoặc kho gốc MiniVision, tìm đoạn cắt ảnh và
+đoạn diễn giải đầu ra, rồi ghi **cả giá trị lẫn vị trí dòng mã** để sau này kiểm lại được.
+
+> ⚠️ Dòng 4 là dòng nguy hiểm nhất. Nhầm chỉ số lớp "thật" thì hệ thống **đảo ngược hoàn toàn**:
+> người thật bị chặn, ảnh in được cho qua — mà không có thông báo lỗi nào. Kiểm bằng cách chạy thử
+> một ảnh mặt thật và một ảnh chụp lại màn hình, xem lớp nào có xác suất cao hơn ở từng trường hợp.
 
 > 💡 **Biến thể đã khảo sát nhưng chưa dùng: MiniFASNetV2-SE.**
 > Kho `face-antispoof-onnx` phát hành bản ONNX chỉ khoảng 600 KB, có thêm khối SE và hàm mất mát phụ
