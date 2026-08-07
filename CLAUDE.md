@@ -623,9 +623,12 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
 
 ## 8. Ghi chú vận hành
 
-- **Vị trí hiện tại (06/08/2026 — Tuần 4)**: **Phase 0 — Khởi tạo & Môi trường**, còn bước 0.3
-  (Docker ARM64, đã có đặc tả `P0-03`) và bước 0.4 (Pi 5 — **chặn, chưa có phần cứng**).
-  Đã xong: 0.2 (`P0-02`), 0.5 (`P0-01`), phần lớn 0.1 và 0.6.
-  Ngoài pipeline: Chương 1 §1.1–1.3 đã viết, Chương 5 có khung, nhật ký tuần 1–3 đã ghi.
+- **Vị trí hiện tại (07/08/2026 — Tuần 4)**: **Phase 0 đã đóng** — tag `phase-0-done`, hoàn tất 5/6
+  bước. Bước 0.4 (cài Pi OS, bật camera) **hoãn** vì chưa có phần cứng, đã ghi vào
+  `docs/dieu-chinh-pham-vi.md`. Cổng C đã qua: container ARM64 chạy được `import cv2, onnxruntime`.
+  **Đang chuyển sang Phase 1 — Dữ liệu khuôn mặt.** Phần thu thập ảnh thật chờ camera của hệ thống;
+  quy ước đặt tên, script thu thập và tải LFW làm trước được.
+- Báo cáo: Chương 1 §1.1–1.3 xong · Chương 2 khung + §2.5 xong · Chương 3 §3.2 xong · Chương 5 khung.
+  Nhật ký tuần 1–4 đã ghi. Trọng số mô hình đã tải đủ, `models/README.md` bảng A đầy đủ.
 - Cập nhật mục này mỗi khi qua Phase mới.
 - Nhật ký tuần lưu ở `docs/nhat-ky/tuan-XX.md`, viết vào **cuối mỗi tuần**, không dồn.
