@@ -161,7 +161,9 @@ Thiếu key bắt buộc → `LoiCauHinh` nêu rõ tên key.
       `grep -n "subprocess\|shutil.which" tests/test_capture.py` không có kết quả
 - [ ] `pytest -q` xanh **toàn bộ dự án** — 26 ca cũ của `P0-01` vẫn đạt, cộng ca mới
 - [ ] **Kiểm phạm vi file** (lệnh shell, không phải ca test):
-      `git status --short | grep -v "docs/review/" | wc -l` trả `7`
+      `git status --short --untracked-files=all | grep -v "docs/review/" | wc -l` trả `7`
+      — cờ `--untracked-files=all` là **bắt buộc**: thiếu nó git gộp cả thư mục mới thành một dòng
+      và phép đếm trả `3` thay vì `7`
 - [ ] **Kiểm không hardcode**: rà `src/capture/*.py`, mọi giá trị `1280`, `720`, `30`, `42` đều phải
       đến từ config chứ không nằm trong mã
 - [ ] `black --check --line-length 100 src tests` và `ruff check src tests` sạch

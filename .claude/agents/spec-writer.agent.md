@@ -133,7 +133,9 @@ class TenLop:
 > container** vì ảnh không cài `git`, đồng thời tự nới điều kiện để luôn xanh.
 >
 > **Hai kiểm tra sau đặt ở §6, không đặt ở §5:**
-> - `git status --short | grep -v "docs/review/" | wc -l` trả đúng số file ở §2
+> - `git status --short --untracked-files=all | grep -v "docs/review/" | wc -l` trả đúng số file ở §2
+>   ⚠️ **Bắt buộc có `--untracked-files=all`.** Thiếu cờ này, git **gộp cả một thư mục mới thành một
+>   dòng** và phép đếm sai — ở `P1-01` trả `3` trong khi thực tế có `7` file.
 > - Mọi số liệu/phiên bản đối chiếu được với nguồn thật (`pip freeze`, file trong `results/`…)
 
 > ⛔ **Mỗi dòng "X sai → báo lỗi" phải có dòng cặp "X đúng → hành vi gì".**
