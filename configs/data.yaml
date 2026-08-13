@@ -1,0 +1,33 @@
+# Cấu hình thu thập và tổ chức dữ liệu khuôn mặt
+# Quy ước đầy đủ: docs/quy-uoc-du-lieu.md
+# Mọi tham số ở đây — không hardcode trong scripts/ (R16).
+
+# --- Điều kiện chụp ---
+# Năm tư thế × hai mức sáng = 10 tổ hợp
+poses: [frontal, left, right, up, down]
+lights: [bright, dim]
+
+# --- Chỉ tiêu số lượng ---
+# 10 tổ hợp × 10 ảnh = 100 ảnh/người, đúng chỉ tiêu tối thiểu của đề cương
+min_per_combo: 10
+min_per_user: 100
+
+# --- Định danh hợp lệ ---
+# u = gallery (được đăng ký) · x = impostor in-domain (KHÔNG BAO GIỜ đăng ký)
+id_pattern: "^[ux][0-9]{2}$"
+
+# --- Đầu ra ---
+out_dir_gallery: data/raw
+out_dir_indomain: data/impostor/indomain
+out_dir_spoof: data/spoof
+manifest_name: manifest.csv
+
+# PNG bắt buộc — nén JPEG làm sai lệch phép đo độ nét và nhiễu ở bước 1.7,
+# đồng thời che dấu vết tấn công của bộ dữ liệu spoof. Xem quy ước §6.
+image_format: png
+
+# --- Nhịp chụp ---
+# Giây chờ giữa hai ảnh liên tiếp, đủ để người chụp giữ nguyên tư thế
+capture_interval_s: 0.5
+# Giây chờ khi chuyển sang tư thế mới, đủ để đọc hướng dẫn và đổi tư thế
+pose_switch_delay_s: 3.0
