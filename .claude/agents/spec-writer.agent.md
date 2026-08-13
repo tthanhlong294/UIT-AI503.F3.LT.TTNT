@@ -123,15 +123,50 @@ class TenLop:
 > Viết *"dòng đầu tiên đúng bằng `-r requirements.txt`"* là hỏng: không chạy được, và câu chữ mơ hồ
 > đó có thể mâu thuẫn với một mục khác của chính đặc tả mà không ai phát hiện cho tới lúc review.
 
-**Hai dòng bắt buộc có ở MỌI bảng §5**, đặt lên đầu bảng:
+> ⛔ **§5 chứa ca kiểm thử, §6 chứa lệnh kiểm ở cổng — KHÔNG trộn hai loại.**
+>
+> Cột "Assert tối thiểu" của §5 phải là **biểu thức pytest** (`assert x == y`, `pytest.raises(...)`).
+> Lệnh shell (`git status`, `pip freeze`, `docker build`…) thuộc về **§6 Tiêu chí nghiệm thu**.
+>
+> Hậu quả thật khi trộn, từ `P1-01`: hai dòng kiểm phạm vi file viết bằng lệnh `git` được đặt trong
+> bảng §5, và người cài đặt đã viết một ca test gọi `git` qua `subprocess` — ca test này **sập trong
+> container** vì ảnh không cài `git`, đồng thời tự nới điều kiện để luôn xanh.
+>
+> **Hai kiểm tra sau đặt ở §6, không đặt ở §5:**
+> - `git status --short --untracked-files=all | grep -v "docs/review/" | wc -l` trả đúng số file ở §2
+>   ⚠️ **Bắt buộc có `--untracked-files=all`.** Thiếu cờ này, git **gộp cả một thư mục mới thành một
+>   dòng** và phép đếm sai — ở `P1-01` trả `3` trong khi thực tế có `7` file.
+> - Mọi số liệu/phiên bản đối chiếu được với nguồn thật (`pip freeze`, file trong `results/`…)
 
-| Điều kiện | Assert tối thiểu |
-|---|---|
-| Không có file ngoài danh sách trắng | `git status --short \| grep -v "docs/review/" \| wc -l` trả đúng số file ở §2 |
-| Mọi số liệu/phiên bản lấy từ môi trường thật, không bịa | lệnh đối chiếu với nguồn thật (`pip freeze`, file trong `results/`…) |
+> ⛔ **Mỗi dòng "X sai → báo lỗi" phải có dòng cặp "X đúng → hành vi gì".**
+>
+> Đặc tả chỉ mô tả đường lỗi thì người cài đặt sẽ cài đúng đường lỗi và **bỏ trống đường thành công** —
+> không sai đặc tả, nhưng tính năng không hoạt động.
+>
+> Ví dụ thật từ `P1-01`: đặc tả chỉ yêu cầu "`source_dir` không tồn tại → `LoiCauHinh`". Kết quả là
+> mã nguồn kiểm thư mục tồn tại rồi **phớt lờ hoàn toàn**, vẫn sinh ảnh tổng hợp. Hai chế độ cho ra
+> mảng giống nhau từng bit mà không có dấu hiệu gì.
+>
+> Rà bảng §5: với mỗi dòng ca lỗi, tự hỏi *"đường thành công của tính năng này được kiểm ở dòng nào?"*
 
-Thiếu dòng thứ nhất thì file rác lọt qua toàn bộ các lệnh kiểm còn lại. Thiếu dòng thứ hai thì rủi ro
-bịa số phải soi bằng mắt thay vì để máy bắt.
+> ⛔ **Kiểm các ràng buộc có thoả mãn được ĐỒNG THỜI không.**
+>
+> Từng ràng buộc hợp lý, gộp lại có thể **không tồn tại cách cài đặt hợp lệ**. Người cài đặt khi đó
+> không dừng lại báo mâu thuẫn mà sẽ tìm lối thoát — và lối thoát thường tệ hơn cả hai phương án ban đầu.
+>
+> Ví dụ thật từ `P1-01` vòng 2, ba ràng buộc khoá lẫn nhau:
+> - §5 đòi đọc tệp ảnh thật từ thư mục → cần thư viện giải mã
+> - §7 cấm `import cv2` ngoài một file cụ thể
+> - §2 cấm sửa `requirements.txt`
+>
+> Kết quả: mã nguồn dùng một thư viện **không khai báo trong `requirements.txt`**. Chạy được trên máy
+> phát triển vì máy đó tình cờ đã cài, hỏng trong container và sẽ hỏng trên thiết bị đích.
+>
+> **Trước khi bàn giao, tự trả lời**: *"có ít nhất một cách cài đặt thoả mọi ràng buộc §2, §3, §5, §7
+> cùng lúc không? Cách đó dùng những gì?"* Không trả lời được → đặc tả chưa dùng được.
+>
+> Kèm theo: mã việc nào đụng tới đọc/ghi định dạng tệp (ảnh, video, mô hình) phải **nêu rõ thư viện
+> được phép dùng**, vì đó là chỗ người cài đặt hay tự kéo thêm gói nhất.
 
 > ⛔ **Lệnh kiểm KHÔNG được tự cấp thứ mà mã nguồn phải tự khai báo.**
 >

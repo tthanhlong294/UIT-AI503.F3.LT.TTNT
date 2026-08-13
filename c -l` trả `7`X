@@ -1,0 +1,1 @@
+       grep -v "docs/review/" | grep -v "docs/review/" | wc -l` trả `7`
