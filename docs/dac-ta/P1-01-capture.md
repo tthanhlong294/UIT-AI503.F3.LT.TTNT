@@ -166,7 +166,13 @@ Thiếu key bắt buộc → `LoiCauHinh` nêu rõ tên key.
       đến từ config chứ không nằm trong mã
 - [ ] `black --check --line-length 100 src tests` và `ruff check src tests` sạch
 - [ ] Nạp được cấu hình thật: `python -c "from src.common.config import nap_cau_hinh; from src.capture.factory import tao_bo_thu_hinh; c=nap_cau_hinh('configs/capture.yaml'); c['backend']='mock'; print(type(tao_bo_thu_hinh(c)).__name__)"` in `CameraGiaLap`
-- [ ] Chạy được **trong container ARM64**: `docker run --rm -v "$(pwd)":/app -w /app faceid:arm64 pytest -q`
+- [ ] **`pytest -q` xanh TRONG container ARM64**, không chỉ trên máy host:
+      `docker run --rm --platform linux/arm64 -v "$(pwd)":/app -w /app faceid:arm64 pytest -q`
+      Đây là cổng bắt **thư viện không khai báo**: máy phát triển có thể tình cờ đã cài gói mà
+      `requirements.txt` không liệt kê, container thì không
+- [ ] **Không import thư viện ngoài `requirements.txt`**:
+      `grep -nE "^\s*(import|from) (PIL|imageio|skimage|scipy|matplotlib|torch)" src/capture/*.py`
+      không có kết quả
 - [ ] Test **không ghi file nào ra ngoài `tmp_path`** — sau khi chạy, `git status --short` không có file mới
 - [ ] `git status --short` không có file ngoài danh sách trắng §2
 
@@ -187,8 +193,18 @@ Thiếu key bắt buộc → `LoiCauHinh` nêu rõ tên key.
 
 Thêm hai điểm riêng:
 
-- **`import cv2` chỉ được đặt trong `opencv_camera.py`**, không đặt ở `factory.py` hay `base.py`.
+- **`import cv2` không được đặt ở cấp module** trong `factory.py`, `base.py` hay `mock_camera.py`.
   Factory phải import backend **bên trong hàm**, để máy thiếu OpenCV vẫn dùng được backend mock.
+
+  **Ngoại lệ có kiểm soát**: `mock_camera.py` được phép `import cv2` **bên trong nhánh xử lý
+  `source = directory`**, vì đọc tệp ảnh cần thư viện giải mã. Đặt trong nhánh chứ không ở đầu file,
+  nên chế độ `synthetic` mặc định vẫn chạy được trên máy thiếu OpenCV — đúng lý do ban đầu của quy tắc này.
+
+  ❌ **Tuyệt đối không dùng thư viện ngoài `requirements.txt`** để giải mã ảnh (Pillow, imageio,
+  scikit-image…). Gói không khai báo sẽ chạy được trên máy phát triển rồi hỏng trong container và trên
+  thiết bị đích. Thấy thiếu thư viện → **dừng và báo**, không tự thêm.
+
+  Dùng `cv2.imread` còn có lợi: nó trả về BGR sẵn, không phải lật kênh thủ công.
 - Khung hình trả về theo thứ tự kênh **BGR** — mặc định của OpenCV. Toàn hệ thống thống nhất BGR;
   chuyển đổi màu (nếu có) là việc của khối tiêu thụ, không phải của khối thu hình.
 

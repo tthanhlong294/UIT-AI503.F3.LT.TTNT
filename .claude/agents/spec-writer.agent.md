@@ -147,6 +147,25 @@ class TenLop:
 >
 > Rà bảng §5: với mỗi dòng ca lỗi, tự hỏi *"đường thành công của tính năng này được kiểm ở dòng nào?"*
 
+> ⛔ **Kiểm các ràng buộc có thoả mãn được ĐỒNG THỜI không.**
+>
+> Từng ràng buộc hợp lý, gộp lại có thể **không tồn tại cách cài đặt hợp lệ**. Người cài đặt khi đó
+> không dừng lại báo mâu thuẫn mà sẽ tìm lối thoát — và lối thoát thường tệ hơn cả hai phương án ban đầu.
+>
+> Ví dụ thật từ `P1-01` vòng 2, ba ràng buộc khoá lẫn nhau:
+> - §5 đòi đọc tệp ảnh thật từ thư mục → cần thư viện giải mã
+> - §7 cấm `import cv2` ngoài một file cụ thể
+> - §2 cấm sửa `requirements.txt`
+>
+> Kết quả: mã nguồn dùng một thư viện **không khai báo trong `requirements.txt`**. Chạy được trên máy
+> phát triển vì máy đó tình cờ đã cài, hỏng trong container và sẽ hỏng trên thiết bị đích.
+>
+> **Trước khi bàn giao, tự trả lời**: *"có ít nhất một cách cài đặt thoả mọi ràng buộc §2, §3, §5, §7
+> cùng lúc không? Cách đó dùng những gì?"* Không trả lời được → đặc tả chưa dùng được.
+>
+> Kèm theo: mã việc nào đụng tới đọc/ghi định dạng tệp (ảnh, video, mô hình) phải **nêu rõ thư viện
+> được phép dùng**, vì đó là chỗ người cài đặt hay tự kéo thêm gói nhất.
+
 > ⛔ **Lệnh kiểm KHÔNG được tự cấp thứ mà mã nguồn phải tự khai báo.**
 >
 > Một phép kiểm tự truyền vào tham số đang thiếu thì **không bao giờ phát hiện được nó thiếu**.
