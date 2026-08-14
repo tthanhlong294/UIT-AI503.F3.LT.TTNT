@@ -1,6 +1,6 @@
 ---
 applyTo: "src/**/*.py, tests/**/*.py, scripts/**/*.py, docs/review/**"
-description: Chuẩn review mã nguồn — lệnh kiểm bắt buộc, danh sách mẫu vi phạm quét được bằng grep, thang phân loại lỗi 4 mức và cách viết một mục lỗi. Áp dụng cho mọi lượt review code do Gemini sinh ra.
+description: Chuẩn review mã nguồn — lệnh kiểm bắt buộc, danh sách mẫu vi phạm quét được bằng grep, thang phân loại lỗi 4 mức và cách viết một mục lỗi. Áp dụng cho mọi lượt review code do người cài đặt sinh ra.
 ---
 
 # Instructions: Chuẩn review mã nguồn
@@ -166,7 +166,7 @@ Quy tắc viết:
 | Khoảng trắng, xuống dòng, thứ tự import, độ dài dòng | `black` và `ruff` đã lo |
 | Sở thích cá nhân về đặt tên khi tên hiện tại đã rõ nghĩa | Tranh cãi vô ích, tốn vòng lặp |
 | Việc mà đặc tả **cố ý** để lại cho mã việc sau | Xem §8 "Ngoài phạm vi" của đặc tả |
-| Thiết kế kiến trúc đã được chốt trong đặc tả | Muốn đổi → góp ý cho `spec-writer`, không trả lại Gemini |
+| Thiết kế kiến trúc đã được chốt trong đặc tả | Muốn đổi → góp ý cho `spec-writer`, không trả lại người cài đặt |
 
 Mỗi mục lỗi thừa làm loãng các mục lỗi thật và tốn thêm một vòng bàn giao.
 **Một biên bản 4 lỗi đúng chỗ mạnh hơn một biên bản 20 mục.**
@@ -185,4 +185,4 @@ Mỗi mục lỗi thừa làm loãng các mục lỗi thật và tốn thêm m�
 - [ ] Phán quyết dứt khoát: ✅ ĐẠT / 🟡 ĐẠT CÓ ĐIỀU KIỆN / 🔴 TRẢ LẠI
 - [ ] Biên bản đã ghi vào `docs/review/<mã việc>.review.md`
 - [ ] Nếu là vòng ≥ 2: đã ghi nối tiếp vào cùng file, không tạo file mới
-- [ ] Nếu hết vòng 2 vẫn 🔴: đã dừng và chẩn đoán nguyên nhân gốc thay vì giao lại Gemini
+- [ ] Nếu hết vòng 2 vẫn 🔴: đã dừng và chẩn đoán nguyên nhân gốc thay vì giao lại cho người cài đặt

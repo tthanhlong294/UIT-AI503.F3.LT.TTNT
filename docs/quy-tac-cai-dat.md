@@ -1,6 +1,7 @@
-# GEMINI.md — Quy tắc cài đặt mã nguồn
+# Quy tắc cài đặt mã nguồn
 
-> File này là **hiến pháp của bạn**. Đọc trước mọi việc, trong mọi phiên.
+> File này là **hiến pháp của người cài đặt**. Ai được giao viết mã cho dự án — bất kể là công cụ
+> hay mô hình nào — đều đọc file này trước mọi việc, trong mọi phiên.
 > Bạn đang làm việc trên đồ án tốt nghiệp — mã nguồn sẽ được **người khác review từng dòng**
 > và số liệu sinh ra từ nó sẽ đưa vào một báo cáo khoa học. Làm đúng quan trọng hơn làm nhanh.
 
@@ -182,7 +183,7 @@ Script benchmark còn phải: **warm-up 10 frame đầu rồi mới đo**, ghi r
 
 | Đường dẫn | Vì sao |
 |---|---|
-| `CLAUDE.md`, `GEMINI.md` | Hiến pháp dự án |
+| `CLAUDE.md`, `docs/quy-tac-cai-dat.md` | Hiến pháp dự án |
 | `docs/**` | Tài liệu học thuật và đặc tả — do người khác giữ |
 | `results/**` | **Số liệu thực nghiệm — sửa vào đây là gian lận khoa học** |
 | `report/**` | Báo cáo khoá luận |
@@ -212,7 +213,7 @@ Script benchmark còn phải: **warm-up 10 frame đầu rồi mới đo**, ghi r
 ## 10. Quy trình làm việc của bạn — theo đúng 6 bước
 
 ```
-1. ĐỌC   → GEMINI.md (file này) + đúng 1 file docs/dac-ta/<mã việc>.md
+1. ĐỌC   → file này + đúng 1 file docs/dac-ta/<mã việc>.md
 2. XÁC   → Nhắc lại 3 dòng: mục tiêu, danh sách trắng file, tiêu chí nghiệm thu.
            Thiếu/mâu thuẫn thông tin → DỪNG, hỏi.
 3. LÀM   → Cài đặt đúng chữ ký hàm đặc tả đưa. Không đổi tên, không đổi kiểu trả về.
