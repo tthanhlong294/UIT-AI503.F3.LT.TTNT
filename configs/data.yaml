@@ -31,3 +31,24 @@ image_format: png
 capture_interval_s: 0.5
 # Giây chờ khi chuyển sang tư thế mới, đủ để đọc hướng dẫn và đổi tư thế
 pose_switch_delay_s: 3.0
+
+# --- Bộ dữ liệu đối chứng LFW (Phase 1 bước 1.5) ---
+# Dùng làm tập impostor quy mô lớn để đo FAR. Xem docs/quy-uoc-du-lieu.md §4.
+lfw:
+  # Bản GỐC, chưa căn chỉnh — KHÔNG dùng bản funneled/deep-funneled.
+  # Lý do: đồ án áp dụng cùng một quy trình detect → crop → align cho cả bốn nguồn
+  # dữ liệu. Bản đã căn chỉnh sẵn bằng phương pháp khác sẽ tạo ra khác biệt miền
+  # mà ta không kiểm soát được, làm hỏng phép kiểm chứng domain adaptation ở Phase 3.
+  url: "http://vis-www.cs.umass.edu/lfw/lfw.tgz"
+  archive_name: lfw.tgz
+  cache_dir: data/.cache
+  out_dir: data/impostor/lfw_original
+
+  # Chọn danh tính
+  min_identities: 100 # chỉ tiêu đề cương: ≥ 100 danh tính
+  min_images_per_identity: 2 # đủ ảnh để chia val/test và có nhiều lần so khớp
+  seed: 42 # chọn ngẫu nhiên có tái lập (R15)
+
+  # Trích dẫn bắt buộc trong báo cáo (R28c)
+  citation: "Huang, G.B., Ramesh, M., Berg, T., Learned-Miller, E. — Labeled Faces in the Wild, University of Massachusetts Amherst, Technical Report 07-49, 2007"
+  homepage: "http://vis-www.cs.umass.edu/lfw/"

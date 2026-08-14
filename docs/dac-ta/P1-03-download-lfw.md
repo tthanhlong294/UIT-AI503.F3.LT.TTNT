@@ -1,0 +1,217 @@
+# P1-03-download-lfw — Script tải và chọn lọc bộ dữ liệu LFW
+
+| | |
+|---|---|
+| **Phase** | 1 — Dữ liệu khuôn mặt |
+| **Bước CLAUDE.md** | §5 Phase 1, bước 1.5 |
+| **Nhánh** | `feat/p1-03-download-lfw` |
+| **Phụ thuộc** | `P0-01-nen-tang` (dùng `LoiCauHinh`, `nap_cau_hinh`, `lay_logger`) |
+| **Quy ước dữ liệu** | `docs/quy-uoc-du-lieu.md` §4 — **đọc trước khi cài đặt** |
+| **Ước lượng** | 2 file, ~300 dòng |
+
+---
+
+## 1. Mục tiêu
+
+Tải bộ dữ liệu LFW, chọn ra **≥ 100 danh tính một cách tái lập được**, đặt vào
+`data/impostor/lfw_original/` kèm manifest — làm tập impostor quy mô lớn để đo `FAR_lfw`.
+
+---
+
+## 2. DANH SÁCH TRẮNG
+
+| File | Thao tác |
+|---|---|
+| `scripts/download_lfw.py` | tạo mới |
+| `tests/test_download_lfw.py` | tạo mới |
+
+> **Cấm chạm** mọi file khác. `configs/data.yaml` **đã có mục `lfw`**, chỉ đọc, không sửa.
+> `scripts/__init__.py` đã tồn tại từ `P1-02`.
+
+---
+
+## 3. Interface bắt buộc
+
+```python
+def tai_ve(url: str, dich: Path, dry_run: bool = False) -> Path:
+    """Tải tệp về đích. Bỏ qua nếu tệp đã tồn tại. Raises LoiCauHinh nếu tải thất bại."""
+
+
+def tinh_sha256(duong_dan: Path) -> str:
+    """Tính mã băm SHA256 của tệp, đọc theo khối để không nạp cả tệp vào bộ nhớ."""
+
+
+def giai_nen(archive: Path, dich: Path) -> Path:
+    """Giải nén tệp .tgz vào thư mục đích, trả về thư mục gốc vừa giải nén.
+
+    Raises LoiCauHinh nếu tệp hỏng hoặc chứa đường dẫn vượt ra ngoài thư mục đích.
+    """
+
+
+def liet_ke_danh_tinh(thu_muc_lfw: Path) -> dict[str, list[Path]]:
+    """Quét thư mục LFW, trả về {tên_danh_tính: [danh sách đường dẫn ảnh]}.
+
+    Bỏ qua tệp không phải ảnh. Thư mục không tồn tại → trả về dict rỗng.
+    """
+
+
+def chon_danh_tinh(
+    danh_tinh: dict[str, list[Path]], so_luong: int, toi_thieu_anh: int, seed: int
+) -> list[str]:
+    """Chọn ngẫu nhiên có tái lập ra `so_luong` danh tính có ít nhất `toi_thieu_anh` ảnh.
+
+    Trả về danh sách tên đã sắp xếp. Raises LoiCauHinh nếu không đủ danh tính thoả điều kiện.
+    """
+
+
+def sao_chep(
+    danh_tinh: dict[str, list[Path]], da_chon: list[str], thu_muc_ra: Path, dry_run: bool = False
+) -> list[dict]:
+    """Sao chép ảnh của các danh tính đã chọn sang thư mục ra, giữ nguyên cấu trúc và tên file.
+
+    Trả về danh sách bản ghi manifest. Không ghi đè tệp đã có.
+    """
+
+
+def ghi_manifest(duong_dan: Path, ban_ghi: list[dict]) -> None:
+    """Ghi manifest CSV kèm dòng tiêu đề."""
+
+
+def main() -> int:
+    """Điểm vào CLI. Trả về 0 nếu thành công, 1 nếu lỗi."""
+```
+
+---
+
+## 4. Tham số → config
+
+Đọc từ mục `lfw` của `configs/data.yaml`. **Không hardcode giá trị nào.**
+
+| Tham số | Key | Ghi chú |
+|---|---|---|
+| Đường dẫn tải | `lfw.url` | Bản **gốc chưa căn chỉnh** |
+| Tên tệp lưu | `lfw.archive_name` | |
+| Thư mục tạm | `lfw.cache_dir` | Nơi giữ tệp nén và bản giải nén |
+| Thư mục ra | `lfw.out_dir` | |
+| Số danh tính | `lfw.min_identities` | |
+| Số ảnh tối thiểu mỗi danh tính | `lfw.min_images_per_identity` | |
+| Seed | `lfw.seed` | |
+| Trích dẫn | `lfw.citation` | In ra cuối phiên chạy |
+
+### 4.1. Manifest — cột và nguồn giá trị
+
+| Cột | Nguồn |
+|---|---|
+| `file` | Đường dẫn tương đối tính từ `out_dir` |
+| `identity` | Tên thư mục danh tính của LFW, giữ nguyên |
+| `n_images` | Tổng số ảnh của danh tính đó **đã sao chép** |
+| `source_sha256` | SHA256 của **tệp nén** đã tải, giống nhau ở mọi dòng |
+| `selected_seed` | Giá trị seed đã dùng để chọn |
+| `timestamp` | Thời điểm chạy, ISO 8601 có múi giờ |
+
+> `source_sha256` và `selected_seed` là hai cột làm cho tập dữ liệu **tái lập được**: ai đó chạy lại
+> với cùng tệp nén và cùng seed phải nhận đúng 100 danh tính ấy.
+
+### Tham số dòng lệnh
+
+| Cờ | Bắt buộc | Ý nghĩa |
+|---|---|---|
+| `--config` | không | mặc định `configs/data.yaml` |
+| `--out` | không | ghi đè `lfw.out_dir` |
+| `--seed` | không | ghi đè `lfw.seed` |
+| `--expect-sha256` | không | So mã băm tệp nén với giá trị này; lệch → thoát mã 1 |
+| `--dry-run` | không | In kế hoạch, **không tải, không ghi file nào** |
+
+---
+
+## 5. Hành vi & ca biên
+
+> **Bảng này chỉ chứa ca kiểm thử pytest.** Lệnh shell nằm ở §6.
+> ⛔ **Không ca test nào được truy cập mạng.** Mọi ca dùng `tmp_path` và tệp `.tgz` tự dựng tại chỗ.
+
+| # | Điều kiện | Kỳ vọng | Assert tối thiểu |
+|---|---|---|---|
+| 1 | `tinh_sha256` trên tệp đã biết nội dung | khớp giá trị tính bằng `hashlib` | `tinh_sha256(p) == hashlib.sha256(p.read_bytes()).hexdigest()` |
+| 2 | `tinh_sha256` trên tệp lớn hơn kích thước khối | vẫn đúng, không nạp cả tệp | Tạo tệp 5 MB, so với `hashlib` |
+| 3 | `giai_nen` tệp `.tgz` hợp lệ — **đường thành công** | giải ra đúng cây thư mục | Dựng `.tgz` chứa `lfw/A/a_0001.jpg`, sau khi gọi: tệp đó tồn tại |
+| 4 | `giai_nen` tệp hỏng | raise `LoiCauHinh` | `pytest.raises(LoiCauHinh)` với tệp chứa byte ngẫu nhiên |
+| 5 | **`giai_nen` chặn đường dẫn vượt ra ngoài** | không ghi ra ngoài thư mục đích | Dựng `.tgz` chứa mục `../../thoat.txt`; sau khi gọi, tệp đó **không tồn tại** bên ngoài `tmp_path` |
+| 6 | `liet_ke_danh_tinh` trên cây thư mục mẫu | đếm đúng | 3 thư mục lần lượt 1, 2, 5 ảnh → `len(kq) == 3` và `len(kq["B"]) == 2` |
+| 7 | `liet_ke_danh_tinh` bỏ qua tệp không phải ảnh | không đếm nhầm | Thêm `README.txt` vào một thư mục, số ảnh không đổi |
+| 8 | `liet_ke_danh_tinh` trên thư mục không tồn tại | dict rỗng, không ném | `== {}` |
+| 9 | `chon_danh_tinh` **cùng seed** hai lần | tái lập được (R15) | `chon_danh_tinh(d,10,2,42) == chon_danh_tinh(d,10,2,42)` |
+| 10 | `chon_danh_tinh` **khác seed** | kết quả khác | `chon_danh_tinh(d,10,2,42) != chon_danh_tinh(d,10,2,7)` |
+| 11 | `chon_danh_tinh` loại danh tính thiếu ảnh | không chọn nhầm | Với `toi_thieu_anh=3`, danh tính có 2 ảnh **không** có trong kết quả |
+| 12 | `chon_danh_tinh` trả **đúng số lượng** | | `len(kq) == so_luong` |
+| 13 | `chon_danh_tinh` khi **không đủ** danh tính thoả điều kiện | raise `LoiCauHinh`, thông báo nêu số tìm được và số cần | `pytest.raises(LoiCauHinh)` |
+| 14 | `sao_chep` — **đường thành công** | chép đúng số ảnh, giữ nguyên tên | Số tệp trong `out_dir` `==` tổng ảnh của các danh tính đã chọn |
+| 15 | `sao_chep` giữ **cấu trúc thư mục theo danh tính** | truy ngược được về nguồn | Tồn tại `out_dir/<tên danh tính>/<tên ảnh gốc>` |
+| 16 | `sao_chep` **không ghi đè** tệp đã có | dữ liệu cũ nguyên vẹn | Ghi nội dung đã biết vào một tệp đích, sau khi gọi nội dung **không đổi** |
+| 17 | `sao_chep` với `dry_run=True` | không ghi gì | `list(out_dir.rglob("*"))` không đổi trước và sau |
+| 18 | `sao_chep` trả bản ghi khớp số danh tính | | `len({r["identity"] for r in ban_ghi}) == len(da_chon)` |
+| 19 | `ghi_manifest` tạo tệp có dòng tiêu đề | | Dòng đầu chứa `file`, `identity`, `n_images`, `source_sha256`, `selected_seed` |
+| 20 | Số dòng dữ liệu manifest khớp số ảnh đã chép | | `so_dong == len(list(out_dir.rglob("*.jpg")))` |
+| 21 | `tai_ve` khi tệp **đã tồn tại** | bỏ qua, không tải lại, trả đúng đường dẫn | Tạo sẵn tệp đích, gọi `tai_ve` với url giả `"http://khong-ton-tai.invalid/x.tgz"` → **không ném**, trả đường dẫn đó |
+| 22 | `tai_ve` với `dry_run=True` | không tạo tệp nào | `not dich.exists()` sau khi gọi |
+| 23 | `main --dry-run` | thoát `0`, không ghi file | `main() == 0` và `data/` không phát sinh tệp |
+| 24 | `main` với `--expect-sha256` lệch | thoát `1`, thông báo nêu cả hai giá trị | `main() == 1` |
+
+---
+
+## 6. Tiêu chí nghiệm thu
+
+- [ ] **Mỗi dòng bảng §5 có ít nhất một ca test, mỗi ca có assert thật** — hàm rỗng là CHẶN-B
+- [ ] **Không ca test nào truy cập mạng**:
+      `grep -nE "urlopen|urlretrieve|requests\.|socket" tests/test_download_lfw.py` không có kết quả
+- [ ] **Không ca test nào gọi `subprocess`**
+- [ ] **Không ca test nào ghi ra ngoài `tmp_path`** — sau khi chạy `pytest`,
+      `git status --short --untracked-files=all` không có tệp mới, `data/` không phát sinh gì
+- [ ] `pytest -q` xanh toàn bộ — **86 ca cũ vẫn đạt**, cộng ca mới
+- [ ] `pytest -q` **xanh trong container ARM64**:
+      `MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd)":/app -w /app faceid:arm64 pytest -q`
+- [ ] `black --check --line-length 100 src tests scripts` và `ruff check src tests scripts` sạch
+- [ ] **Kiểm phạm vi file**:
+      `git status --short --untracked-files=all | grep -v "docs/review/" | wc -l` trả `2`
+- [ ] **Không thư viện ngoài `requirements.txt`**:
+      `grep -nE "^\s*(import|from) (requests|PIL|imageio|skimage|pandas|tqdm)" scripts/download_lfw.py`
+      không có kết quả
+- [ ] `python scripts/download_lfw.py --help` chạy được, mô tả tiếng Việt
+- [ ] `python scripts/download_lfw.py --dry-run` thoát `0`, in kế hoạch, **không tạo tệp nào**
+
+---
+
+## 7. Quy tắc áp dụng
+
+| Mã | Vì sao |
+|---|---|
+| **G1** | Mọi tham số từ `configs/data.yaml` mục `lfw` |
+| **G2, G3** | `lay_logger(__name__)` cho tiến trình; `print` chỉ cho bảng tóm tắt và trích dẫn cuối |
+| **G4** | Type hints + docstring tiếng Việt |
+| **G5** | Lỗi mạng, lỗi giải nén bọc thành `LoiCauHinh` bằng `raise ... from e` |
+| **R15** | `--seed` mặc định lấy từ config; cùng seed phải chọn ra cùng tập danh tính |
+| **R28c** | In trích dẫn LFW và địa chỉ trang chủ ở cuối phiên chạy; **không phát hành lại** ảnh LFW |
+
+**Thư viện được phép**: chỉ **thư viện chuẩn** — `urllib.request`, `tarfile`, `hashlib`, `random`,
+`shutil`, `pathlib`, `csv`, `argparse`, `datetime`. **Không dùng `requests`, `tqdm`, `pandas`.**
+Thiếu thư viện → **dừng và báo**, không tự cài.
+
+### Hai điểm an toàn bắt buộc
+
+**Giải nén phải chặn đường dẫn vượt ra ngoài.** Dùng `tarfile.extractall(..., filter="data")` —
+có từ Python 3.11.4, môi trường dự án là 3.11.15 và 3.12.5 nên dùng được. Không có bộ lọc này, một
+tệp nén độc hại chứa mục `../../` sẽ ghi đè tệp bất kỳ trên máy.
+
+**Tính mã băm phải đọc theo khối.** Tệp LFW cỡ hàng trăm MB; `hashlib.sha256(p.read_bytes())` nạp
+toàn bộ vào RAM. Đọc từng khối 1 MB.
+
+---
+
+## 8. Ngoài phạm vi — KHÔNG làm
+
+- **Hiệu chỉnh miền dữ liệu** (`lfw_adapted`) → bước 1.8, mã việc riêng
+- Phát hiện khuôn mặt, cắt, căn chỉnh 112×112 → bước 1.9
+- Chia tập `val`/`test` → bước 1.11
+- Tải bản `funneled` hoặc `deep-funneled` — **cố ý dùng bản gốc chưa căn chỉnh**, xem chú thích trong
+  `configs/data.yaml`
+- Thanh tiến trình, tải song song nhiều luồng, tải tiếp khi đứt mạng
+- Sửa `configs/data.yaml`
