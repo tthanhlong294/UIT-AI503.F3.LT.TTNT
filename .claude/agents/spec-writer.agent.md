@@ -227,6 +227,10 @@ GEMINI.md: G1, G2, G4, G5, ... — <chỉ liệt kê mã liên quan, kèm nửa 
 - [ ] Mọi con số đã được đẩy vào bảng tham số → config; trong §3/§5 không còn số magic
 - [ ] File `configs/*.yaml` liên quan đã tồn tại (bạn tự tạo) hoặc được ghi rõ là do mã việc khác tạo
 - [ ] Có tối thiểu 1 ca biên và 1 ca lỗi cho mỗi hàm public
+- [ ] **Không ô "Assert tối thiểu" nào liệt kê từ hai điều kiện trở lên** — rà từng ô, thấy dấu phẩy
+      nối nhiều hàm hoặc chữ "và" thì tách thành nhiều dòng đánh số `12a`, `12b`, `12c`…
+      Đây là lỗi **tái phạm hai lần**: ô gộp bốn hàm hiển thị ở `P1-01` và ở `P1-02` đều chỉ được cài
+      một hàm, phần còn lại không ca test nào chạm tới mà bảng vẫn báo "có test"
 - [ ] Mọi tiêu chí nghiệm thu **chạy được bằng một lệnh**
 - [ ] Có mục "Ngoài phạm vi" để chặn Gemini làm lan
 - [ ] Nếu mã việc liên quan phần cứng: đã yêu cầu backend `mock`

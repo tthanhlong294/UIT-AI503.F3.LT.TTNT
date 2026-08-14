@@ -81,8 +81,24 @@ def main() -> int:
     """Điểm vào CLI. Trả về 0 nếu thành công, 1 nếu lỗi."""
 ```
 
-**`hien_thi=False` phải bỏ qua hoàn toàn mọi lời gọi hiển thị cửa sổ.** Đây là điều kiện để kiểm thử
-chạy được trong container không có màn hình.
+### 3.1. `hien_thi` tắt cái gì và KHÔNG tắt cái gì
+
+Đây là điều kiện để kiểm thử chạy được trong container không có màn hình. Nhưng phải chính xác về
+phạm vi:
+
+| `hien_thi=False` **tắt** | `hien_thi=False` **KHÔNG được tắt** |
+|---|---|
+| `cv2.imshow`, `cv2.waitKey`, `cv2.namedWindow`, `cv2.destroyAllWindows` | In hướng dẫn tư thế ra màn hình |
+| | Nhịp chờ `capture_interval_s` giữa hai ảnh |
+| | Nhịp chờ `pose_switch_delay_s` khi đổi tư thế |
+| | Ghi manifest |
+
+**Vì sao nhịp chờ không được tắt**: người chụp cần thời gian đổi tư thế. Chụp 4 ảnh trong 0,12 giây
+thay vì 4,0 giây thì cả bốn ảnh đều là cùng một tư thế, nhưng vẫn được gắn nhãn `left`, `up`, `down`
+theo kế hoạch. **Dataset sai nhãn tư thế**, và mọi phân tích theo tư thế ở bước 1.7 và 1.13 mất ý nghĩa.
+
+Ai muốn chạy nhanh khi kiểm thử thì đặt `capture_interval_s` và `pose_switch_delay_s` về `0` **trong
+config**, không phải qua cờ `--no-preview`.
 
 ---
 
@@ -102,6 +118,30 @@ chạy được trong container không có màn hình.
 | Nhịp chụp | `data.yaml` | `capture_interval_s`, `pose_switch_delay_s` |
 | Cấu hình camera | `capture.yaml` | toàn bộ, truyền cho `tao_bo_thu_hinh` |
 
+### 4.1. Cột manifest → nguồn giá trị
+
+Mỗi cột phải lấy từ đúng nguồn dưới đây. **Không cột nào được ghi giá trị cấu hình thô.**
+
+| Cột | Nguồn giá trị | Ví dụ |
+|---|---|---|
+| `file` | Tên file vừa ghi | `u01_frontal_bright_007.png` |
+| `id` | `--id` | `u01` |
+| `pose` | Tổ hợp đang chụp | `frontal` |
+| `light` | `--light` | `bright` |
+| `idx` | Số thứ tự vừa cấp | `7` |
+| `timestamp` | `datetime.now()` có múi giờ, dạng ISO 8601 | `2026-08-15T09:12:33+07:00` |
+| **`camera`** | **Tên lớp backend ĐÃ PHÂN GIẢI**, lấy bằng `type(cam).__name__` | `CameraOpenCV` |
+| `width`, `height` | Kích thước **thật của khung hình vừa đọc**, `frame.shape` | `1280`, `720` |
+| `note` | `--note` nếu có, mặc định rỗng | `den tran` |
+
+> ⛔ **Cột `camera` tuyệt đối không được ghi `"auto"`.** `auto` là *bộ chọn*, không phải backend.
+> Nếu camera không mở được, `auto` rơi về `CameraGiaLap` và script vẫn chạy êm — ảnh nhiễu tổng hợp
+> được ghi vào `data/raw/` với manifest ghi `camera=auto`. Sau đó **không có cách nào phân biệt ảnh
+> thật với ảnh giả** trong cùng thư mục, và toàn bộ gallery nhiễm dữ liệu rác mà không ai biết.
+>
+> Cùng lý do: `width`/`height` lấy từ `frame.shape` thật, không lấy từ config — camera có thể trả về
+> độ phân giải khác giá trị yêu cầu.
+
 ### Tham số dòng lệnh
 
 | Cờ | Bắt buộc | Ý nghĩa |
@@ -112,6 +152,7 @@ chạy được trong container không có màn hình.
 | `--config-capture` | không | mặc định `configs/capture.yaml` |
 | `--out` | không | ghi đè thư mục ra |
 | `--no-preview` | không | không mở cửa sổ xem trực tiếp |
+| `--note` | không | Ghi chú buổi chụp, vào cột `note` của manifest; mặc định rỗng |
 | `--dry-run` | không | in kế hoạch, **không ghi file nào** |
 
 ---
@@ -134,7 +175,12 @@ chạy được trong container không có màn hình.
 | 9 | `to_hop_con_thieu` khi mọi tổ hợp **đã đủ** | list rỗng | `== []` |
 | 10 | `to_hop_con_thieu` khi thiếu | trả đúng tổ hợp và **số còn thiếu** | Có `("up","dim", toi_thieu - da_co)` trong kết quả |
 | 11 | Đánh số **tiếp tục** khi đã có ảnh cũ | không bắt đầu lại từ 001 | Có sẵn `..._007.png`, chụp thêm 1 ảnh → tồn tại `..._008.png` |
-| 12 | **Không ghi đè** ảnh đã có | dữ liệu cũ nguyên vẹn | Ghi nội dung đã biết vào `..._001.png`, chạy `thu_thap`, đọc lại `..._001.png` **không đổi** |
+| 12 | **Không ghi đè** ảnh đã có | dữ liệu cũ nguyên vẹn, **và có ảnh mới được chụp** | Đặt `min_per_combo=3`, để sẵn `..._001.png` nội dung đã biết → sau khi chạy: `..._001.png` **không đổi** VÀ tồn tại `..._002.png`, `..._003.png`. ⚠️ Nếu số ảnh cần chụp bằng 0 thì đường không-ghi-đè **không hề chạy** — ca test rỗng ruột |
+| 12a | Cột `camera` ghi **backend đã phân giải** | không bao giờ là `"auto"` | Chạy với `backend="auto"` trên máy không camera: `ban_ghi[0]["camera"] == "CameraGiaLap"`, và `"auto" not in [r["camera"] for r in ban_ghi]` |
+| 12b | `width`/`height` lấy từ **khung hình thật** | không lấy từ config | Cấu hình mock `width=640,height=480` khác giá trị mặc định: `ban_ghi[0]["width"] == 640` |
+| 12c | **Lỗi camera giữa chừng** | manifest vẫn ghi phần đã chụp, không để dữ liệu mồ côi | Cho `doc_frame` ném `LoiCamera` ở lần thứ 3: số ảnh trên đĩa `== 2` **và** số dòng dữ liệu manifest `== 2` |
+| 12d | `hien_thi=False` **không tắt nhịp chờ** | người chụp vẫn kịp đổi tư thế | `capture_interval_s=0.2`, chụp 4 ảnh: thời gian trôi `>= 0.6` giây |
+| 12e | `hien_thi=False` **không tắt hướng dẫn tư thế** | vẫn in ra | `capsys.readouterr().out` chứa tên tư thế đang chụp |
 | 13 | `thu_thap` với camera mock, `hien_thi=False` | tạo đúng số ảnh yêu cầu | `len(list(thu_muc.glob("*.png"))) == so_anh_mong_doi` |
 | 14 | Ảnh ghi ra là **PNG đọc được** | không phải file rỗng hay hỏng | `cv2.imread(str(p)) is not None` và `.shape == (h, w, 3)` |
 | 15 | `thu_thap` trả về bản ghi manifest khớp số ảnh | | `len(ban_ghi) == so_anh_mong_doi` |
@@ -144,10 +190,12 @@ chạy được trong container không có màn hình.
 | 19 | `dry_run=True` — **đường an toàn** | **không ghi file nào** | Trước và sau khi gọi, `list(tmp_path.rglob("*"))` không đổi |
 | 20 | `dry_run=True` — **đường thành công** | vẫn trả về kế hoạch để in ra | `thu_thap(..., dry_run=True) == []` và không ném ngoại lệ |
 | 21 | Thư mục ra **chưa tồn tại** | tự tạo, không ném | `thu_muc.exists()` sau khi gọi |
-| 22 | `--id` sai mẫu (`"abc"`, `"u1"`, `"y01"`) | `main()` trả `1`, thông báo nêu mã sai | `main() == 1` với `sys.argv` giả lập |
+| 22 | `--id` sai mẫu | `main()` trả `1`, thông báo nêu mã sai | Kiểm **cả ba** mã: `"abc"`, `"u1"`, `"y01"` — mỗi mã một lần gọi, đều `main() == 1` |
 | 23 | `--light` không có trong `lights` của config | `main()` trả `1` | `main() == 1` |
 | 24 | `--id` và `--light` hợp lệ — **đường thành công** | `main()` trả `0` | `main() == 0` với `--dry-run` và `--no-preview` |
-| 25 | `hien_thi=False` **không gọi hàm hiển thị nào** | chạy được trên máy không màn hình | Vá `cv2.imshow` bằng hàm ném `AssertionError`, gọi `thu_thap(hien_thi=False)` **không** ném |
+| 25a | `hien_thi=False` không gọi hàm hiển thị nào trong **vòng lặp chụp** | chạy được trên máy không màn hình | Vá **cả bốn** `cv2.imshow`, `cv2.waitKey`, `cv2.namedWindow`, `cv2.destroyAllWindows` thành hàm ném `AssertionError`; `thu_thap(hien_thi=False)` **không** ném |
+| 25b | Ca 25a phải **chạy hết thân hàm**, không thoát sớm | guard được kiểm thật | Cùng ca 25a: `assert len(ban_ghi) == so_anh_mong_doi` |
+| 25c | `hien_thi=False` cũng guard **khối dọn dẹp cuối hàm** | script không gãy ở bước đóng cửa sổ | Cùng ca 25a chạy tới khi kết thúc bình thường — mã có **hai** khối `if hien_thi:`, khối cuối gọi `destroyAllWindows` cũng phải nằm trong guard |
 
 ---
 
@@ -161,7 +209,9 @@ chạy được trong container không có màn hình.
       `git status --short --untracked-files=all` không có file mới
 - [ ] `pytest -q` xanh toàn bộ dự án — **52 ca cũ vẫn đạt**, cộng ca mới
 - [ ] `pytest -q` **xanh trong container ARM64**:
-      `docker run --rm --platform linux/arm64 -v "$(pwd)":/app -w /app faceid:arm64 pytest -q`
+      `MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd)":/app -w /app faceid:arm64 pytest -q`
+      — trên Git Bash (Windows) **bắt buộc** có `MSYS_NO_PATHCONV=1`, nếu không shell sẽ biến `/app`
+      thành đường dẫn Windows; bỏ cờ `--platform` vì ảnh đã tự khai báo kiến trúc từ `P0-03`
 - [ ] `black --check --line-length 100 src tests scripts` và `ruff check src tests scripts` sạch
 - [ ] **Kiểm phạm vi file**:
       `git status --short --untracked-files=all | grep -v "docs/review/" | wc -l` trả `3`
