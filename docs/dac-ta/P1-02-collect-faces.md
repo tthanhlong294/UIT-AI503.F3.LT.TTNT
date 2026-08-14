@@ -132,7 +132,7 @@ Mỗi cột phải lấy từ đúng nguồn dưới đây. **Không cột nào 
 | `timestamp` | `datetime.now()` có múi giờ, dạng ISO 8601 | `2026-08-15T09:12:33+07:00` |
 | **`camera`** | **Tên lớp backend ĐÃ PHÂN GIẢI**, lấy bằng `type(cam).__name__` | `CameraOpenCV` |
 | `width`, `height` | Kích thước **thật của khung hình vừa đọc**, `frame.shape` | `1280`, `720` |
-| `note` | `--note` nếu có, mặc định rỗng | `den tran` |
+| `note` | **Để rỗng ở mã việc này.** Ghi chú buổi chụp điền tay vào manifest sau khi thu, hoặc bổ sung cờ CLI ở một mã việc riêng | *(rỗng)* |
 
 > ⛔ **Cột `camera` tuyệt đối không được ghi `"auto"`.** `auto` là *bộ chọn*, không phải backend.
 > Nếu camera không mở được, `auto` rơi về `CameraGiaLap` và script vẫn chạy êm — ảnh nhiễu tổng hợp
@@ -152,7 +152,6 @@ Mỗi cột phải lấy từ đúng nguồn dưới đây. **Không cột nào 
 | `--config-capture` | không | mặc định `configs/capture.yaml` |
 | `--out` | không | ghi đè thư mục ra |
 | `--no-preview` | không | không mở cửa sổ xem trực tiếp |
-| `--note` | không | Ghi chú buổi chụp, vào cột `note` của manifest; mặc định rỗng |
 | `--dry-run` | không | in kế hoạch, **không ghi file nào** |
 
 ---

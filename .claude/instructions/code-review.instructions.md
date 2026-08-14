@@ -52,6 +52,38 @@ git diff --stat
 
 ---
 
+## 2b. Kiểm bằng đột biến — bắt buộc với mọi guard và nhánh an toàn
+
+Bộ kiểm thử xanh **không chứng minh** ca test nhắm đúng chỗ. Một ca test có thể xanh vì nó không hề
+chạy qua đoạn mã cần kiểm.
+
+Cách chứng minh: **phá đúng một chỗ, xem test có đỏ không.**
+
+```bash
+# 1. Ghi sha256 của file trước khi động vào
+sha256sum src/<file>.py
+# 2. Tạm bỏ một guard / đảo một điều kiện / xoá một dòng bảo vệ
+# 3. Chạy lại bộ test
+pytest -q
+# 4. KHÔI PHỤC nguyên trạng, đối chiếu sha256
+```
+
+Đọc kết quả:
+
+| Kết quả sau khi phá | Kết luận |
+|---|---|
+| Đỏ **đúng** những ca nhắm vào chỗ đó | ✅ Phép kiểm có hiệu lực |
+| **Vẫn xanh** | ❌ Chỗ đó **không ca test nào chạm tới** — ghi lỗi, dù bảng đối chiếu báo "có test" |
+| Đỏ lan man nhiều ca không liên quan | ⚠️ Ca test quá rộng, không định vị được lỗi |
+
+Hai lần dùng trong dự án đều cho kết quả quyết định: ở `P1-01` chứng minh bộ assert mới bắt được 4/4
+cài đặt sai; ở `P1-02` chứng minh khối dọn dẹp cuối hàm **chưa** được phủ dù 84 ca đều xanh và lint sạch.
+
+⛔ **Luôn khôi phục nguyên trạng và đối chiếu sha256** trước khi kết thúc. Không được để lại thay đổi
+nào trong mã sản phẩm — đây vẫn là quy tắc "người review không sửa code".
+
+---
+
 ## 3. Thang phân loại 4 mức
 
 ### 🔴 CHẶN-A — Vi phạm quy tắc cứng của dự án
