@@ -152,6 +152,7 @@ Mỗi cột phải lấy từ đúng nguồn dưới đây. **Không cột nào 
 | `--config-capture` | không | mặc định `configs/capture.yaml` |
 | `--out` | không | ghi đè thư mục ra |
 | `--no-preview` | không | không mở cửa sổ xem trực tiếp |
+| `--note` | không | Ghi chú buổi chụp, vào cột `note` của manifest; mặc định rỗng |
 | `--dry-run` | không | in kế hoạch, **không ghi file nào** |
 
 ---
@@ -192,7 +193,9 @@ Mỗi cột phải lấy từ đúng nguồn dưới đây. **Không cột nào 
 | 22 | `--id` sai mẫu | `main()` trả `1`, thông báo nêu mã sai | Kiểm **cả ba** mã: `"abc"`, `"u1"`, `"y01"` — mỗi mã một lần gọi, đều `main() == 1` |
 | 23 | `--light` không có trong `lights` của config | `main()` trả `1` | `main() == 1` |
 | 24 | `--id` và `--light` hợp lệ — **đường thành công** | `main()` trả `0` | `main() == 0` với `--dry-run` và `--no-preview` |
-| 25 | `hien_thi=False` **không gọi hàm hiển thị nào** | chạy được trên máy không màn hình | Vá `cv2.imshow`, `cv2.waitKey`, `cv2.namedWindow`, `cv2.destroyAllWindows` bằng hàm ném `AssertionError`; gọi `thu_thap(hien_thi=False)` **không** ném, **và** `assert len(ban_ghi) == so_anh_mong_doi` để chắc chắn thân hàm đã chạy chứ không thoát sớm |
+| 25a | `hien_thi=False` không gọi hàm hiển thị nào trong **vòng lặp chụp** | chạy được trên máy không màn hình | Vá **cả bốn** `cv2.imshow`, `cv2.waitKey`, `cv2.namedWindow`, `cv2.destroyAllWindows` thành hàm ném `AssertionError`; `thu_thap(hien_thi=False)` **không** ném |
+| 25b | Ca 25a phải **chạy hết thân hàm**, không thoát sớm | guard được kiểm thật | Cùng ca 25a: `assert len(ban_ghi) == so_anh_mong_doi` |
+| 25c | `hien_thi=False` cũng guard **khối dọn dẹp cuối hàm** | script không gãy ở bước đóng cửa sổ | Cùng ca 25a chạy tới khi kết thúc bình thường — mã có **hai** khối `if hien_thi:`, khối cuối gọi `destroyAllWindows` cũng phải nằm trong guard |
 
 ---
 
