@@ -149,6 +149,23 @@ class TenLop:
 >
 > Rà bảng §5: với mỗi dòng ca lỗi, tự hỏi *"đường thành công của tính năng này được kiểm ở dòng nào?"*
 
+> ⛔ **Lệnh kiểm cấm một thứ thì đừng cấm luôn cách phòng thủ trước thứ đó.**
+>
+> Lệnh `grep` chặn theo tên hàm sẽ chặn cả **lời gọi thật** lẫn **lời vá để chặn lời gọi thật** —
+> mà cái sau chính là biện pháp mạnh nhất.
+>
+> Ví dụ thật từ `P1-03`: §6 có `grep -nE "urlopen|requests\.|socket" tests/...` để bảo đảm không ca
+> test nào chạm mạng. Nhưng cách cách ly chắc nhất là `monkeypatch.setattr(...urlopen...)` — viết thế
+> là **vi phạm chính lệnh kiểm ấy**. Kết quả: các ca test chỉ "tình cờ" không chạm mạng nhờ một guard
+> bắn trước, chứ không được cấu trúc bảo đảm.
+>
+> **Cách viết đúng**: loại trừ dòng vá khỏi phép quét, ví dụ
+> `grep -nE "urlopen|requests\.|socket" tests/... | grep -v "monkeypatch\|mock\|patch("`
+> — cấm gọi thật, cho phép vá.
+>
+> Nguyên tắc chung: trước khi chốt một lệnh `grep` cấm đoán, tự hỏi *"cách phòng thủ đúng đắn trước
+> chính rủi ro này có bị lệnh của mình chặn nhầm không?"*
+
 > ⛔ **Kết quả đến được bằng nhiều đường thì assert phải chỉ ra ĐƯỜNG NÀO.**
 >
 > `main() == 1`, `pytest.raises(LoiCauHinh)` — những khẳng định này chỉ nói **cái gì xảy ra**, không
