@@ -44,7 +44,7 @@ def tinh_sha256(duong_dan: Path) -> str:
 def giai_nen(archive: Path, dich: Path) -> Path:
     """Giải nén tệp .tgz vào thư mục đích, trả về thư mục gốc vừa giải nén.
 
-    Raises LoiCauHinh nếu tệp hỏng hoặc chứa đường dẫn vượt ra ngoài thư mục đích.
+    Raises LoiCauHinh với **thông báo phân biệt được hai nguyên nhân** — xem §3.1.
     """
 
 
@@ -83,10 +83,28 @@ def ghi_manifest(duong_dan: Path, ban_ghi: list[dict]) -> None:
 def main() -> int:
     """Điểm vào CLI. Trả về 0 nếu thành công, 1 nếu lỗi.
 
-    Trước khi sao chép, nếu `out_dir` đã có manifest cũ với `selected_seed` KHÁC seed
-    đang dùng thì raise LoiCauHinh — xem §4.2.
+    TRƯỚC KHI TẢI, nếu `out_dir` đã có manifest cũ với `selected_seed` khác seed đang dùng,
+    hoặc manifest cũ không đọc được, thì raise LoiCauHinh — xem §4.2.
     """
 ```
+
+### 3.1. `giai_nen` — hai nguyên nhân lỗi phải có thông báo KHÁC NHAU
+
+`tarfile.ReadError` và `tarfile.FilterError` đều là lớp con của `TarError`. Bắt chung một `except`
+sẽ cho cùng một thông báo cho hai tình huống **đòi hỏi phản ứng ngược nhau**:
+
+| Ngoại lệ gốc | Nghĩa là gì | Người dùng phải làm gì |
+|---|---|---|
+| `tarfile.ReadError` | Tệp tải về **hỏng** — lành tính | **Tải lại** |
+| `tarfile.FilterError` | Tệp nén chứa **đường dẫn vượt ra ngoài** — dấu hiệu tệp độc hại | **Dừng, điều tra nguồn tải** |
+
+Thông báo gộp đẩy người dùng về phản ứng phổ biến là "tải lại" — phản ứng **sai nhất** cho tình
+huống an ninh. Bắt **hai `except` riêng**, `FilterError` đặt **trước** `TarError` vì nó là lớp con:
+
+- `FilterError` → thông báo nêu rõ **đường dẫn không an toàn**
+- `TarError` → thông báo nêu rõ **tệp nén hỏng**
+
+`tarfile.FilterError` có sẵn ở cả Python 3.11.15 (container) và 3.12.5 (máy phát triển).
 
 ---
 
@@ -142,6 +160,13 @@ sẽ sai mà không có dấu hiệu gì.
 raise `LoiCauHinh` nêu cả hai giá trị seed và yêu cầu dọn `out_dir` trước. Không thêm cờ ghi đè —
 dọn thư mục là thao tác có ý thức, đúng tinh thần "hỏng ồn ào còn hơn hỏng âm thầm".
 
+**Vị trí kiểm: TRƯỚC khi tải và giải nén**, không phải trước khi sao chép. Đặt sau thì mỗi lần chạy
+nhầm seed vẫn tốn công đọc tệp nén vài trăm MB và bung hơn mười ba nghìn tệp rồi mới báo lỗi.
+
+**Manifest cũ không đọc được** (hỏng, thiếu cột `selected_seed`, giá trị không phải số) → cũng
+**dừng** với `LoiCauHinh` yêu cầu dọn `out_dir`. Không được để ngoại lệ thô lọt ra ngoài `main()`,
+và không được âm thầm coi như "chưa có manifest" — vì khi đó dữ liệu cũ vẫn nằm đó và sẽ bị trộn.
+
 ### Tham số dòng lệnh
 
 | Cờ | Bắt buộc | Ý nghĩa |
@@ -164,8 +189,8 @@ dọn thư mục là thao tác có ý thức, đúng tinh thần "hỏng ồn à
 | 1 | `tinh_sha256` trên tệp đã biết nội dung | khớp giá trị tính bằng `hashlib` | `tinh_sha256(p) == hashlib.sha256(p.read_bytes()).hexdigest()` |
 | 2 | `tinh_sha256` trên tệp lớn hơn kích thước khối | vẫn đúng, không nạp cả tệp | Tạo tệp 5 MB, so với `hashlib` |
 | 3 | `giai_nen` tệp `.tgz` hợp lệ — **đường thành công** | giải ra đúng cây thư mục | Dựng `.tgz` chứa `lfw/A/a_0001.jpg`, sau khi gọi: tệp đó tồn tại |
-| 4 | `giai_nen` tệp hỏng | raise `LoiCauHinh` **vì không mở được tệp nén** | `pytest.raises(LoiCauHinh)` với tệp chứa byte ngẫu nhiên, **và** thông báo nói về tệp hỏng — phân biệt với `LoiCauHinh` của dòng 5 (đường dẫn vượt ra ngoài), vì cả hai cùng loại ngoại lệ |
-| 5 | **`giai_nen` chặn đường dẫn vượt ra ngoài** | không ghi ra ngoài thư mục đích | Dựng `.tgz` chứa mục `../../thoat.txt`; sau khi gọi, tệp đó **không tồn tại** bên ngoài `tmp_path` |
+| 4 | `giai_nen` tệp hỏng | raise `LoiCauHinh` **vì không mở được tệp nén** | `pytest.raises(LoiCauHinh)` với tệp chứa byte ngẫu nhiên, **và** thông báo nói **tệp nén hỏng**, **và** thông báo **không** chứa cụm nói về đường dẫn không an toàn — xem §3.1 |
+| 5 | **`giai_nen` chặn đường dẫn vượt ra ngoài** | không ghi ra ngoài thư mục đích, thông báo nói về **đường dẫn không an toàn** | Dựng `.tgz` chứa mục `../../thoat.txt`; tệp đó **không tồn tại** bên ngoài `tmp_path`, **và** thông báo **không** chứa cụm nói tệp nén hỏng — hai thông báo phải phân biệt được (§3.1) |
 | 6 | `liet_ke_danh_tinh` trên cây thư mục mẫu | đếm đúng | 3 thư mục lần lượt 1, 2, 5 ảnh → `len(kq) == 3` và `len(kq["B"]) == 2` |
 | 7 | `liet_ke_danh_tinh` bỏ qua tệp không phải ảnh | không đếm nhầm | Thêm `README.txt` vào một thư mục, số ảnh không đổi |
 | 8 | `liet_ke_danh_tinh` trên thư mục không tồn tại | dict rỗng, không ném | `== {}` |
@@ -188,8 +213,9 @@ dọn thư mục là thao tác có ý thức, đúng tinh thần "hỏng ồn à
 | 24a | `main` với `--expect-sha256` **khớp** — đường thành công của cùng nhánh | thoát `0`, đi qua được bước so mã băm | `main() == 0` với cùng tệp nén hợp lệ ở dòng 24 và mã băm đúng |
 | 25 | `ghi_manifest` với bản ghi **thiếu khoá** bắt buộc | raise `LoiCauHinh` nêu tên khoá thiếu | `pytest.raises(LoiCauHinh)` khi bản ghi không có `source_sha256`, **và** thông báo chứa chuỗi `source_sha256` — chứng minh đúng nhánh kiểm khoá |
 | 26 | `ghi_manifest` với bản ghi **đủ sáu khoá** — đường thành công | ghi bình thường | Tệp tạo ra, dòng dữ liệu có đủ giá trị ở cả sáu cột, **không cột nào rỗng** |
-| 27 | `main` chạy lần hai với **seed khác** trên `out_dir` đã có manifest cũ | thoát `1` **vì lệch seed**, không trộn dữ liệu | `main() == 1` **và** thông báo chứa **cả hai** giá trị seed — phân biệt với các đường trả `1` khác |
+| 27 | `main` chạy lần hai với **seed khác** trên `out_dir` đã có manifest cũ | thoát `1` **vì lệch seed**, không trộn dữ liệu | `main() == 1` **và** thông báo chứa **cả hai** giá trị seed ở dạng có dấu nháy (`'42'`, `'7'`) — dạng trần dễ khớp nhầm chữ số trong đường dẫn `tmp_path` |
 | 27a | Sau dòng 27, dữ liệu cũ **nguyên vẹn** | không trộn hai tập impostor | Số thư mục danh tính trong `out_dir` **không đổi**, và manifest cũ **không bị ghi đè** |
+| 27b | `main` khi manifest cũ **hỏng** (thiếu cột `selected_seed`, hoặc giá trị không phải số) | thoát `1` với thông báo yêu cầu dọn `out_dir` — **không** để ngoại lệ thô lọt ra | `main() == 1`, **không** ném `ValueError`/`KeyError` ra ngoài, và thông báo nhắc `out_dir` |
 | 28 | `main` chạy lần hai với **cùng seed** — đường thành công | chạy lại được, không lỗi | `main() == 0`, số thư mục danh tính **không đổi** |
 
 ---
