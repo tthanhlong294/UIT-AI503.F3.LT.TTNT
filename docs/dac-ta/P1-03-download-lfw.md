@@ -215,7 +215,8 @@ và không được âm thầm coi như "chưa có manifest" — vì khi đó d�
 | 26 | `ghi_manifest` với bản ghi **đủ sáu khoá** — đường thành công | ghi bình thường | Tệp tạo ra, dòng dữ liệu có đủ giá trị ở cả sáu cột, **không cột nào rỗng** |
 | 27 | `main` chạy lần hai với **seed khác** trên `out_dir` đã có manifest cũ | thoát `1` **vì lệch seed**, không trộn dữ liệu | `main() == 1` **và** thông báo chứa **cả hai** giá trị seed ở dạng có dấu nháy (`'42'`, `'7'`) — dạng trần dễ khớp nhầm chữ số trong đường dẫn `tmp_path` |
 | 27a | Sau dòng 27, dữ liệu cũ **nguyên vẹn** | không trộn hai tập impostor | Số thư mục danh tính trong `out_dir` **không đổi**, và manifest cũ **không bị ghi đè** |
-| 27b | `main` khi manifest cũ **hỏng** (thiếu cột `selected_seed`, hoặc giá trị không phải số) | thoát `1` với thông báo yêu cầu dọn `out_dir` — **không** để ngoại lệ thô lọt ra | `main() == 1`, **không** ném `ValueError`/`KeyError` ra ngoài, và thông báo nhắc `out_dir` |
+| 27b | `main` khi manifest cũ có `selected_seed` **không phải số** | thoát `1`, thông báo nhắc dọn `out_dir` | `main() == 1`, **không** ném `ValueError` ra ngoài, thông báo chứa `out_dir` |
+| 27c | `main` khi manifest cũ **thiếu hẳn cột** `selected_seed` | thoát `1` — **không** được âm thầm coi như chưa có manifest | `main() == 1`, **không** ném ra ngoài, thông báo chứa `selected_seed`. ⚠️ `dict.get()` trả `None` chứ không ném, nên nhánh này phải kiểm tường minh |
 | 28 | `main` chạy lần hai với **cùng seed** — đường thành công | chạy lại được, không lỗi | `main() == 0`, số thư mục danh tính **không đổi** |
 
 ---
