@@ -1,0 +1,34 @@
+# Cấu hình tiền xử lý ảnh khuôn mặt (Phase 1 bước 1.9)
+# Căn chỉnh khuôn mặt về kích thước chuẩn trước khi trích xuất đặc trưng.
+
+# Kích thước ảnh sau căn chỉnh — phải khớp đầu vào của mô hình nhận diện.
+# mobilefacenet.onnx nhận [1, 3, 112, 112], xem models/README.md bảng A dòng A4.
+output_size: [112, 112]
+
+# --- Điểm chuẩn 5 mốc ---
+# Toạ độ (x, y) mà năm điểm mốc khuôn mặt phải được đưa về, theo thứ tự:
+#   1. mắt trái   2. mắt phải   3. mũi   4. khoé miệng trái   5. khoé miệng phải
+#
+# ⚠️ BỘ SỐ NÀY PHẢI KHỚP VỚI CÁCH MÔ HÌNH NHẬN DIỆN ĐƯỢC HUẤN LUYỆN.
+# Đây là bộ điểm chuẩn của họ ArcFace/InsightFace cho ảnh 112×112 — cùng họ với
+# mobilefacenet.onnx đang dùng. Dùng bộ điểm khác sẽ cho ảnh trông vẫn "đúng mặt"
+# nhưng embedding lệch hệ thống, và không có dấu hiệu nào báo sai.
+#
+# Nếu đổi mô hình nhận diện: kiểm lại bộ điểm này trước, đừng giả định.
+reference_landmarks:
+  - [38.2946, 51.6963] # mắt trái
+  - [73.5318, 51.5014] # mắt phải
+  - [56.0252, 71.7366] # mũi
+  - [41.5493, 92.3655] # khoé miệng trái
+  - [70.7299, 92.2041] # khoé miệng phải
+
+# Nguồn bộ điểm chuẩn — ghi để truy vết được, và để nêu trong báo cáo
+reference_source: "InsightFace ArcFace 112x112 canonical 5-point template"
+
+# --- Nội suy khi biến đổi ảnh ---
+# Dùng nội suy song tuyến tính. Không dùng nearest (răng cưa) vì kết cấu bề mặt
+# là tín hiệu mà khối chống giả mạo dựa vào.
+interpolation: bilinear
+
+# Giá trị điền cho vùng nằm ngoài ảnh gốc sau khi biến đổi (BGR)
+border_value: [0, 0, 0]
