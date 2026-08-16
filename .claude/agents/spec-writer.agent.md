@@ -149,6 +149,27 @@ class TenLop:
 >
 > Rà bảng §5: với mỗi dòng ca lỗi, tự hỏi *"đường thành công của tính năng này được kiểm ở dòng nào?"*
 
+> ⛔ **Kết quả đến được bằng nhiều đường thì assert phải chỉ ra ĐƯỜNG NÀO.**
+>
+> `main() == 1`, `pytest.raises(LoiCauHinh)` — những khẳng định này chỉ nói **cái gì xảy ra**, không
+> nói **vì sao**. Nếu hàm có hai chỗ cùng trả `1` hoặc hai chỗ cùng ném `LoiCauHinh`, ca test có thể
+> xanh trong khi nhánh cần kiểm **không hề chạy**.
+>
+> Ví dụ thật từ `P1-03`: dòng §5 yêu cầu "`--expect-sha256` lệch → `main()` trả `1`". Ca test mồi tệp
+> nén bằng vài byte bất kỳ, nên `main()` trả `1` từ bước **giải nén** chứ không từ bước **so mã băm**.
+> Xoá sạch cả nhánh so mã băm mà 24/24 ca vẫn xanh.
+>
+> **Hai việc phải làm với mỗi dòng loại này:**
+>
+> 1. **Ghi rõ tiền đề** — trạng thái thế giới trước lời gọi, đủ để nhánh cần kiểm thực sự được với tới.
+>    Ở ví dụ trên: *"tệp nén mồi phải là tar **hợp lệ**"*.
+> 2. **Assert vào bằng chứng phân biệt**, không chỉ vào giá trị trả về: nội dung thông báo lỗi, tác
+>    dụng phụ đặc trưng, hoặc trạng thái chỉ nhánh đó tạo ra. Ví dụ: *"thông báo chứa **cả hai** chuỗi
+>    mã băm"* — muốn thoả thì bắt buộc phải chạy tới đoạn so sánh.
+>
+> Và như mọi ca lỗi khác: **kèm dòng cặp cho đường thành công** (mã băm khớp → trả `0`), để chứng minh
+> nhánh đó chạy được cả hai chiều.
+
 > ⛔ **Kiểm các ràng buộc có thoả mãn được ĐỒNG THỜI không.**
 >
 > Từng ràng buộc hợp lý, gộp lại có thể **không tồn tại cách cài đặt hợp lệ**. Người cài đặt khi đó
@@ -227,6 +248,9 @@ docs/quy-tac-cai-dat.md: G1, G2, G4, G5, ... — <chỉ liệt kê mã liên qua
 - [ ] Mọi con số đã được đẩy vào bảng tham số → config; trong §3/§5 không còn số magic
 - [ ] File `configs/*.yaml` liên quan đã tồn tại (bạn tự tạo) hoặc được ghi rõ là do mã việc khác tạo
 - [ ] Có tối thiểu 1 ca biên và 1 ca lỗi cho mỗi hàm public
+- [ ] **Mỗi dòng có kết quả đến được bằng nhiều đường** (`main()` trả cùng mã lỗi, cùng loại ngoại lệ
+      ném từ nhiều chỗ) đã ghi rõ **tiền đề** và assert vào **bằng chứng phân biệt**, không chỉ vào
+      giá trị trả về
 - [ ] **Không ô "Assert tối thiểu" nào liệt kê từ hai điều kiện trở lên** — rà từng ô, thấy dấu phẩy
       nối nhiều hàm hoặc chữ "và" thì tách thành nhiều dòng đánh số `12a`, `12b`, `12c`…
       Đây là lỗi **tái phạm hai lần**: ô gộp bốn hàm hiển thị ở `P1-01` và ở `P1-02` đều chỉ được cài
