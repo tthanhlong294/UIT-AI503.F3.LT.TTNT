@@ -57,10 +57,29 @@ lfw:
   cache_dir: data/.cache
   out_dir: data/impostor/lfw_original
 
-  # Chọn danh tính
-  min_identities: 100 # chỉ tiêu đề cương: ≥ 100 danh tính
+  # --- Chọn danh tính ---
+  #
+  # Đề cương đặt mức tối thiểu ≥ 100 danh tính. Lấy đúng 100 thì KHÔNG ĐỦ để chốt
+  # ngưỡng theo bước 3.7c (`FAR_adapt ≤ 1 %`). Tính toán ngày 17/08/2026:
+  #
+  #   100 danh tính  ->   384 ảnh -> nửa test  192 phép thử -> cận trên FAR 1,56 %
+  #  1680 danh tính  -> 9 164 ảnh -> nửa test 4582 phép thử -> cận trên FAR 0,07 %
+  #
+  # (Quy tắc số 3: 0 lần nhận nhầm trên n phép thử ⇒ cận trên khoảng tin cậy 95 %
+  # của FAR ≈ 3/n. Bước 1.11 chia đôi val/test không trùng danh tính, nên chỉ một
+  # nửa được dùng để báo cáo con số cuối.)
+  #
+  # 1680 là TOÀN BỘ số danh tính LFW có ≥ 2 ảnh (trên tổng 5749 danh tính / 13233 ảnh).
+  # Dùng hết phần khả dụng vừa cho sức phân giải tốt nhất, vừa dễ bảo vệ trước hội đồng
+  # hơn một con số chọn tuỳ ý. Tập impostor không bao giờ được đăng ký vào gallery nên
+  # tăng số danh tính không đánh đổi gì về phương pháp — chỉ thêm phép thử.
+  #
+  # Chi phí: ~124 MB đĩa (data/ đã gitignore) và một lần tiền xử lý dài hơn ở bước 1.9.
+  min_identities: 1680
   min_images_per_identity: 2 # đủ ảnh để chia val/test và có nhiều lần so khớp
-  seed: 42 # chọn ngẫu nhiên có tái lập (R15)
+  # Seed vẫn giữ để tái lập (R15). Lưu ý: khi min_identities bằng đúng số danh tính
+  # khả dụng thì phép chọn lấy trọn, seed không còn ảnh hưởng tới TẬP được chọn.
+  seed: 42
 
   # Trích dẫn bắt buộc trong báo cáo (R28c)
   citation: "Huang, G.B., Ramesh, M., Berg, T., Learned-Miller, E. — Labeled Faces in the Wild: A Database for Studying Face Recognition in Unconstrained Environments, University of Massachusetts Amherst, Technical Report 07-49, 2007"
