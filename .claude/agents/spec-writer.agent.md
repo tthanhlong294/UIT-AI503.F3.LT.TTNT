@@ -149,6 +149,21 @@ class TenLop:
 >
 > Rà bảng §5: với mỗi dòng ca lỗi, tự hỏi *"đường thành công của tính năng này được kiểm ở dòng nào?"*
 
+> ⛔ **"≥ N trường hợp" KHÔNG tương đương "mọi trường hợp" — phải liệt kê đích danh.**
+>
+> Dòng kiểm gộp kiểu *"duyệt danh sách ≥ 6 cấu hình hỏng, mỗi cái phải ném `LoiCauHinh`"* nghe như
+> phủ hết. Thực tế người cài đặt sẽ chọn 6 trường hợp **dễ nghĩ ra nhất** — thường là các key mà đặc
+> tả vừa nhắc tên ở dòng trên — và những key còn lại lọt sạch.
+>
+> Ví dụ thật từ `P1-04`: dòng 30 đòi "≥ 6 cấu hình hỏng". Người cài đặt phủ đủ 6 cho hai key được nêu
+> tên, còn `border_value` **không có ca nào** — và nó vẫn ném `TypeError`/`ValueError` thay vì
+> `LoiCauHinh`, đúng lớp lỗi mà dòng 30 sinh ra để chặn.
+>
+> **Cách viết đúng**: liệt kê **đích danh từng mục phải phủ**, kèm số biến thể tối thiểu cho mỗi mục.
+> Ví dụ: *"phủ đủ bốn key ở §4 — `a`, `b`, `c`, `d` — mỗi key ít nhất 2 biến thể hỏng"*.
+>
+> Áp dụng cho mọi dòng kiểm gộp: khi viết "mọi X", tự hỏi *"X gồm những gì? mình đã kể hết chưa?"*
+
 > ⛔ **Lệnh kiểm cấm một thứ thì đừng cấm luôn cách phòng thủ trước thứ đó.**
 >
 > Lệnh `grep` chặn theo tên hàm sẽ chặn cả **lời gọi thật** lẫn **lời vá để chặn lời gọi thật** —

@@ -167,9 +167,18 @@ Thiếu key bắt buộc → `LoiCauHinh` nêu rõ tên key.
 | 27 | `cfg["output_size"]` chứa số âm | raise `LoiCauHinh` | `pytest.raises(LoiCauHinh)` |
 | 28 | `cfg["reference_landmarks"]` **sai số lượng** (4 điểm thay vì 5) | raise `LoiCauHinh` nêu số điểm | `pytest.raises(LoiCauHinh)`, thông báo chứa `reference_landmarks` |
 | 29 | `cfg["reference_landmarks"]` chứa giá trị **không phải số** | raise `LoiCauHinh`, **không** phải `ValueError` hay `TypeError` | `pytest.raises(LoiCauHinh)` |
-| 30 | **Mọi lỗi cấu hình đều là `LoiCauHinh`** — quy ước §7, kiểm gộp | tầng gọi phân biệt được "bỏ qua ảnh" với "dừng cả mẻ" | Duyệt danh sách ≥ 6 cấu hình hỏng khác nhau, **mỗi cấu hình** phải ném `LoiCauHinh`; assert **không** cấu hình nào ném `ValueError` hoặc `TypeError` |
+| 30 | **Mọi lỗi cấu hình đều là `LoiCauHinh`** — quy ước §7, kiểm gộp | tầng gọi phân biệt được "bỏ qua ảnh" với "dừng cả mẻ" | Duyệt danh sách cấu hình hỏng phủ **đủ BỐN key ở §4** — `output_size`, `reference_landmarks`, `interpolation`, `border_value` — mỗi key **ít nhất 2 biến thể hỏng**. Mỗi trường hợp phải ném `LoiCauHinh`; assert **không** trường hợp nào ném `ValueError` hoặc `TypeError`. Thông báo lỗi của ca test phải **in ra cấu hình gây lỗi** để định vị được |
+| 32 | `border_value` **sai kiểu** (số nguyên `0` thay vì danh sách) | raise `LoiCauHinh` | `pytest.raises(LoiCauHinh)`, thông báo chứa `border_value` |
+| 33 | `border_value` **sai số phần tử** (`[0, 0]` thay vì 3) | raise `LoiCauHinh` — **không** được im lặng bỏ qua | `pytest.raises(LoiCauHinh)`, thông báo chứa `border_value` |
+| 34 | `border_value` chứa **giá trị không phải số** (`"den"`) | raise `LoiCauHinh`, không phải `ValueError` | `pytest.raises(LoiCauHinh)` |
+| 35 | `interpolation` **không hợp lệ** (`"xyz"`) | raise `LoiCauHinh` nêu các giá trị được chấp nhận | `pytest.raises(LoiCauHinh)`, thông báo chứa `interpolation` |
+| 36 | `border_value` **hợp lệ** `[0, 0, 0]` — đường thành công | dùng bình thường | Không ném, ảnh ra đúng kích thước |
 | 31 | **Mọi lỗi dữ liệu đầu vào đều là `ValueError`** — quy ước §7, kiểm gộp | như trên, chiều ngược lại | Duyệt danh sách ảnh/điểm mốc hỏng, **mỗi ca** phải ném `ValueError`; assert **không** ca nào ném `LoiCauHinh` |
 | 25 | Nạp được **file config thật** của dự án | không lệch với `configs/preprocess.yaml` | `nap_cau_hinh("configs/preprocess.yaml")` rồi gọi `can_chinh` → trả ảnh `(112, 112, 3)` |
+
+> **Đánh số các dòng theo thứ tự bổ sung, không theo thứ tự đọc.** Dòng 13a, 26–36 được thêm sau
+> các vòng review; tên ca test đã gắn với số nên không đánh số lại. Đọc bảng theo cột `#`, không theo
+> vị trí dòng.
 
 > **Dòng 13 là dòng chịu lực nhất, và cách đo của nó không phải ngẫu nhiên.**
 >
