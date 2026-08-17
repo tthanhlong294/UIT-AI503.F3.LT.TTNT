@@ -150,9 +150,10 @@ Thiếu key bắt buộc → `LoiCauHinh` nêu rõ tên key.
 | 10 | `can_chinh` trả **đúng kích thước** trong config | | `kq.shape == (112, 112, 3)` khi `output_size` là `[112, 112]` |
 | 11 | `can_chinh` **đọc kích thước từ config**, không viết cứng | | Đổi `output_size` thành `[64, 64]` → `kq.shape == (64, 64, 3)` |
 | 12 | `can_chinh` trả về kiểu `uint8` | | `kq.dtype == np.uint8` |
-| 13 | **Bất biến với tịnh tiến** | dịch mặt trong khung hình không đổi kết quả | Cùng ảnh và điểm mốc, dịch **cả ảnh lẫn điểm mốc** đi `(+30, +20)`: hai ảnh ra sai khác trung bình `< 2.0` mức xám |
-| 14 | **Bất biến với phóng đại** | mặt to nhỏ khác nhau cho cùng kết quả | Phóng ảnh và điểm mốc lên 2 lần: sai khác trung bình `< 3.0` mức xám |
-| 15 | **Bất biến với xoay** | mặt nghiêng được nắn thẳng | Xoay ảnh và điểm mốc 20°: sai khác trung bình `< 5.0` mức xám |
+| 13 | **Điểm mốc rơi đúng vị trí chuẩn TRONG ẢNH RA** | phép căn chỉnh làm đúng việc của nó, đo trên ảnh chứ không chỉ trên ma trận | Dựng ảnh nền đen, đặt **chấm sáng 255 tại đúng 5 vị trí điểm mốc**; căn chỉnh; lấy mẫu ảnh ra tại **5 toạ độ điểm chuẩn** (làm tròn) → cả 5 giá trị `>= 250` |
+| 13a | Dòng 13 vẫn đúng sau khi **tịnh tiến** | dịch mặt trong khung hình không ảnh hưởng | Dịch **cả ảnh lẫn điểm mốc** đi `(+30, +20)`, lặp phép đo dòng 13 → cả 5 giá trị `>= 250` |
+| 14 | Dòng 13 vẫn đúng sau khi **phóng đại** | mặt to nhỏ khác nhau cho cùng kết quả | Phóng ảnh và điểm mốc lên 2 lần, lặp phép đo dòng 13 → cả 5 giá trị `>= 250` |
+| 15 | Dòng 13 vẫn đúng sau khi **xoay** | mặt nghiêng được nắn thẳng | Xoay ảnh và điểm mốc 20°, lặp phép đo dòng 13 → cả 5 giá trị `>= 250` |
 | 16 | Điểm mốc **được đưa đúng về vị trí chuẩn** | phép căn chỉnh làm đúng việc của nó | Biến đổi `diem_moc` bằng ma trận `M` thu được, kết quả sai khác điểm chuẩn `< 1.0` pixel mỗi điểm |
 | 17 | **Giữ nguyên thứ tự kênh BGR** | không hoán đổi màu | Ảnh vào toàn `[255, 0, 0]` (xanh lam trong BGR); vùng giữa ảnh ra vẫn có kênh 0 lớn nhất |
 | 18 | `can_chinh` với ảnh **không phải 3 kênh** | raise `ValueError` | `pytest.raises(ValueError)` với ảnh `(H, W)` |
@@ -162,17 +163,38 @@ Thiếu key bắt buộc → `LoiCauHinh` nêu rõ tên key.
 | 22 | `can_chinh` với `cfg` **đủ key** — đường thành công | chạy bình thường | Không ném, trả ảnh đúng kích thước |
 | 23 | **Điểm chuẩn lấy từ config, không viết cứng** | đổi config là đổi hành vi | Đổi `reference_landmarks` sang bộ khác hẳn → ảnh ra **khác** ảnh với bộ gốc |
 | 24 | Vùng nằm ngoài ảnh gốc được điền bằng `border_value` | không để rác | Mặt sát mép ảnh, góc ảnh ra bằng đúng giá trị `border_value` |
+| 26 | `cfg["output_size"]` là `[0, 0]` | raise `LoiCauHinh` — **không** được trả về ảnh gốc | `pytest.raises(LoiCauHinh)`, thông báo chứa `output_size` |
+| 27 | `cfg["output_size"]` chứa số âm | raise `LoiCauHinh` | `pytest.raises(LoiCauHinh)` |
+| 28 | `cfg["reference_landmarks"]` **sai số lượng** (4 điểm thay vì 5) | raise `LoiCauHinh` nêu số điểm | `pytest.raises(LoiCauHinh)`, thông báo chứa `reference_landmarks` |
+| 29 | `cfg["reference_landmarks"]` chứa giá trị **không phải số** | raise `LoiCauHinh`, **không** phải `ValueError` hay `TypeError` | `pytest.raises(LoiCauHinh)` |
+| 30 | **Mọi lỗi cấu hình đều là `LoiCauHinh`** — quy ước §7, kiểm gộp | tầng gọi phân biệt được "bỏ qua ảnh" với "dừng cả mẻ" | Duyệt danh sách ≥ 6 cấu hình hỏng khác nhau, **mỗi cấu hình** phải ném `LoiCauHinh`; assert **không** cấu hình nào ném `ValueError` hoặc `TypeError` |
+| 31 | **Mọi lỗi dữ liệu đầu vào đều là `ValueError`** — quy ước §7, kiểm gộp | như trên, chiều ngược lại | Duyệt danh sách ảnh/điểm mốc hỏng, **mỗi ca** phải ném `ValueError`; assert **không** ca nào ném `LoiCauHinh` |
 | 25 | Nạp được **file config thật** của dự án | không lệch với `configs/preprocess.yaml` | `nap_cau_hinh("configs/preprocess.yaml")` rồi gọi `can_chinh` → trả ảnh `(112, 112, 3)` |
 
-> **Dòng 13, 14, 15 là ba dòng quan trọng nhất.** Chúng chứng minh phép căn chỉnh **thực sự chuẩn hoá**:
-> cùng một khuôn mặt ở vị trí, kích thước, góc nghiêng khác nhau phải cho ra gần như cùng một ảnh.
-> Không có ba dòng này thì một hàm chỉ cắt ảnh theo khung bao cũng qua được mọi dòng còn lại.
+> **Dòng 13 là dòng chịu lực nhất, và cách đo của nó không phải ngẫu nhiên.**
+>
+> Phiên bản đầu của đặc tả này đo bằng **sai khác mức xám trung bình** giữa hai ảnh ra. Cách đó
+> **không dùng được**, đã kiểm chứng bằng đột biến: thay phép căn chỉnh bằng cắt ảnh theo khung bao
+> thì ba ca vẫn xanh (đo được 0,000 / 0,285 / 3,934 so với ngưỡng 2,0 / 3,0 / 5,0). Hai lý do:
+>
+> 1. **Ngưỡng mức xám phụ thuộc ảnh thử** — cùng một bản cài đặt đúng cho sai khác 0,203 với ảnh mượt
+>    và 8,999 với ảnh có kết cấu. Tiêu chí phụ thuộc vào thứ đặc tả không kiểm soát.
+> 2. **Bất biến với tịnh tiến và phóng đại không phân biệt được gì** — phép cắt theo khung bao *vốn đã*
+>    bất biến với hai phép đó. Không ngưỡng nào cứu được.
+>
+> Cách đo hiện tại — **chấm sáng tại điểm mốc, lấy mẫu tại điểm chuẩn** — đo trực tiếp thứ cần đo:
+> điểm mốc có rơi đúng vị trí quy định trong ảnh ra hay không. Nó **độc lập với ảnh thử** và phân biệt
+> được cắt khung bao: bản đúng cho `[255]×5`, bản cắt khung bao cho `[0, 255, 255, 0, 0]`.
 
 ---
 
 ## 6. Tiêu chí nghiệm thu
 
 - [ ] **Mỗi dòng bảng §5 có ít nhất một ca test, mỗi ca có assert thật**
+- [ ] **Phép đột biến bắt buộc — thay toàn bộ phép căn chỉnh bằng cắt ảnh theo khung bao**
+      (lấy vùng bao quanh 5 điểm mốc rồi `resize` về `output_size`) → **phải làm đỏ dòng 13**.
+      Vẫn xanh nghĩa là bộ kiểm thử không phân biệt được căn chỉnh với cắt ảnh — lỗi CHẶN-B.
+      Ghi kết quả phép này vào báo cáo bàn giao.
 - [ ] `pytest -q` xanh toàn bộ — **118 ca cũ vẫn đạt**, cộng ca mới
 - [ ] `pytest -q` **xanh trong container ARM64**:
       `MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd)":/app -w /app faceid:arm64 pytest -q`
@@ -203,6 +225,11 @@ Thiếu key bắt buộc → `LoiCauHinh` nêu rõ tên key.
 **Quy ước lỗi**: dữ liệu đầu vào sai (hình dạng, kiểu, giá trị) → `ValueError`; cấu hình sai hoặc
 không ước lượng được biến đổi → `LoiCauHinh`. Hai loại này **không được lẫn**, vì tầng gọi phải phân
 biệt "ảnh này bỏ qua" với "cấu hình hỏng, dừng cả mẻ".
+
+⚠️ Lẫn hai loại này gây lỗi **âm thầm và nghiêm trọng**: `P1-05` bắt `ValueError` để bỏ qua ảnh hỏng.
+Nếu lỗi cấu hình cũng ném `ValueError`, cả mẻ sẽ chạy hết với **100 % ảnh bị bỏ** mà không báo gì.
+
+Quy ước này được kiểm bằng **dòng 30 và 31** của bảng §5 — không chỉ nêu ở đây.
 
 ---
 
