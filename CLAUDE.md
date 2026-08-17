@@ -204,8 +204,13 @@ N5 ✅ ĐẠT ──▶ commit + gộp nhánh ──▶ Cổng C (đo) ──▶
 | Claude · `code-reviewer` | `docs/review/` — **chỉ đọc** code |
 | Claude · `training` | `results/` |
 | Claude · `paper-writer` | `report/`, `docs/nhat-ky/` |
+| Claude · phiên chính | `.claude/**` — khung quy trình: định nghĩa agent, prompt, instruction |
 
 `configs/*.yaml` do Claude giữ vì mọi ngưỡng phải chốt từ `results/` (R7, R16) — không để AI tự chọn.
+
+`.claude/**` là **khung quy trình**, không phải sản phẩm của mã việc nào. Sửa nó **nên đi commit riêng**
+với loại `chore(quy-trinh)`, không trộn vào commit của một mã việc — để sau này truy được bài học nào
+sinh ra từ mã việc nào.
 
 **Mã việc** `P<Phase>-<nn>-<slug>` xuất hiện nguyên vẹn ở 5 chỗ, tạo chuỗi truy vết:
 đặc tả → tên nhánh → biên bản review → commit message → nhật ký tuần.
