@@ -632,12 +632,18 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
 
 ## 8. Ghi chú vận hành
 
-- **Vị trí hiện tại (07/08/2026 — Tuần 4)**: **Phase 0 đã đóng** — tag `phase-0-done`, hoàn tất 5/6
-  bước. Bước 0.4 (cài Pi OS, bật camera) **hoãn** vì chưa có phần cứng, đã ghi vào
-  `docs/dieu-chinh-pham-vi.md`. Cổng C đã qua: container ARM64 chạy được `import cv2, onnxruntime`.
-  **Đang chuyển sang Phase 1 — Dữ liệu khuôn mặt.** Phần thu thập ảnh thật chờ camera của hệ thống;
-  quy ước đặt tên, script thu thập và tải LFW làm trước được.
+- **Vị trí hiện tại (17/08/2026 — Tuần 5)**: Phase 0 đã đóng (tag `phase-0-done`, 5/6 bước; bước 0.4
+  hoãn vì chưa có phần cứng, ghi ở `docs/dieu-chinh-pham-vi.md`). **Đang ở Phase 1 — Dữ liệu khuôn mặt.**
+  Bốn mã việc đã qua đủ 5 nhịp và gộp vào `dev`:
+  `P1-01` (kiểm dữ liệu) · `P1-02` (`collect_faces.py`, bước 1.2) · `P1-03` (tải LFW, bước 1.5) ·
+  `P1-04` (`align.py`, phần căn chỉnh của bước 1.9). Tổng 155 test xanh trên host và ARM64.
+  **Việc tiếp theo**: `P1-05` — `scripts/preprocess.py`, ghép detect + `align.py` thành một mẻ xử lý.
+  Chín bước còn lại của Phase 1 (1.3, 1.6, 1.7, 1.8, 1.10–1.13) **chặn vì chưa có camera**.
+- ⚠️ **Rủi ro tiến độ lớn nhất: chưa có Raspberry Pi 5 và camera.** Camera — không phải bo mạch — mới
+  là thứ định nghĩa miền dữ liệu, nên nó chặn cả Phase 1, 3 và 4. Bốn trên sáu chỉ tiêu cam kết ở §1
+  không đo được nếu thiếu.
 - Báo cáo: Chương 1 §1.1–1.3 xong · Chương 2 khung + §2.5 xong · Chương 3 §3.2 xong · Chương 5 khung.
-  Nhật ký tuần 1–4 đã ghi. Trọng số mô hình đã tải đủ, `models/README.md` bảng A đầy đủ.
+  Nhật ký tuần 1–4 đã ghi (tuần 4 còn thiếu phần cuối tuần). Trọng số mô hình đã tải đủ,
+  `models/README.md` bảng A đầy đủ.
 - Cập nhật mục này mỗi khi qua Phase mới.
 - Nhật ký tuần lưu ở `docs/nhat-ky/tuan-XX.md`, viết vào **cuối mỗi tuần**, không dồn.
