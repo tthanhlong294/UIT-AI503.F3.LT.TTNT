@@ -39,8 +39,21 @@ lfw:
   # Lý do: đồ án áp dụng cùng một quy trình detect → crop → align cho cả bốn nguồn
   # dữ liệu. Bản đã căn chỉnh sẵn bằng phương pháp khác sẽ tạo ra khác biệt miền
   # mà ta không kiểm soát được, làm hỏng phép kiểm chứng domain adaptation ở Phase 3.
-  url: "http://vis-www.cs.umass.edu/lfw/lfw.tgz"
+  #
+  # ⚠️ Máy chủ gốc `vis-www.cs.umass.edu` ĐÃ NGỪNG HOẠT ĐỘNG (kiểm 17/08/2026:
+  # DNS công cộng trả về NXDOMAIN, không còn bản ghi tên miền). Địa chỉ dưới đây là
+  # mirror chính thức trên figshare mà scikit-learn dùng cho `fetch_lfw_people`
+  # (xem `sklearn/datasets/_lfw.py`, hằng số `ARCHIVE`) — vẫn đúng **bản gốc**
+  # `lfw.tgz`, không phải bản funneled. Đã kiểm ngày 17/08/2026: HTTP 200,
+  # 180 566 744 byte, chuyển hướng sang S3, magic byte `1f 8b` đúng định dạng gzip.
+  url: "https://ndownloader.figshare.com/files/5976018"
   archive_name: lfw.tgz
+
+  # Mã băm SHA256 của lfw.tgz gốc, lấy từ scikit-learn. Dùng để chứng minh mirror
+  # figshare cho ra ĐÚNG tệp mà máy chủ UMass từng phát hành:
+  #   python scripts/download_lfw.py --expect-sha256 055f7d9c632d7370e6fb4afc7468d40f970c34a80d4c6f50ffec63f5a8d536c0
+  # Nên chạy kèm cờ này ít nhất một lần và ghi kết quả vào nhật ký tuần.
+  expected_sha256: "055f7d9c632d7370e6fb4afc7468d40f970c34a80d4c6f50ffec63f5a8d536c0"
   cache_dir: data/.cache
   out_dir: data/impostor/lfw_original
 
@@ -50,5 +63,7 @@ lfw:
   seed: 42 # chọn ngẫu nhiên có tái lập (R15)
 
   # Trích dẫn bắt buộc trong báo cáo (R28c)
-  citation: "Huang, G.B., Ramesh, M., Berg, T., Learned-Miller, E. — Labeled Faces in the Wild, University of Massachusetts Amherst, Technical Report 07-49, 2007"
-  homepage: "http://vis-www.cs.umass.edu/lfw/"
+  citation: "Huang, G.B., Ramesh, M., Berg, T., Learned-Miller, E. — Labeled Faces in the Wild: A Database for Studying Face Recognition in Unconstrained Environments, University of Massachusetts Amherst, Technical Report 07-49, 2007"
+  # Trang chủ gốc đã ngừng hoạt động cùng máy chủ vis-www; giữ lại để ghi nguồn lịch sử.
+  homepage_goc: "http://vis-www.cs.umass.edu/lfw/ (không còn truy cập được từ 2026)"
+  homepage: "https://ndownloader.figshare.com/files/5976018"
