@@ -393,6 +393,13 @@ test dòng 12 trước**, đừng báo xong.
   trên máy phát triển nhưng **cố ý không nằm** trong `requirements.txt` vì Pi 5 không cần chúng.
   Script này chỉ chạy trên PC — hãy ghi rõ điều đó trong docstring đầu file.
 - Bộ kiểm thử **không được** đòi hỏi mạng. Ca cần mô hình thật thì đánh dấu `@pytest.mark.slow`.
+- ⚠️ **`ultralytics`, `onnx`, `torch` chỉ được import BÊN TRONG thân hàm test cần chúng**, không
+  bao giờ ở mức module. Ba gói này không có trong `requirements.txt` nên **không tồn tại trong
+  container ARM64**; một dòng `import onnx` ở đầu tệp làm pytest chết ngay khâu thu thập, kéo
+  đổ toàn bộ bộ test của cả repo chứ không riêng tệp này. Import cục bộ giữ cho các ca
+  không-chậm vẫn chạy được ở nơi thiếu gói.
+  Lệnh kiểm: `python -m pytest tests/test_export_detector.py -m "not slow" --collect-only`
+  phải chạy trót lọt kể cả khi ba gói trên không được cài.
 - Mọi ca test phải chạy được trên Windows (đường dẫn dùng `pathlib`, không nối chuỗi bằng `/`).
 
 ---
