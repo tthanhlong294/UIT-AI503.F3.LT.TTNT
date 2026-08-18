@@ -299,6 +299,23 @@ docs/quy-tac-cai-dat.md: G1, G2, G4, G5, ... — <chỉ liệt kê mã liên qua
       `onnx.load()`, không nói cách dung hoà → một dòng `import onnx` đầu tệp làm pytest chết ở
       khâu thu thập trong container ARM64, kéo đổ cả 199 test của toàn repo. Kèm luôn lệnh kiểm
       `pytest --collect-only` chạy được ở nơi thiếu gói.
+- [ ] **Đại lượng đem assert phải NHẠY với khuyết tật cần bắt — đo trước, đừng suy đoán.**
+      Lỗi **tái phạm hai lần**. Ở `P1-04` dòng 13–15 assert mức xám và bất biến tịnh tiến, một hàm
+      chỉ cắt ảnh theo khung bao vẫn qua hết. Ở `P2-02` dòng 27 assert **tâm khung** để bắt lỗi
+      kéo giãn — nhưng kéo giãn làm lệch **cạnh tới 7,0 px** trong khi **tâm chỉ dịch 0,22–0,72 px**,
+      nên 42 test xanh với một cài đặt sai.
+      **Cách làm đúng**: trước khi chốt ô "Assert tối thiểu", chạy thử phiên bản sai ngay tại chỗ,
+      đo cả vài đại lượng ứng viên, rồi chọn đại lượng có **khoảng cách lớn nhất** giữa bản đúng và
+      bản sai. Ghi luôn cả hai con số vào đặc tả để người review kiểm được dung sai có nằm giữa
+      hai nhóm không.
+      Dấu hiệu cảnh báo: assert vào **giá trị tổng hợp** (tâm, trung bình, tổng, diện tích) khi
+      khuyết tật là **méo dạng** — phép lấy trung bình triệt tiêu đúng thứ cần đo. Assert từng
+      thành phần thay vì đại lượng gộp.
+- [ ] **Nghĩ ra phiên bản sai TỰ NHẤT QUÁN, không chỉ phiên bản sai lộ liễu.**
+      Từ `P2-02`: phép đột biến "kéo giãn rồi ánh xạ ngược sai" thì dễ bắt, nhưng "kéo giãn hai
+      hệ số rồi ánh xạ ngược **khớp** theo từng trục" là một cài đặt sai mà **mọi ca test nội bộ
+      đều xanh** — chỉ lộ khi đối chiếu với kết quả chuẩn bên ngoài. Khi viết bảng đột biến, luôn
+      thêm một phép thuộc loại này.
 - [ ] **Không khẳng định về `.gitignore` mà chưa chạy `git check-ignore -v <đường-dẫn>`.**
       Từ `P2-01`: đặc tả ghi `results/` đã bị ignore nên tệp kết quả không cần commit, thực tế
       `.gitignore` chỉ chặn ảnh và video trong đó — suýt làm người review báo nhầm vi phạm phạm vi,
