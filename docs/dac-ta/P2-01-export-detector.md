@@ -318,9 +318,21 @@ python -m pytest tests/test_export_detector.py -v
 git status --short --untracked-files=all
 ```
 
-Lệnh cuối phải cho thấy **đúng hai** tệp mới: `scripts/export_detector.py` và
-`tests/test_export_detector.py`. Có tệp thứ ba là vi phạm phạm vi — trừ tệp sinh ra
-trong `models/` và `results/` khi chạy thử, hai thư mục đó đã gitignore.
+Lệnh cuối phải cho thấy **đúng hai** tệp mã nguồn mới: `scripts/export_detector.py` và
+`tests/test_export_detector.py`.
+
+Ngoài ra được phép xuất hiện **các tệp kết quả** `results/export_detector_*.json` và
+`results/export_detector_*.meta.json` do chính lần chạy thật sinh ra. Chúng **không** bị
+gitignore — `.gitignore` chỉ chặn ảnh và video trong `results/`, còn JSON thì giữ lại, vì R6
+đòi mọi con số trong báo cáo phải truy được về một tệp trong `results/`. Các tệp này sẽ được
+commit cùng mã việc.
+
+Tệp `.onnx` sinh ra trong `models/` thì **không** xuất hiện ở đây vì `models/*` đã bị gitignore.
+
+Bất kỳ tệp nào khác hai nhóm trên là vi phạm phạm vi.
+
+> Nếu chạy thật nhiều lần và sinh ra nhiều bộ tệp kết quả trùng nội dung, **giữ lại một bộ**
+> và xoá phần dư — mỗi lần chạy có ý nghĩa mới một tệp, không phải mỗi lần bấm chạy.
 
 ### Quét mẫu vi phạm — cả bốn lệnh phải cho kết quả rỗng
 
@@ -381,6 +393,13 @@ test dòng 12 trước**, đừng báo xong.
   trên máy phát triển nhưng **cố ý không nằm** trong `requirements.txt` vì Pi 5 không cần chúng.
   Script này chỉ chạy trên PC — hãy ghi rõ điều đó trong docstring đầu file.
 - Bộ kiểm thử **không được** đòi hỏi mạng. Ca cần mô hình thật thì đánh dấu `@pytest.mark.slow`.
+- ⚠️ **`ultralytics`, `onnx`, `torch` chỉ được import BÊN TRONG thân hàm test cần chúng**, không
+  bao giờ ở mức module. Ba gói này không có trong `requirements.txt` nên **không tồn tại trong
+  container ARM64**; một dòng `import onnx` ở đầu tệp làm pytest chết ngay khâu thu thập, kéo
+  đổ toàn bộ bộ test của cả repo chứ không riêng tệp này. Import cục bộ giữ cho các ca
+  không-chậm vẫn chạy được ở nơi thiếu gói.
+  Lệnh kiểm: `python -m pytest tests/test_export_detector.py -m "not slow" --collect-only`
+  phải chạy trót lọt kể cả khi ba gói trên không được cài.
 - Mọi ca test phải chạy được trên Windows (đường dẫn dùng `pathlib`, không nối chuỗi bằng `/`).
 
 ---

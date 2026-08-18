@@ -293,3 +293,13 @@ docs/quy-tac-cai-dat.md: G1, G2, G4, G5, ... — <chỉ liệt kê mã liên qua
 - [ ] Nếu mã việc sinh số liệu: đã yêu cầu ghi `results/*.csv` **và** `.meta.json`
       theo `.claude/instructions/experiment-protocol.instructions.md`
 - [ ] Không tự chốt ngưỡng bằng cảm tính — chưa đo thì ghi `TBD`
+- [ ] **Thư viện chỉ có trên máy phát triển mà không có trong `requirements.txt`** (`ultralytics`,
+      `onnx`, `torch`…): nếu đặc tả đòi ca test dùng chúng, phải ghi rõ **import bên trong thân
+      hàm test**, không ở mức module. Từ `P2-01`: đặc tả vừa cấm thêm phụ thuộc vừa đòi gọi
+      `onnx.load()`, không nói cách dung hoà → một dòng `import onnx` đầu tệp làm pytest chết ở
+      khâu thu thập trong container ARM64, kéo đổ cả 199 test của toàn repo. Kèm luôn lệnh kiểm
+      `pytest --collect-only` chạy được ở nơi thiếu gói.
+- [ ] **Không khẳng định về `.gitignore` mà chưa chạy `git check-ignore -v <đường-dẫn>`.**
+      Từ `P2-01`: đặc tả ghi `results/` đã bị ignore nên tệp kết quả không cần commit, thực tế
+      `.gitignore` chỉ chặn ảnh và video trong đó — suýt làm người review báo nhầm vi phạm phạm vi,
+      và nếu lọt thì số liệu báo cáo mất đường truy vết theo R6.
