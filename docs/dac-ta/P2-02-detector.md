@@ -239,13 +239,32 @@ Cột "Assert tối thiểu" là **biểu thức chạy được**.
 | 24 | Độ tin cậy khớp §3.5 | `abs(kq[0].confidence - 0.8564) < 0.01` |
 | 25 | Điểm mốc thứ nhất khớp §3.5 | `np.abs(kq[0].landmarks[0] - [105.36, 115.41]).max() < 1.0` |
 | 26 | Trả về đúng **5** điểm mốc, hình dạng `(5, 2)` | `kq[0].landmarks.shape == (5, 2)` |
-| 27 | **Ảnh KHÔNG vuông** cho kết quả đúng | Dựng ảnh 1280×720 chứa khuôn mặt LFW ở vị trí biết trước; assert tâm khung nằm trong vùng đã đặt mặt, sai lệch < 15 px. **Đây là ca chặn lỗi kéo giãn — không có nó thì lỗi lọt hoàn toàn** |
+| 27 | **Ảnh KHÔNG vuông** cho kết quả đúng — assert **TỪNG CẠNH**, không phải tâm | Dựng đúng như §6.6 dưới đây; assert **cả bốn cạnh** lệch < **2,0 px** so với `[880.68, 368.38, 972.30, 483.01]`. ⚠️ **Không** assert tâm khung: đã đo, kéo giãn làm lệch cạnh tới 7,0 px nhưng chỉ dịch tâm 0,22–0,72 px — assert tâm với bất kỳ dung sai dùng được nào cũng **không** phân biệt được đúng/sai |
 | 28 | Ảnh không có mặt → danh sách **rỗng**, không ném lỗi | Ảnh xám trơn 480×640 ⇒ `detect(...) == []` |
 | 29 | Thứ tự điểm mốc đúng quy ước hình học | Trên ảnh LFW mẫu: `lm[0][0] < lm[1][0]`, `max(lm[0][1],lm[1][1]) < lm[2][1]`, `lm[2][1] < min(lm[3][1],lm[4][1])`, `lm[3][0] < lm[4][0]` |
 | 30 | Sắp theo độ tin cậy giảm dần | Ảnh ghép hai khuôn mặt; `[f.confidence for f in kq] == sorted(..., reverse=True)` |
 | 31 | Tôn trọng `max_faces` | Ảnh ghép 3 mặt, `max_faces=2` ⇒ `len(kq) <= 2` |
 | 32 | Toạ độ nằm trong ảnh và là số nguyên | `0 <= f.x1 < f.x2 <= W`, `0 <= f.y1 < f.y2 <= H`, `isinstance(f.x1, int)` |
 | 33 | Bản 640 cũng phát hiện được cùng khuôn mặt | Cùng ảnh LFW mẫu qua bản 640; tâm khung lệch so với bản 320 < 10 px |
+
+### 6.6. Cách dựng ảnh không vuông cho dòng 27 — pin chặt, không được đổi
+
+```python
+face = cv2.imread("data/impostor/lfw_original/Aaron_Peirsol/Aaron_Peirsol_0001.jpg")  # 250×250
+anh = np.full((720, 1280, 3), 128, np.uint8)
+anh[300:550, 800:1050] = face
+```
+
+Số đối chứng đo ngày 18/08/2026, `imgsz=320`:
+
+| Cách cài đặt | Khung bao | Lệch từng cạnh so với chuẩn | Lệch tâm |
+|---|---|---|---|
+| `ultralytics` (chuẩn) | `[880.68, 368.38, 972.30, 483.01]` | — | — |
+| Letterbox đúng | ≈ chuẩn | **< 0,6 px** | < 0,6 px |
+| Kéo giãn 2 hệ số | `[874.12, 371.28, 979.30, 481.56]` | **tới 7,0 px** | **0,22 / 0,72 px** |
+
+Dung sai **2,0 px** cho từng cạnh nằm gọn giữa hai nhóm: bản đúng qua thoải mái, bản kéo giãn
+đỏ chắc chắn.
 
 ### 6.5. Đầu vào sai
 
@@ -316,15 +335,19 @@ giải trình từng dòng. Lỗi **cấu hình** thì phải là `LoiCauHinh`.
 
 | # | Phép đột biến | Ca test **phải** đỏ |
 |---|---|---|
-| ĐB1 | Thay `letterbox` bằng `cv2.resize` kéo giãn thẳng | dòng **27** (và có thể 12, 13, 15, 17) |
+| ĐB1 | Thay `letterbox` bằng `cv2.resize` kéo giãn thẳng, giữ nguyên phần ánh xạ ngược | dòng **27** (và có thể 12, 13, 15, 17) |
+| **ĐB1b** | Kéo giãn với **hai hệ số tỉ lệ riêng cho từng trục**, và ánh xạ ngược cũng theo từng trục cho **khớp** — tức một cài đặt sai nhưng *tự nhất quán* | dòng **27** |
 | ĐB2 | Bỏ bước đưa toạ độ về ảnh gốc (§3.4) | dòng 23, 25, 27 |
 | ĐB3 | Trong `nms`, luôn giữ mọi khung | dòng 18, 21 |
 | ĐB4 | Bỏ áp `max_faces` | dòng 31 |
 | ĐB5 | Đảo thứ tự kênh RGB/BGR khi tiền xử lý | dòng 23 hoặc 24 |
 
-**ĐB1 mà không làm đỏ dòng 27 là lỗi nghiêm trọng nhất của mã việc này** — nghĩa là bộ test
-chỉ có ảnh vuông, và lỗi kéo giãn sẽ đi thẳng lên phần cứng mà không ai biết. Sửa ca test
-dòng 27 trước, đừng báo xong.
+**ĐB1 và ĐB1b mà không làm đỏ dòng 27 là lỗi nghiêm trọng nhất của mã việc này** — nghĩa là
+lỗi kéo giãn sẽ đi thẳng lên phần cứng mà không ai biết. Sửa ca test dòng 27 trước, đừng báo xong.
+
+ĐB1b là phép quan trọng hơn: nó mô phỏng một cài đặt sai **tự nhất quán**, không lộ ra ở bất kỳ
+ca test nội bộ nào của `letterbox`, chỉ lộ khi so với kết quả chuẩn trên ảnh không vuông.
+Đây chính là phép đã cho 42 test xanh ở vòng 1.
 
 Mỗi phép: sửa → chạy → ghi ca đỏ → khôi phục → đối chiếu `sha256`. Dùng `newline=""`.
 
