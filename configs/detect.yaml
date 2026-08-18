@@ -1,0 +1,57 @@
+# Cấu hình khối phát hiện khuôn mặt (Phase 2)
+# Mô hình: YOLOv8n-face — bài toán pose, 1 lớp `face`, 5 điểm mốc mỗi khuôn mặt.
+# Trọng số gốc: models/yolov8n-face.pt (xem models/README.md bảng A).
+
+# --- Nguồn và đích export (bước 2.2) ---
+export:
+  weights_pt: models/yolov8n-face.pt
+
+  # Hai độ phân giải để so sánh ở ma trận benchmark bước 2.6.
+  # 320 cho tốc độ, 640 cho độ chính xác. Tên tệp ra: yolov8n-face-<imgsz>.onnx
+  kich_thuoc: [320, 640]
+
+  # opset 12 — mức tương thích rộng nhất với onnxruntime trên ARM64.
+  # Nâng opset chỉ khi có lý do cụ thể; bản mới hơn có toán tử mà runtime cũ trên Pi
+  # có thể chưa hỗ trợ.
+  opset: 12
+
+  # Batch cố định bằng 1: hệ thống xử lý từng frame một, không gom lô.
+  # Đồ thị tĩnh cho runtime tối ưu tốt hơn so với trục động.
+  batch: 1
+
+  # simplify: chạy onnx-simplifier để gộp các nút thừa sau khi export.
+  simplify: true
+
+  out_dir: models
+
+# --- Ngưỡng suy luận ---
+# ⚠️ Đây là giá trị KHỞI ĐIỂM, chưa phải giá trị đã chốt.
+# Ngưỡng chính thức phải chốt từ số đo ở Cổng C của Phase 2 (R7, R16),
+# không được chọn theo cảm tính.
+inference:
+  # Ngưỡng độ tin cậy: khung có conf thấp hơn sẽ bị loại.
+  conf_threshold: 0.5
+
+  # Ngưỡng IoU cho non-maximum suppression — gộp các khung chồng lấn của cùng một mặt.
+  iou_threshold: 0.45
+
+  # Số khuôn mặt tối đa giữ lại sau NMS. Đề tài chỉ xét một người trước camera (R11),
+  # nhưng vẫn giữ nhiều khung để phát hiện được trường hợp có người thứ hai trong khung hình.
+  max_faces: 10
+
+  # Số luồng CPU cho onnxruntime. 0 = để runtime tự quyết.
+  # Ma trận benchmark bước 2.6 sẽ quét {1, 2, 4} trên Pi 5.
+  num_threads: 0
+
+# --- Thứ tự 5 điểm mốc ---
+# ĐÃ KIỂM CHỨNG ngày 17/08/2026 trên 60 ảnh LFW ngẫu nhiên (seed 42): cả bốn bất biến
+# hình học đúng 60/60 — mắt trái có x nhỏ hơn mắt phải, hai mắt nằm trên mũi,
+# mũi nằm trên miệng, khoé miệng trái có x nhỏ hơn khoé miệng phải.
+#
+# Thứ tự này TRÙNG KHỚP thứ tự `reference_landmarks` trong configs/preprocess.yaml,
+# nên đưa thẳng điểm mốc từ detect sang align.can_chinh() mà KHÔNG cần hoán vị.
+#
+# ⚠️ Nếu đổi sang mô hình detect khác: kiểm lại thứ tự này trước, đừng giả định.
+# Sai thứ tự cho ra ảnh vẫn trông như khuôn mặt nhưng embedding lệch hệ thống,
+# và không có dấu hiệu nào báo sai.
+thu_tu_diem_moc: [mat_trai, mat_phai, mui, mieng_trai, mieng_phai]
