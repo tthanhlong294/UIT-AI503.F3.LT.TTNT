@@ -41,11 +41,23 @@ Cần tham số mới trong `configs/detect.yaml` → **dừng và báo**, khôn
 | 320 | 39,4 ± 4,5 ms | ~25,4 FPS | 60/60 |
 | 640 | 136,9 ± 15,6 ms | ~7,3 FPS | 60/60 |
 
-Dùng làm mốc kiểm tính hợp lý: nếu script cho ra con số lệch hàng chục lần so với đây trên
-cùng máy, tức là phép đo sai.
+⚠️ **Ba con số trên là số của MÁY NGUỘI, không phải số ổn định.** Phát hiện khi review vòng 1
+ngày 19/08/2026: chạy một ô đơn lẻ sau khi để máy nghỉ 90–120 s cho ra 320 ≈ 31,8 ms và
+640 ≈ 132,3 ms; nhưng chạy liên tục cả ma trận thì máy nóng lên, CPU giảm xung, và 640 hội tụ
+về **200–230 ms** mà không quay lại 135 ms nữa.
+
+Hệ quả cho cách dùng mốc này: **chỉ dùng để bắt sai lệch hàng chục lần** (dấu hiệu phép đo hỏng),
+**không** dùng để kết luận script chạy chậm bất thường. Chênh lệch 20–45 % giữa lần chạy đơn lẻ
+và lần chạy cả ma trận là **hiện tượng nhiệt bình thường**, không phải lỗi.
 
 ⚠️ Bản 640 đã dưới 10 FPS ngay trên máy để bàn. Đây là **cảnh báo sớm** rằng chỉ tiêu Cổng C
 có thể không đạt ở 640 — nhưng **không được kết luận** cho tới khi đo trên Pi 5 thật (R5, R7).
+
+⚠️ **Bài học cho bước 2.7 và cho mọi phép đo hiệu năng về sau**: số đo lần chạy đầu trên máy
+nguội **đẹp hơn thực tế**. Raspberry Pi 5 chạy liên tục trong nhà, không tản nhiệt tốt, sẽ nằm ở
+trạng thái nóng chứ không phải trạng thái nguội. Con số đưa vào báo cáo phải là **số ổn định**,
+đo sau khi máy đã chạy đủ lâu — đó chính là lý do bước 2.7 yêu cầu theo dõi nhiệt độ và
+throttling trong 10 phút liên tục.
 
 ---
 

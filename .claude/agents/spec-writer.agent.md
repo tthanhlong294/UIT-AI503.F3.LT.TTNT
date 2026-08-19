@@ -293,6 +293,26 @@ docs/quy-tac-cai-dat.md: G1, G2, G4, G5, ... — <chỉ liệt kê mã liên qua
 - [ ] Nếu mã việc sinh số liệu: đã yêu cầu ghi `results/*.csv` **và** `.meta.json`
       theo `.claude/instructions/experiment-protocol.instructions.md`
 - [ ] Không tự chốt ngưỡng bằng cảm tính — chưa đo thì ghi `TBD`
+- [ ] **Đặc tả đòi chạy test trong container ARM64 thì phải LIỆT KÊ thứ container KHÔNG có.**
+      Lỗi **tái phạm hai lần**, cùng một hình dạng: `P2-01` chết vì `import onnx` mức module,
+      `P2-03` chết vì `subprocess.run(["git", ...], check=True)` không bọc.
+      Container theo `deploy/Dockerfile.arm64` và `.dockerignore` **thiếu**:
+      | Thứ thiếu | Vì sao |
+      |---|---|
+      | `git` (nhị phân) | Dockerfile chỉ cài `libgl1`, `libglib2.0-0` |
+      | `.git/` | `.dockerignore` dòng 1 |
+      | `docs/`, `models/`, `data/`, `results/`, `report/` | `.dockerignore` |
+      | `ultralytics`, `torch`, `onnx` | không có trong `requirements.txt` |
+      Chỉ có `requirements.txt` cộng `pytest`/`black`/`ruff`.
+      **Cách viết đúng**: nêu thẳng danh sách này trong mục ràng buộc, và yêu cầu mọi truy cập
+      tới chúng phải `pytest.skip` có thông báo hoặc bọc `try`. Kèm lệnh kiểm chạy được ở nơi
+      thiếu, ví dụ `pytest --collect-only` với PATH đã gỡ `git`.
+- [ ] **Số đo hiệu năng đưa vào đặc tả phải ghi rõ TRẠNG THÁI NHIỆT của máy khi đo.**
+      Từ `P2-03`: tôi đưa mốc "320 ≈ 39,4 ms" vào §3 mà không nói đó là số đo **lần chạy đầu trên
+      máy nguội**. Chạy liên tục cả ma trận thì CPU giảm xung, 640 đi từ 137 ms lên 200–230 ms và
+      không quay lại. Người review suýt kết luận script có chi phí ẩn.
+      **Cách viết đúng**: ghi kèm điều kiện (nguội hay đã chạy liên tục bao lâu), và nói rõ mốc
+      dùng để bắt sai lệch **hàng chục lần**, không dùng để phán xét chênh lệch vài chục phần trăm.
 - [ ] **Thư viện chỉ có trên máy phát triển mà không có trong `requirements.txt`** (`ultralytics`,
       `onnx`, `torch`…): nếu đặc tả đòi ca test dùng chúng, phải ghi rõ **import bên trong thân
       hàm test**, không ở mức module. Từ `P2-01`: đặc tả vừa cấm thêm phụ thuộc vừa đòi gọi
