@@ -202,11 +202,23 @@ N5 ✅ ĐẠT ──▶ commit + gộp nhánh ──▶ Cổng C (đo) ──▶
 | Claude · `coder` | `src/`, `tests/`, `scripts/` |
 | Claude · `spec-writer` | `docs/dac-ta/`, `configs/` |
 | Claude · `code-reviewer` | `docs/review/` — **chỉ đọc** code |
-| Claude · `training` | `results/` |
+| Claude · `training` | `results/`, `notebooks/` |
 | Claude · `paper-writer` | `report/`, `docs/nhat-ky/` |
 | Claude · phiên chính | `.claude/**` — khung quy trình: định nghĩa agent, prompt, instruction |
 
 `configs/*.yaml` do Claude giữ vì mọi ngưỡng phải chốt từ `results/` (R7, R16) — không để AI tự chọn.
+
+**Đo và vẽ là hai việc tách rời — không được trộn:**
+
+| | Ai chạy | Ở đâu | Ghi ra |
+|---|---|---|---|
+| **Đo** — `scripts/benchmark_*.py` | máy đo (Pi 5 thật) | dòng lệnh, không giao diện | `results/*.csv` + `.meta.json` |
+| **Vẽ cho báo cáo** — `scripts/plot_*.py` | máy phát triển | dòng lệnh | `report/figures/*.pdf` |
+| **Khám phá** — `notebooks/*.ipynb` | máy phát triển | Jupyter | biểu đồ xem tại chỗ |
+
+Cả ba **chỉ đọc** `results/`, không tự sinh số. **Tuyệt đối không đo hiệu năng trong notebook**:
+Pi 5 chạy không màn hình, Jupyter thêm chi phí làm sai lệch phép đo, và thứ tự chạy ô lộn xộn
+khiến kết quả không tái lập được. Notebook để *hiểu* số liệu, script để *tạo* ra chúng.
 
 `.claude/**` là **khung quy trình**, không phải sản phẩm của mã việc nào. Sửa nó **nên đi commit riêng**
 với loại `chore(quy-trinh)`, không trộn vào commit của một mã việc — để sau này truy được bài học nào
