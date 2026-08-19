@@ -32,3 +32,50 @@ interpolation: bilinear
 
 # Giá trị điền cho vùng nằm ngoài ảnh gốc sau khi biến đổi (BGR)
 border_value: [0, 0, 0]
+
+# --- Lọc chất lượng trước khi căn chỉnh (bước 1.9, chuẩn bị cho 1.10) ---
+#
+# ⚠️ Vì sao cần: `align.py` KHÔNG tự phát hiện điểm mốc rác. Đưa cho nó 5 điểm bậy,
+# nó vẫn căn chỉnh trơn tru và trả về một ảnh 112×112 trông hợp lệ, không báo gì cả.
+# Ảnh rác đó sẽ lặng lẽ vào `data/processed/` rồi thành embedding sai ở Phase 3.
+# Đã kiểm 18/08/2026: 5 điểm mốc thẳng hàng phân biệt KHÔNG làm `align.py` báo lỗi —
+# và đúng về mặt toán, vì biến đổi tương tự chỉ cần 2 điểm phân biệt là xác định được.
+loc_chat_luong:
+  # Cạnh nhỏ nhất của khung bao khuôn mặt, tính bằng pixel trên ảnh GỐC.
+  # Mặt nhỏ hơn mức này thì điểm mốc không đủ tin cậy để căn chỉnh.
+  # LFW là ảnh 250×250 với mặt chiếm phần lớn khung, nên ngưỡng này chủ yếu lọc
+  # ảnh có người ở hậu cảnh.
+  min_bbox_px: 40
+
+  # Ngưỡng tin cậy riêng cho khâu tiền xử lý, ĐỘC LẬP với `detect.yaml`.
+  # Đặt cao hơn ngưỡng chạy thời gian thực: khi xây cơ sở dữ liệu thì thà bỏ sót
+  # còn hơn nhận nhầm, vì một ảnh bẩn làm hỏng embedding của cả danh tính.
+  min_confidence: 0.7
+
+  # Kiểm bất biến hình học của 5 điểm mốc trước khi căn chỉnh.
+  # Bốn bất biến đã kiểm ngày 18/08/2026 trên 60 ảnh LFW ngẫu nhiên, đúng 60/60:
+  #   1. mắt trái có x nhỏ hơn mắt phải
+  #   2. hai mắt nằm trên mũi
+  #   3. mũi nằm trên miệng
+  #   4. khoé miệng trái có x nhỏ hơn khoé miệng phải
+  # Vi phạm bất kỳ điều nào ⇒ điểm mốc bất thường ⇒ bỏ qua ảnh, ghi lý do vào manifest.
+  kiem_hinh_hoc_diem_moc: true
+
+  # Phép kiểm thứ NĂM — bốn bất biến trên là ĐIỀU KIỆN CẦN nhưng KHÔNG ĐỦ.
+  #
+  # Kiểm 19/08/2026: bộ điểm thẳng hàng theo đường chéo [[0,0],[1,1],[2,2],[3,3],[4,4]]
+  # thoả CẢ BỐN bất biến — mắt trái vẫn bên trái mắt phải, mắt vẫn "trên" mũi, v.v.
+  # Mà đó chính là trường hợp `align.py` cũng không bắt được. Nếu chỉ có bốn bất biến
+  # thì điểm mốc rác vẫn lọt qua cả hai lớp bảo vệ.
+  #
+  # Đại lượng phân tách: khoảng cách vuông góc từ MŨI tới đường nối HAI MẮT,
+  # chia cho khoảng cách giữa hai mắt. Với khuôn mặt thật thì mũi nằm hẳn ra khỏi
+  # đường nối hai mắt; với điểm mốc suy biến thì tỉ số này tiến về 0.
+  #   · mẫu chuẩn ArcFace (khuôn mặt chính diện) : 0,5715
+  #   · điểm mốc thẳng hàng                       : 0,0000
+  #
+  # ⚠️ Ngưỡng 0,15 là mức TẠM, chọn rất rộng (khoảng 1/4 giá trị mặt chính diện) để chỉ
+  # bắt trường hợp gần suy biến, không loại nhầm mặt nghiêng. Đây là phép kiểm TỈNH TÁO,
+  # không phải ngưỡng chất lượng. Khi có dữ liệu thật ở bước 1.10, đo phân bố tỉ số này
+  # trên toàn tập rồi chốt lại theo số đo (R7, R16) — đừng giữ số này chỉ vì nó có sẵn.
+  min_ti_le_lech_mui: 0.15
