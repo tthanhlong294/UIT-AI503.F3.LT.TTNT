@@ -331,6 +331,19 @@ docs/quy-tac-cai-dat.md: G1, G2, G4, G5, ... — <chỉ liệt kê mã liên qua
       Dấu hiệu cảnh báo: assert vào **giá trị tổng hợp** (tâm, trung bình, tổng, diện tích) khi
       khuyết tật là **méo dạng** — phép lấy trung bình triệt tiêu đúng thứ cần đo. Assert từng
       thành phần thay vì đại lượng gộp.
+- [ ] **Khi đặc tả bảo "chọn cái tốt nhất", hỏi ngay: tốt theo tiêu chí nào, và tiêu chí đó có
+      đo đúng thứ ta cần không?**
+      Từ `P1-05`: tôi viết "nhiều khuôn mặt thì lấy mặt có **độ tin cậy cao nhất**" — nghe hiển
+      nhiên, nhưng đo trên mẻ thật thì nó **ghi nhầm người vào dữ liệu ở 5/198 ảnh**. Một mặt hậu
+      cảnh bị mép ảnh cắt cụt thắng mặt chính lớn gấp 2–3 lần, chênh conf chỉ 0,001–0,036.
+      Lý do: **độ tin cậy đo chất lượng PHÁT HIỆN, không đo mức QUAN TRỌNG của đối tượng.**
+      Hai đại lượng khác nhau mà tên gọi khiến ta tưởng là một.
+      Sửa thành "diện tích khung bao lớn nhất" — phân tách 4–9 lần thay vì 0,03.
+      **Cách làm đúng**: viết ra *mục đích* của phép chọn ("lấy người đang đứng trước camera"),
+      rồi hỏi tiêu chí nào đo trực tiếp mục đích đó. Nếu tiêu chí chỉ **tương quan** với mục đích
+      chứ không đo trực tiếp, hãy tìm tiêu chí khác hoặc nêu rõ giới hạn.
+      Dấu hiệu cảnh báo: tiêu chí lấy sẵn từ đầu ra của thư viện (score, conf, rank) mà chưa hỏi
+      nó được định nghĩa để đo cái gì.
 - [ ] **Nghĩ ra phiên bản sai TỰ NHẤT QUÁN, không chỉ phiên bản sai lộ liễu.**
       Từ `P2-02`: phép đột biến "kéo giãn rồi ánh xạ ngược sai" thì dễ bắt, nhưng "kéo giãn hai
       hệ số rồi ánh xạ ngược **khớp** theo từng trục" là một cài đặt sai mà **mọi ca test nội bộ
