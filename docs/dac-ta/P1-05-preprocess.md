@@ -171,9 +171,25 @@ Cột `ly_do` trong manifest chỉ nhận **đúng sáu** giá trị:
 | `do_tin_cay_thap` | `confidence` < `min_confidence` | không |
 | `diem_moc_bat_thuong` | `kiem_hinh_hoc_diem_moc` trả `False` | không |
 
-Khi có **nhiều khuôn mặt**: lấy khuôn mặt có độ tin cậy cao nhất (`detect` đã sắp giảm dần),
-ghi số lượng thật vào cột `n_faces`. Không bỏ qua ảnh chỉ vì có nhiều mặt — ảnh LFW thường có
-người ở hậu cảnh.
+Khi có **nhiều khuôn mặt**: lấy khuôn mặt có **diện tích khung bao lớn nhất**
+(`chieu_rong × chieu_cao`). Bằng nhau thì lấy khuôn mặt có độ tin cậy cao hơn.
+Ghi số lượng thật vào cột `n_faces`. Không bỏ qua ảnh chỉ vì có nhiều mặt.
+
+> ⚠️ **Bản đặc tả đầu ghi "lấy độ tin cậy cao nhất" — SAI, đã sửa 20/08/2026.**
+> Review vòng 1 đo trên mẻ thật: luật đó chọn **nhầm người ở 5/198 ảnh**. Một khuôn mặt hậu cảnh
+> bị mép ảnh cắt cụt thắng khuôn mặt chính **lớn gấp 2–3 lần**, chênh độ tin cậy chỉ
+> **0,001–0,036**. Trong 198 ảnh thành công có **47 ảnh nhiều mặt** — gần một phần tư, nên đây
+> không phải trường hợp hiếm.
+>
+> Nguyên nhân: **độ tin cậy đo chất lượng phát hiện, không đo mức quan trọng của đối tượng.**
+> Một khuôn mặt nhỏ, rõ nét, ở hậu cảnh hoàn toàn có thể đạt độ tin cậy ngang khuôn mặt chính.
+>
+> Diện tích thì phân tách rõ: mặt chính lớn gấp 2–3 lần theo cạnh, tức **4–9 lần theo diện tích**.
+> Luật này cũng đúng với ảnh camera của hệ thống — người đứng trước camera luôn gần nhất, nên
+> khuôn mặt lớn nhất.
+>
+> Hậu quả nếu không sửa: `data/processed/` là đầu vào sinh embedding ở Phase 3. Ghi nhầm mặt
+> người lạ vào thư mục của một danh tính làm hỏng chính con số FAR mà đồ án lấy làm trọng tâm.
 
 **Thứ tự kiểm là đúng thứ tự các dòng trong bảng trên**, từ trên xuống. Ảnh vi phạm nhiều điều
 kiện thì nhận lý do của điều kiện **kiểm trước nhất**. Quy định thứ tự để bảng lý do xác định
@@ -276,7 +292,9 @@ tỉ_lệ       = khoảng_cách / ‖ab‖
 | 19 | Điểm mốc bất thường → `diem_moc_bat_thuong` | Điểm mốc thẳng hàng, khung bao và conf đều đạt |
 | 20 | Đường thành công → `ok`, ảnh ra đúng kích thước | `ra.shape == (112, 112, 3)` và `ly_do == "ok"` |
 | 21 | **Thứ tự lọc đúng**: mặt nhỏ **và** conf thấp → báo `mat_qua_nho` | Dựng cả hai vi phạm; assert lý do là lý do kiểm trước. Bảo đảm bảng lý do xác định, không phụ thuộc thứ tự cài đặt |
-| 22 | Nhiều mặt → lấy mặt tin cậy cao nhất, `n_faces` ghi số thật | Detector giả trả 3 mặt; assert `thong_tin["n_faces"] == 3` và conf khớp mặt đầu |
+| 22 | Nhiều mặt → lấy mặt **diện tích lớn nhất**, `n_faces` ghi số thật | Detector giả trả 3 mặt; assert `thong_tin["n_faces"] == 3` và `bbox_w × bbox_h` khớp mặt **lớn nhất** |
+| 22b | **Diện tích thắng độ tin cậy** — ca chặn lỗi đã xảy ra thật | Detector giả trả 2 mặt: mặt A `40×70` với `conf=0.870`, mặt B `120×160` với `conf=0.850`. Danh sách đã sắp theo conf giảm dần nên A đứng trước. Assert chọn **B**: `thong_tin["bbox_w"] == 120`. ⚠️ Đây đúng tình huống đã ghi nhầm người ở 5/198 ảnh mẻ thật |
+| 22c | Diện tích bằng nhau → lấy mặt tin cậy cao hơn | Hai mặt cùng `100×100`, conf `0.9` và `0.8`; assert chọn mặt `conf=0.9` |
 | 23 | `LoiCauHinh` từ `align` **lan lên trên**, không bị nuốt | `align.can_chinh` giả ném `LoiCauHinh`; `pytest.raises(LoiCauHinh)` — **không** được trả về lý do |
 | 24 | `ValueError` từ `align` **không** làm hỏng cả mẻ | `align.can_chinh` giả ném `ValueError`; assert trả về lý do, không ném |
 
@@ -366,7 +384,8 @@ Lệnh bốn: `print()` chỉ cho bảng tổng kết CLI, giải trình từng 
 | ĐB3b | Bỏ **riêng** điều kiện thứ năm (tỉ lệ lệch mũi), giữ nguyên bốn bất biến | dòng **13**, **13c** |
 | ĐB4 | Ghi đuôi `.jpg` thay vì `.png` | dòng 30 |
 | ĐB5 | Bỏ ghi dòng manifest cho ảnh bị bỏ qua | dòng 26 |
-| ĐB6 | Lấy khuôn mặt **cuối** danh sách thay vì đầu | dòng 22 |
+| ĐB6 | Lấy khuôn mặt **cuối** danh sách thay vì mặt lớn nhất | dòng 22 |
+| **ĐB6b** | Chọn theo **độ tin cậy cao nhất** thay vì diện tích lớn nhất — tức khôi phục đúng luật sai của bản đặc tả đầu | dòng **22b** |
 | **ĐB7** | Thay `kiem_hinh_hoc_diem_moc` bằng một hàm **luôn trả `True` trừ khi điểm mốc trùng nhau hoàn toàn** — tức một bộ lọc *có vẻ hợp lý* nhưng để lọt đúng trường hợp `align.py` cũng không bắt được | dòng **13** |
 
 **ĐB1 là phép quan trọng nhất.** Nếu dòng 37 không đỏ thì ca test đó chưa kiểm đúng: nó phải
