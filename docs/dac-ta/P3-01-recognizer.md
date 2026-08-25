@@ -244,7 +244,7 @@ nhắc chạy `scripts/preprocess.py` trước.
 | # | Yêu cầu | Assert tối thiểu |
 |---|---|---|
 | 29 | Vectơ đăng ký đã chuẩn hoá L2 | `abs(norm(v) - 1.0) < 1e-5` |
-| 30 | **Chuẩn hoá TỪNG vectơ trước khi trung bình** | Dựng hai vectơ giả cùng hướng nhưng độ dài 1 và 100; kết quả phải nằm đúng giữa theo góc, không bị vectơ dài kéo lệch |
+| 30 | **Chuẩn hoá TỪNG vectơ trước khi trung bình** | Dựng hai vectơ giả **khác hướng** (ví dụ trục x và trục y) với độ dài 1 và 100; kết quả phải nằm đúng giữa theo góc, không bị vectơ dài kéo lệch. Hai vectơ **cùng hướng** không dùng được: khi đó không có "đúng giữa theo góc", nên ca kiểm sẽ xanh cả khi mã nguồn trung bình thô rồi mới chuẩn hoá |
 | 31 | Danh sách rỗng → `ValueError` | `pytest.raises(ValueError)` |
 | 32 | Ít hơn `min_images_per_user` → `ValueError` nêu cả hai số | Thông báo chứa số có và số cần |
 | 33 | Đủ số ảnh → thành công | Cặp đối chứng của dòng 32 |
