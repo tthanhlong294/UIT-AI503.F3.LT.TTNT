@@ -331,6 +331,25 @@ docs/quy-tac-cai-dat.md: G1, G2, G4, G5, ... — <chỉ liệt kê mã liên qua
       Dấu hiệu cảnh báo: assert vào **giá trị tổng hợp** (tâm, trung bình, tổng, diện tích) khi
       khuyết tật là **méo dạng** — phép lấy trung bình triệt tiêu đúng thứ cần đo. Assert từng
       thành phần thay vì đại lượng gộp.
+- [ ] **Tham số cấu hình dạng SỐ: danh sách biến thể hỏng phải có `inf`, `-inf`, `nan`.**
+      Liệt kê `0`, số âm, chuỗi, `None` là chưa đủ — ba giá trị không hữu hạn kia lọt qua mọi phép
+      kiểm kiểu và mọi phép so sánh miền thông thường.
+      Từ `P3-01`: đặc tả liệt kê đích danh `scale: 0`, `scale: -1`, `mean: "abc"` và người cài đặt
+      chặn đủ **17/17**. Nhưng `scale: inf` **được chấp nhận âm thầm**, và hậu quả là
+      **sáu người khác nhau cho độ tương đồng đúng 1,0000**, vectơ vẫn có độ dài 1,0 nên qua được
+      mọi phép kiểm chuẩn hoá L2, `identify` vẫn trả đúng người với điểm 1,0 — hệ thống trông
+      hoàn hảo trong khi **FAR = 100 %**.
+      `nan` còn hiểm hơn: chốt `độ_dài == 0` **không bắt được NaN**, vì `norm(nan_vector)` trả `nan`
+      và `nan == 0` là `False`. Vectơ NaN chạy xuyên qua hàm đăng ký rồi khiến hàm so khớp trả
+      `-inf`, trái hợp đồng đã ghi trong chính đặc tả.
+      **Cách viết đúng**: với mỗi tham số số, yêu cầu kiểm `math.isfinite()` chứ không chỉ kiểm kiểu
+      và khoảng. Thêm một dòng tiêu chí riêng liệt kê đích danh sáu biến thể
+      (`inf`/`-inf`/`nan` × mỗi tham số), và một phép đột biến bỏ chốt hữu hạn.
+- [ ] **Chốt đối chiếu cấu hình với mô hình phải áp cho MỌI tham số mô tả mô hình, không chỉ một.**
+      Từ `P3-01`: đặc tả đòi so `embedding_dim` với số chiều thật đọc từ đồ thị ONNX, nhưng quên
+      `input_size`. Bất đối xứng đó khiến `input_size: [64, 64]` làm ngoại lệ của runtime rò thẳng
+      ra ngoài thay vì báo lỗi cấu hình. Rà lại: tham số nào **mô tả** mô hình thì tham số đó phải
+      **đối chiếu được** với mô hình.
 - [ ] **Khi đặc tả bảo "chọn cái tốt nhất", hỏi ngay: tốt theo tiêu chí nào, và tiêu chí đó có
       đo đúng thứ ta cần không?**
       Từ `P1-05`: tôi viết "nhiều khuôn mặt thì lấy mặt có **độ tin cậy cao nhất**" — nghe hiển

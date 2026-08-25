@@ -193,6 +193,9 @@ Mỗi dòng là một ca test tên `test_dong<nn>` trong `tests/test_recognizer.
 | 05 | `embedding_dim` cấu hình lệch số chiều thật → `LoiCauHinh` | Đặt `embedding_dim: 128`; thông báo phải nêu **cả hai** số |
 | 06 | Thiếu key bắt buộc → `LoiCauHinh` | Duyệt **đích danh năm key**: `model_path`, `embedding_dim`, `input_size`, `channel_order`, `mean`, `scale` |
 | 07 | Giá trị ngoài miền → `LoiCauHinh` | Duyệt đích danh: `channel_order: "xyz"`, `scale: 0`, `scale: -1`, `mean: "abc"`, `input_size: [112]` |
+| 07b | **Giá trị không hữu hạn → `LoiCauHinh`** | Duyệt đích danh **sáu** biến thể: `scale: inf`, `scale: -inf`, `scale: nan`, `mean: inf`, `mean: -inf`, `mean: nan`. ⚠️ Bổ sung 23/08/2026 sau review: `scale: inf` được chấp nhận âm thầm khiến **sáu người khác nhau cho độ tương đồng đúng 1,0000**, vectơ vẫn có độ dài 1,0, `identify` vẫn trả đúng người điểm 1,0 — hệ thống trông hoàn hảo trong khi FAR = 100 % |
+| 07c | **`input_size` phải khớp đồ thị ONNX** | Đặt `input_size: [64, 64]` ⇒ `LoiCauHinh` nêu **cả hai** kích thước. Hiện `embedding_dim` có chốt này (dòng 05) còn `input_size` thì không — bất đối xứng, khiến `onnxruntime.InvalidArgument` rò ra ngoài |
+| 07d | **Embedding chứa NaN → `ValueError`** | Nếu vectơ đặc trưng có phần tử không hữu hạn, `trich_dac_trung` phải ném lỗi. Chốt `độ_dài == 0` **không** bắt được NaN: `norm(nan_vector)` trả `nan`, và `nan == 0` là `False`, nên vectơ NaN chạy xuyên `enroll` rồi khiến `identify` trả `(None, -inf)`, trái hợp đồng ở §5 |
 | 08 | **Mọi lỗi cấu hình là `LoiCauHinh`** | Bộ cấu hình hỏng phủ đủ sáu key, mỗi key ≥ 2 biến thể; không ca nào ném `ValueError`/`TypeError` |
 
 ### 6.2. `chuan_bi_dau_vao` — kiểm trực tiếp chuẩn hoá
@@ -305,6 +308,8 @@ duy nhất là hằng số có tên cho số chiều tensor NCHW; giải trình 
 | ĐB5 | Viết cứng `mean=127.5`, `scale=128` thay vì đọc cấu hình | dòng 13 |
 | ĐB6 | `identify` trả người đầu tiên vượt ngưỡng thay vì người điểm cao nhất | dòng 38 |
 | ĐB7 | Bỏ so `embedding_dim` với số chiều thật | dòng 05 |
+| **ĐB8** | Bỏ kiểm giá trị hữu hạn của `mean`/`scale` | dòng **07b** |
+| **ĐB9** | Bỏ kiểm NaN trong vectơ đặc trưng | dòng **07d** |
 
 **ĐB2 là phép quan trọng nhất.** Nó mô phỏng đúng lỗi đã đo được ở §4.2 — lỗi khiến mọi khuôn mặt
 giống nhau 0,87–0,91 mà không báo gì. Nếu dòng 27 không đỏ thì ca test đó chưa đủ chặt.
