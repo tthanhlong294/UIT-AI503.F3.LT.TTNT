@@ -644,18 +644,27 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
 
 ## 8. Ghi chú vận hành
 
-- **Vị trí hiện tại (17/08/2026 — Tuần 5)**: Phase 0 đã đóng (tag `phase-0-done`, 5/6 bước; bước 0.4
-  hoãn vì chưa có phần cứng, ghi ở `docs/dieu-chinh-pham-vi.md`). **Đang ở Phase 1 — Dữ liệu khuôn mặt.**
-  Bốn mã việc đã qua đủ 5 nhịp và gộp vào `dev`:
-  `P1-01` (kiểm dữ liệu) · `P1-02` (`collect_faces.py`, bước 1.2) · `P1-03` (tải LFW, bước 1.5) ·
-  `P1-04` (`align.py`, phần căn chỉnh của bước 1.9). Tổng 155 test xanh trên host và ARM64.
-  **Việc tiếp theo**: `P1-05` — `scripts/preprocess.py`, ghép detect + `align.py` thành một mẻ xử lý.
-  Chín bước còn lại của Phase 1 (1.3, 1.6, 1.7, 1.8, 1.10–1.13) **chặn vì chưa có camera**.
+- **Vị trí hiện tại (25/08/2026 — Tuần 6)**: Phase 0 đã đóng (tag `phase-0-done`, 5/6 bước; bước 0.4
+  hoãn vì chưa có phần cứng, ghi ở `docs/dieu-chinh-pham-vi.md`).
+  **Phase 1, 2 và 3 đang mở song song** — mọi thứ chặn đều chặn ở cùng một chỗ là phần cứng, nên
+  không thể chờ cổng D theo đúng §5.0. Lý do đã ghi ở `docs/dieu-chinh-pham-vi.md`.
+  Chín mã việc đã qua đủ 5 nhịp và gộp vào `dev`:
+  `P1-01` (`src/capture/`, khối thu hình) · `P1-02` (`collect_faces.py`, bước 1.2) ·
+  `P1-03` (tải LFW, bước 1.5) · `P1-04` (`align.py`) · `P1-05` (`preprocess.py`, bước 1.9) ·
+  `P2-01` (export ONNX, bước 2.2) · `P2-02` (`src/detector/`, bước 2.3) ·
+  `P2-03` (`benchmark_detect.py`, bước 2.6) · `P3-01` (`src/recognizer/`, bước 3.1 và 3.3).
+  Tổng **379 test xanh** trên host, và 28 xanh / 10 skip trong container ARM64.
+  **Việc tiếp theo**: `P3-01b` — vá ba lỗ hổng cấu hình mà biên bản `P3-01` ghi ở mục G5–G7
+  (chặn `inf`/`nan` cho `mean`/`scale`, đối chiếu `input_size` với đồ thị ONNX). Sau đó `P3-02`
+  backend dlib và `P3-03` `scripts/enroll.py` — cả hai chạy được trên LFW, không cần camera.
 - ⚠️ **Rủi ro tiến độ lớn nhất: chưa có Raspberry Pi 5 và camera.** Camera — không phải bo mạch — mới
   là thứ định nghĩa miền dữ liệu, nên nó chặn cả Phase 1, 3 và 4. Bốn trên sáu chỉ tiêu cam kết ở §1
-  không đo được nếu thiếu.
-- Báo cáo: Chương 1 §1.1–1.3 xong · Chương 2 khung + §2.5 xong · Chương 3 §3.2 xong · Chương 5 khung.
-  Nhật ký tuần 1–4 đã ghi (tuần 4 còn thiếu phần cuối tuần). Trọng số mô hình đã tải đủ,
-  `models/README.md` bảng A đầy đủ.
+  không đo được nếu thiếu. Vướng mắc này đã sang tuần thứ ba. **Cổng C của Phase 2 vẫn mở**: số đo
+  duy nhất đang có (`results/bench_detect_20260819_1453.csv`) là của máy phát triển x86-64, không
+  dùng để kết luận chỉ tiêu ≥ 10 FPS được.
+- Báo cáo: Chương 1 §1.1–1.3 xong · Chương 2 xong 6/7 mục (§2.7 chặn vì chưa có thiết bị) ·
+  Chương 3 §3.2 và §3.3 xong · Chương 5 khung. Chương 4 chưa mở — chưa có số liệu thật.
+  Nhật ký tuần 1–6 đã ghi đủ. Trọng số mô hình đã tải đủ, `models/README.md` bảng A đầy đủ,
+  §3.3 đã chốt cách chuẩn hoá của mô hình nhận diện bằng thực nghiệm.
 - Cập nhật mục này mỗi khi qua Phase mới.
 - Nhật ký tuần lưu ở `docs/nhat-ky/tuan-XX.md`, viết vào **cuối mỗi tuần**, không dồn.
