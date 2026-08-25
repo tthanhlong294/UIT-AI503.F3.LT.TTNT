@@ -139,6 +139,53 @@ sinh số liệu nào.
 - Gộp nhánh `P3-01` vào `dev` và đẩy lên máy chủ — trước đó 7 commit chỉ nằm trên một ổ đĩa
 - Sửa nốt chỗ đặc tả `P3-01` mà biên bản review đã chỉ ra
 
+### 9. Đổi quy trình làm việc: 5 nhịp thành 6 nhịp (25/08)
+
+Chuyển quyền chạy lệnh về hoàn toàn cho sinh viên. Không tác tử nào còn được chạy bộ kiểm thử, công
+cụ định dạng mã, notebook hay Docker. Thay vào đó, tác tử viết một tệp kịch bản vào thư mục
+`docs/kiem-may/`; sinh viên chạy đúng một lệnh rồi dán toàn bộ kết quả về cho tác tử đọc.
+
+Ba lý do, ghi đầy đủ trong `docs/dieu-chinh-pham-vi.md`:
+
+1. Tác tử tự báo kết quả thì sinh viên không nhìn thấy đầu ra thật. Mọi con số vào báo cáo phải đi
+   qua mắt người ít nhất một lần.
+2. Mỗi lượt review cũ dựng một image Docker riêng — xem mục 10 dưới đây.
+3. Tác tử vừa viết mã vừa chấm mã thì không còn ai đứng ngoài.
+
+Đánh đổi: mỗi vòng review sinh viên phải chạy một lệnh và dán kết quả. Bù lại bằng cách gói toàn bộ
+phép kiểm — kể cả các phép đột biến — vào **một** kịch bản duy nhất.
+
+Rủi ro mới phải canh: tác tử không chạy được thì rất dễ viết biên bản như thể đã chạy. Đã thêm phán
+quyết **⏳ CHƯA KẾT LUẬN** và buộc ghi `[CHƯA CHẠY]` vào mọi ô chưa có bằng chứng.
+
+### 10. Dọn Docker: từ tám image về một (25/08)
+
+Kiểm kê phát hiện **tám image**, mỗi mã việc một cái và mỗi vòng review lại thêm một cái
+(`p1-05` có hai, `p2-03` có hai). Nghiêm trọng hơn: **không cái nào mang tên `faceid:arm64`** — tức
+là image chuẩn mà toàn bộ tiêu chí nghiệm thu trong `docs/dac-ta/` tham chiếu tới đã không còn tồn
+tại. Chạy nguyên văn các lệnh nghiệm thu của `P0-03` sẽ báo không tìm thấy image.
+
+Đã dựng lại một image chuẩn duy nhất và xoá tám image cũ.
+
+| Kiểm | Kết quả |
+|---|---|
+| Kiến trúc | **`aarch64`** — Dockerfile vẫn tự khai báo nền tảng đúng, dựng không cần truyền cờ |
+| Python | 3.11.16 |
+| OpenCV / ONNX Runtime | 4.13.0 / 1.20.1 — khớp bản đã ghim trong `requirements.txt` |
+| Số image sau khi dọn | **1** (`faceid:arm64`, 1,049 GB) |
+| Bộ nhớ đệm build | 11 mục, 1,05 GB |
+
+Nguồn: `docker system df` và `docker run --rm faceid:arm64 python -c ...` chạy ngày 25/08/2026.
+
+> Không ghi con số dung lượng đã giải phóng, vì chưa đo `docker system df` **trước** khi dọn. Tám
+> image cũ dựng từ cùng một Dockerfile nên dùng chung phần lớn lớp — lấy 8 × 1,05 GB làm số tiết
+> kiệm là sai.
+
+Ghi nhận về tái lập: nhật ký tuần 4 ghi Python **3.11.15** trong container, còn lượt kiểm định
+`P3-01` tuần này và bản dựng hôm nay đều cho **3.11.16**. Ảnh nền đã dịch một bản vá ở khoảng giữa.
+Chênh lệch ở mức bản vá nên không ảnh hưởng các kết quả đã đo, nhưng nghĩa là image hiện tại **không
+giống hệt** image dùng cho những mã việc đầu — cần nhắc lại nếu về sau có số đo nào lệch bất thường.
+
 ## Số liệu
 
 | Hạng mục | Giá trị | Nguồn |
@@ -162,7 +209,8 @@ sinh số liệu nào.
 
 ## Kế hoạch tuần sau
 
-- Vá ba lỗ hổng cấu hình của khối nhận diện thành một mã việc nhỏ
+- Chạy `P3-01b` theo quy trình 6 nhịp mới — vừa vá ba lỗ hổng cấu hình vừa thử cơ chế mới trên một
+  mã việc nhỏ. Đặc tả đã viết xong ngày 25/08
 - Viết phương án nhận diện thứ hai và script đăng ký, quét ngưỡng, dựng đường cong ROC — phần lớn
   việc này chạy được trên LFW, không cần camera
 - Làm trước phần không phụ thuộc phần cứng của khối chấp hành và khối giám sát
@@ -170,5 +218,6 @@ sinh số liệu nào.
 
 ---
 
-*Nguồn: lịch sử git từ `6ff0111` đến `ff27b6b`; biên bản trong `docs/review/` của các mã việc
-`P2-02`, `P2-03`, `P1-05`, `P3-01`; `results/bench_detect_20260819_1453.csv` và tệp mô tả đi kèm.*
+*Nguồn: lịch sử git từ `6ff0111` đến `456df8c`; biên bản trong `docs/review/` của các mã việc
+`P2-02`, `P2-03`, `P1-05`, `P3-01`; `results/bench_detect_20260819_1453.csv` và tệp mô tả đi kèm;
+`docker system df` chạy ngày 25/08/2026.*
