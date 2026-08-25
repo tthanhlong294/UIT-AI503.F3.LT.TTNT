@@ -19,6 +19,9 @@
 6. Cần làm gì → tra bảng **§6 Bản đồ nhanh** để biết dùng agent/skill/prompt nào.
 7. **Một tác tử chuyên trách viết code, Claude thiết kế – kiểm định – viết báo cáo.** Bàn giao qua file, không qua
    hội thoại: đặc tả → code → biên bản review → commit (xem §2.9).
+8. ⭐ **Không agent nào được chạy mã, notebook hay Docker** (R42). Cần số liệu → viết kịch bản vào
+   `docs/kiem-may/`, dừng lại, chờ người dùng chạy và dán kết quả về.
+9. ⭐ **Đúng một image Docker cho cả dự án: `faceid:arm64`** (R43, §3.1).
 
 ---
 
@@ -170,10 +173,11 @@ bị chấp nhận sai thì cận trên khoảng tin cậy 95 % của FAR vẫn 
   ghi rõ phần nào cần Pi 5 thật, rồi báo cáo.
 - **R37.** Không tự ý gọi subagent hoặc workflow trừ khi người dùng yêu cầu.
 
-### 2.9. Phân vai người cài đặt ↔ người kiểm định — quy trình 5 nhịp
+### 2.9. Phân vai người cài đặt ↔ người kiểm định — quy trình 6 nhịp
 
-**Người cài đặt viết code. Claude thiết kế, kiểm định và viết báo cáo.**
-Hai vai **không chia sẻ ngữ cảnh làm việc**, nên mọi bàn giao đi qua **file trong repo**.
+**Người cài đặt viết code. Claude thiết kế, kiểm định và viết báo cáo.
+Người dùng — và chỉ người dùng — chạy mọi thứ.**
+Ba vai **không chia sẻ ngữ cảnh làm việc**, nên mọi bàn giao đi qua **file trong repo**.
 
 - **R38.** Claude **không viết code sản phẩm** vào `src/`, `tests/`, `scripts/`.
   Claude viết **đặc tả** (`docs/dac-ta/`) và **biên bản review** (`docs/review/`).
@@ -183,42 +187,76 @@ Hai vai **không chia sẻ ngữ cảnh làm việc**, nên mọi bàn giao đi 
 - **R40.** Code **chưa có biên bản review phán quyết ĐẠT** thì không được commit vào `dev`/`main`.
 - **R41.** Người review **không được tự sửa code** — nếu sửa thì không còn ai review bản sửa đó.
   Agent `code-reviewer` cố ý **không có tool `Edit`**.
+- **R42.** ⭐ **Không agent nào được chạy mã của đồ án.** Cấm chạy: `pytest`, `black`, `ruff`,
+  `python scripts/*.py`, `python src/*.py`, notebook, và **mọi lệnh `docker`**.
+  Agent cần số liệu thì **viết một kịch bản kiểm** vào `docs/kiem-may/` rồi **dừng lại chờ**.
+  Người dùng chạy và dán kết quả về. Agent chỉ **đọc** kết quả đó.
+  *Vẫn được phép*: `git` chỉ-đọc (`log`, `status`, `diff`, `show`) và các tool đọc file.
+- **R43.** ⭐ **Toàn dự án dùng đúng MỘT image Docker: `faceid:arm64`.**
+  Cấm cờ `-t` với tên khác, cấm image tạm cho một mã việc, cấm để `docker compose` tự đặt tên.
+  Chỉ dựng lại image khi `requirements.txt` hoặc `deploy/Dockerfile.arm64` đổi — mã nguồn được gắn
+  vào container bằng `-v` nên sửa code **không** cần dựng lại.
 
 ```
 N1 ĐẶC TẢ (Claude/spec-writer) ──▶ docs/dac-ta/P<n>-<nn>-<slug>.md
         ▼
-N2 SINH MÃ (agent coder, nhánh feat/<mã> riêng, cây làm việc phải sạch, không commit)
+N2 SINH MÃ (agent coder, nhánh feat/<mã> riêng, không commit, KHÔNG CHẠY GÌ)
+   └─▶ đồng thời viết docs/kiem-may/<mã>.coder.ps1 rồi DỪNG
         ▼
-N3 REVIEW (Claude/code-reviewer) ──▶ docs/review/<mã>.review.md
-        ├── 🔴 TRẢ LẠI ──▶ N4 coder sửa ──▶ quay lại N3   (trần 2 vòng)
+N3 NGƯỜI DÙNG CHẠY ──▶ dán khối kết quả về ──▶ coder đọc, sửa nếu đỏ ──▶ lặp lại N3
         ▼
-N5 ✅ ĐẠT ──▶ commit + gộp nhánh ──▶ Cổng C (đo) ──▶ Cổng D (báo cáo)
+N4 REVIEW (Claude/code-reviewer) ──▶ viết docs/kiem-may/<mã>.review.ps1 rồi DỪNG
+   └─▶ người dùng chạy, dán kết quả ──▶ biên bản docs/review/<mã>.review.md
+        ├── 🔴 TRẢ LẠI ──▶ N5 coder sửa ──▶ quay lại N3   (trần 2 vòng)
+        ▼
+N6 ✅ ĐẠT ──▶ commit + gộp nhánh ──▶ Cổng C (đo) ──▶ Cổng D (báo cáo)
 ```
 
 **Ranh giới ghi file — kiểm được bằng `git diff --name-only`:**
 
 | Vai | Được ghi vào |
 |---|---|
-| Claude · `coder` | `src/`, `tests/`, `scripts/` |
+| Claude · `coder` | `src/`, `tests/`, `scripts/`, `docs/kiem-may/*.coder.ps1` |
 | Claude · `spec-writer` | `docs/dac-ta/`, `configs/` |
-| Claude · `code-reviewer` | `docs/review/` — **chỉ đọc** code |
-| Claude · `training` | `results/`, `notebooks/` |
+| Claude · `code-reviewer` | `docs/review/`, `docs/kiem-may/*.review.ps1` — **chỉ đọc** code |
+| Claude · `training` | `results/`, `notebooks/`, `docs/kiem-may/*.do.ps1` |
 | Claude · `paper-writer` | `report/`, `docs/nhat-ky/` |
 | Claude · phiên chính | `.claude/**` — khung quy trình: định nghĩa agent, prompt, instruction |
+| **Người dùng** | **là người duy nhất chạy lệnh**, và là người duy nhất `git commit`/`push` |
 
 `configs/*.yaml` do Claude giữ vì mọi ngưỡng phải chốt từ `results/` (R7, R16) — không để AI tự chọn.
+
+**Vì sao chuyển sang mô hình này.** Agent tự chạy lệnh có ba chỗ hỏng: nó báo kết quả mà người dùng
+không nhìn thấy đầu ra thật; nó dễ dựng image Docker rác mỗi lượt; và khi nó vừa viết mã vừa chấm mã
+thì không còn ai đứng ngoài. Người dùng cầm quyền chạy thì mọi con số vào báo cáo đều đi qua mắt
+người thật ít nhất một lần — đúng tinh thần R5 và R6.
+
+**Kịch bản kiểm — quy ước bắt buộc** (chi tiết ở `docs/kiem-may/README.md`):
+
+| | Ai viết | Tên tệp | Người dùng chạy |
+|---|---|---|---|
+| Tự kiểm của người cài đặt | `coder` | `docs/kiem-may/<mã>.coder.ps1` | sau N2 và sau mỗi lần sửa |
+| Kiểm định độc lập | `code-reviewer` | `docs/kiem-may/<mã>.review.ps1` | sau N4 |
+| Đo hiệu năng | `training` | `docs/kiem-may/<mã>.do.ps1` | trên máy đo |
+
+Mỗi kịch bản phải: chạy được bằng **một lệnh duy nhất**, in đầu ra có **mốc phân đoạn rõ ràng**
+để dán về không lẫn, **tự khôi phục** mọi thứ nó sửa (kiểm đột biến) và **đối chiếu `sha256`** sau khi
+khôi phục, và **không bao giờ** `git commit` hay dựng image mới.
 
 **Đo và vẽ là hai việc tách rời — không được trộn:**
 
 | | Ai chạy | Ở đâu | Ghi ra |
 |---|---|---|---|
-| **Đo** — `scripts/benchmark_*.py` | máy đo (Pi 5 thật) | dòng lệnh, không giao diện | `results/*.csv` + `.meta.json` |
-| **Vẽ cho báo cáo** — `scripts/plot_*.py` | máy phát triển | dòng lệnh | `report/figures/*.pdf` |
-| **Khám phá** — `notebooks/*.ipynb` | máy phát triển | Jupyter | biểu đồ xem tại chỗ |
+| **Đo** — `scripts/benchmark_*.py` | **người dùng**, trên máy đo (Pi 5 thật) | dòng lệnh, không giao diện | `results/*.csv` + `.meta.json` |
+| **Vẽ cho báo cáo** — `scripts/plot_*.py` | **người dùng**, máy phát triển | dòng lệnh | `report/figures/*.pdf` |
+| **Khám phá** — `notebooks/*.ipynb` | **người dùng**, máy phát triển | Jupyter | biểu đồ xem tại chỗ |
 
 Cả ba **chỉ đọc** `results/`, không tự sinh số. **Tuyệt đối không đo hiệu năng trong notebook**:
 Pi 5 chạy không màn hình, Jupyter thêm chi phí làm sai lệch phép đo, và thứ tự chạy ô lộn xộn
 khiến kết quả không tái lập được. Notebook để *hiểu* số liệu, script để *tạo* ra chúng.
+
+Notebook do Claude **viết** nhưng người dùng **chạy**. Claude đọc lại tệp `.ipynb` đã có đầu ra để
+phân tích — không tự thi hành ô nào.
 
 `.claude/**` là **khung quy trình**, không phải sản phẩm của mã việc nào. Sửa nó **nên đi commit riêng**
 với loại `chore(quy-trinh)`, không trộn vào commit của một mã việc — để sau này truy được bài học nào
@@ -227,7 +265,7 @@ sinh ra từ mã việc nào.
 **Mã việc** `P<Phase>-<nn>-<slug>` xuất hiện nguyên vẹn ở 5 chỗ, tạo chuỗi truy vết:
 đặc tả → tên nhánh → biên bản review → commit message → nhật ký tuần.
 
-Ánh xạ vào 4 cổng: **Cổng A** = N1 · **Cổng B** = N2–N5 · **Cổng C** = `training` đo · **Cổng D** = `paper-writer`.
+Ánh xạ vào 4 cổng: **Cổng A** = N1 · **Cổng B** = N2–N6 · **Cổng C** = `training` đo · **Cổng D** = `paper-writer`.
 
 ---
 
@@ -274,6 +312,8 @@ UIT-AI503.F3.LT.TTNT/
 │   ├── dac-ta/                      # Đặc tả từng mã việc — spec-writer viết, coder thực thi (§2.9)
 │   │   └── P0-01-nen-tang.md
 │   ├── review/                      # Biên bản review mã nguồn — Claude viết (§2.9)
+│   ├── kiem-may/                    # Kịch bản kiểm — agent viết, NGƯỜI DÙNG chạy (§2.9, R42)
+│   │   └── README.md                #   Quy ước viết kịch bản + mẫu
 │   └── nhat-ky/                     # Nhật ký tuần (tuan-01.md, tuan-02.md, ...)
 │
 ├── configs/                         # TẤT CẢ tham số ở đây (R16)
@@ -322,13 +362,33 @@ UIT-AI503.F3.LT.TTNT/
 │   ├── figures/                     # Hình sinh từ results/ (KHÔNG vẽ tay số liệu)
 │   └── refs.bib
 │
-├── deploy/
+├── deploy/                          # Đúng MỘT image cho cả dự án: faceid:arm64 (R43)
 │   ├── Dockerfile.arm64
 │   ├── docker-compose.yml
 │   └── systemd/faceid.service
 │
 └── hardware/                        # Sơ đồ đấu nối, ảnh mạch, bảng chân GPIO
 ```
+
+### 3.1. Docker — một image duy nhất (R43)
+
+| | |
+|---|---|
+| Tên image | **`faceid:arm64`** — không có tên nào khác trong toàn dự án |
+| Dựng lại khi nào | **Chỉ khi** `requirements.txt` hoặc `deploy/Dockerfile.arm64` đổi |
+| Sửa code có phải dựng lại không | **Không.** Mã nguồn gắn vào container bằng `-v`, sửa xong chạy luôn |
+
+```bash
+docker build -f deploy/Dockerfile.arm64 -t faceid:arm64 .
+```
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd)":/app -w /app faceid:arm64 pytest -q
+```
+
+Cấm: đặt tag khác (`faceid:nofl`, `faceid-arm64-review:...`), để `docker compose` tự sinh tên,
+giữ image tạm sau khi dùng xong. Mỗi image ARM64 nặng khoảng 250 MB — vài lượt là đầy đĩa, và
+tệ hơn là **không còn biết số đo lấy từ image nào**, khiến kết quả mất tính tái lập (R17).
 
 ---
 
@@ -339,9 +399,9 @@ UIT-AI503.F3.LT.TTNT/
 | File | Gọi khi nào | Nhiệm vụ |
 |---|---|---|
 | `onboarding-with-skills.md` | **Đầu mỗi phiên làm việc mới**, hoặc khi mất ngữ cảnh | Quét repo, xác định đang ở Phase nào, tổng hợp việc đã/đang/sắp làm, chỉ ra skill/prompt cần dùng tiếp |
-| `coder.agent.md` | **Nhịp 2 và 4** — cài đặt theo đặc tả | Viết code vào `src/`, `tests/`, `scripts/` theo danh sách trắng; chạy `black`/`ruff`/`pytest`; **không commit** |
+| `coder.agent.md` | **Nhịp 2 và 5** — cài đặt theo đặc tả | Viết code vào `src/`, `tests/`, `scripts/` theo danh sách trắng; viết kịch bản tự kiểm; **không chạy, không commit** |
 | `spec-writer.agent.md` | **Nhịp 1** (Cổng A) — trước mọi hạng mục code | Chuyển một bước trong §5 thành đặc tả có chữ ký hàm, danh sách trắng file, ánh xạ tham số → `configs/`, tiêu chí nghiệm thu chạy được |
-| `code-reviewer.agent.md` | **Nhịp 3 và 5** — sau khi `coder` báo xong | Chạy `black`/`ruff`/`pytest` + quét mẫu vi phạm, đối chiếu đặc tả, phân loại lỗi 4 mức, ra phán quyết, ghi `docs/review/` |
+| `code-reviewer.agent.md` | **Nhịp 4** — sau khi người dùng dán kết quả tự kiểm | Viết kịch bản kiểm định độc lập, chờ kết quả, đối chiếu đặc tả, phân loại lỗi 4 mức, ra phán quyết, ghi `docs/review/` |
 | `training.agent.md` | Cổng C của Phase 2, 3, 4, 7 | **Thiết kế giao thức đo**, chạy benchmark, phân tích số liệu, chốt ngưỡng từ ROC, ghi kết quả đúng chuẩn `results/`. *Không tự viết script — viết đặc tả cho `coder`* |
 | `paper-writer.agent.md` | Cổng D mỗi Phase & Phase 8 | Viết/cập nhật chương báo cáo từ dữ liệu thật trong `results/`, đúng văn phong học thuật, không bịa số |
 
@@ -365,7 +425,7 @@ UIT-AI503.F3.LT.TTNT/
 |---|---|
 | `data-pipeline.prompt.md` | Phase 1 — thu thập, chuẩn hoá, crop/align, kiểm chất lượng, tách train/test, đăng ký embedding |
 | `eda.prompt.md` | Phase 1 & 6 — phân tích thống kê CSDL khuôn mặt và phân tích kết quả benchmark |
-| `coder-handoff.prompt.md` | Mọi Phase — lệnh bàn giao Nhịp 2/Nhịp 4 cho `coder`, quy ước nhánh `feat/`, xử lý sự cố (§2.9) |
+| `coder-handoff.prompt.md` | Mọi Phase — lệnh bàn giao Nhịp 2/Nhịp 5 cho `coder`, quy ước nhánh `feat/`, cách dán kết quả chạy, xử lý sự cố (§2.9) |
 
 ### 4.4. Instructions — `.claude/instructions/`
 
@@ -648,7 +708,7 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
   hoãn vì chưa có phần cứng, ghi ở `docs/dieu-chinh-pham-vi.md`).
   **Phase 1, 2 và 3 đang mở song song** — mọi thứ chặn đều chặn ở cùng một chỗ là phần cứng, nên
   không thể chờ cổng D theo đúng §5.0. Lý do đã ghi ở `docs/dieu-chinh-pham-vi.md`.
-  Chín mã việc đã qua đủ 5 nhịp và gộp vào `dev`:
+  Chín mã việc đã qua đủ các nhịp và gộp vào `dev` (làm theo quy trình 5 nhịp cũ):
   `P1-01` (`src/capture/`, khối thu hình) · `P1-02` (`collect_faces.py`, bước 1.2) ·
   `P1-03` (tải LFW, bước 1.5) · `P1-04` (`align.py`) · `P1-05` (`preprocess.py`, bước 1.9) ·
   `P2-01` (export ONNX, bước 2.2) · `P2-02` (`src/detector/`, bước 2.3) ·

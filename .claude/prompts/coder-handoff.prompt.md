@@ -1,6 +1,9 @@
 # Prompt: Bàn giao công việc cho người cài đặt
 
-Dùng ở **Nhịp 2** (sinh mã) và **Nhịp 4** (sửa theo review) của quy trình 5 nhịp — xem `CLAUDE.md` §2.9.
+Dùng ở **Nhịp 2** (sinh mã) và **Nhịp 5** (sửa theo review) của quy trình 6 nhịp — xem `CLAUDE.md` §2.9.
+
+⚠️ **Người cài đặt không chạy gì** (R42). Nó viết mã **và** viết một kịch bản kiểm, rồi dừng.
+Bạn — người dùng — chạy kịch bản đó và dán kết quả về. Đó là **Nhịp 3**, nằm giữa hai nhịp dưới đây.
 
 Người cài đặt là agent **`coder`** (`.claude/agents/coder.agent.md`). Hiến pháp của nó là
 `docs/quy-tac-cai-dat.md` — tài liệu trung lập, không gắn với một công cụ cụ thể.
@@ -42,20 +45,34 @@ Gọi agent `coder` với nội dung sau, thay `<MÃ>` bằng mã việc thật:
 > Chỉ được tạo/sửa các file trong DANH SÁCH TRẮNG §2. Giữ nguyên chữ ký hàm ở §3 — không đổi tên,
 > không đổi kiểu trả về. Thư viện chỉ được dùng những gì §7 cho phép; thiếu → **dừng và báo**.
 > Mỗi dòng trong bảng §5 phải có ít nhất một ca test **có assert thật**, và ca test phải **thực sự đi
-> qua** đoạn mã cần kiểm — tự chạy phép thử đột biến cho các guard quan trọng.
-> Chạy `black`, `ruff`, `pytest` trên host **và** trong container ARM64 cho tới khi tất cả sạch/xanh.
-> **TUYỆT ĐỐI KHÔNG `git commit`.** Kết thúc bằng báo cáo theo mẫu §12 của quy tắc cài đặt.
+> qua** đoạn mã cần kiểm.
+> Bạn **không được chạy bất cứ lệnh nào**. Thay vào đó, viết `docs/kiem-may/<MÃ>.coder.ps1` theo khung
+> ở `docs/kiem-may/README.md`: `black`, `ruff`, `pytest` trên host, `pytest` trong `faceid:arm64`,
+> `git status`, và một phép đột biến cho mỗi guard quan trọng kèm dự đoán ca nào phải đỏ.
+> **TUYỆT ĐỐI KHÔNG `git commit`.** Kết thúc bằng báo cáo theo mẫu §12 của quy tắc cài đặt, nêu rõ
+> lệnh tôi cần chạy, rồi **dừng lại chờ tôi dán kết quả về**. Không đoán trước kết quả.
 
-## 2. Nhịp 4 — Sửa theo biên bản review
+## 2. Nhịp 3 — Người dùng chạy
+
+```bash
+powershell -ExecutionPolicy Bypass -File docs/kiem-may/<MÃ>.coder.ps1
+```
+
+Dán **toàn bộ** đầu ra về cho `coder`. Có đoạn đỏ → nó sửa rồi bạn chạy lại. Tất cả xanh → sang Nhịp 4.
+
+Dòng khôi phục báo `KHONG KHOP` → **dừng**, không chạy tiếp, báo lại. Nghĩa là một phép đột biến đã
+không trả mã nguồn về nguyên trạng, và cây làm việc đang bẩn.
+
+## 3. Nhịp 5 — Sửa theo biên bản review
 
 > Đọc `docs/quy-tac-cai-dat.md`, `docs/dac-ta/<MÃ>.md` và `docs/review/<MÃ>.review.md`.
 > Sửa **đúng** các mục 🔴 CHẶN và 🟡 CẦN SỬA trong biên bản, theo chỉ dẫn ở phần "Sửa" của từng mục.
 > **Không** làm thêm việc khác, **không** sửa các mục 🔵 GÓP Ý.
 > Nếu đặc tả đã được cập nhật sau biên bản đó, **đọc lại đặc tả từ đầu** — nêu rõ trong lời giao.
-> Chạy lại toàn bộ lệnh kiểm trên host và trong container. **KHÔNG `git commit`.**
-> Báo cáo từng mục lỗi đã xử lý thế nào.
+> Cập nhật `docs/kiem-may/<MÃ>.coder.ps1` nếu cần thêm đoạn kiểm cho chỗ vừa sửa.
+> **KHÔNG chạy gì, KHÔNG `git commit`.** Báo cáo từng mục lỗi đã xử lý thế nào rồi dừng chờ tôi chạy lại.
 
-> 💡 Khi giao Nhịp 4, **liệt kê thẳng các việc cần sửa** trong lời giao thay vì chỉ trỏ tới biên bản.
+> 💡 Khi giao Nhịp 5, **liệt kê thẳng các việc cần sửa** trong lời giao thay vì chỉ trỏ tới biên bản.
 > Kinh nghiệm từ `P1-01` và `P1-02`: chỉ dẫn càng cụ thể thì càng ít vòng lặp.
 
 ---
@@ -75,21 +92,29 @@ Gọi agent `coder` với nội dung sau, thay `<MÃ>` bằng mã việc thật:
 
 ---
 
-## 4. Sau khi người cài đặt báo xong
+## 4. Nhịp 4 — Review
 
-```bash
-git status --short --untracked-files=all
-```
-
-Đối chiếu danh sách trắng, rồi gọi review — **luôn dùng agent, không tự đọc lướt**:
+Sau khi kịch bản `.coder.ps1` đã xanh hết, gọi review — **luôn dùng agent, không tự đọc lướt**:
 
 > Dùng agent `code-reviewer` review `<MÃ>` trên nhánh `feat/<mã>`, đối chiếu `docs/dac-ta/<MÃ>.md`.
+> Viết `docs/kiem-may/<MÃ>.review.ps1` rồi dừng chờ tôi chạy. Dựng lại **tất cả** phép đột biến từ
+> đầu, kể cả những phép người cài đặt nói đã làm rồi.
+
+Nó sẽ dừng và đưa lệnh. Bạn chạy, dán kết quả, nó mới viết biên bản:
+
+```bash
+powershell -ExecutionPolicy Bypass -File docs/kiem-may/<MÃ>.review.ps1
+```
 
 | Phán quyết | Làm gì |
 |---|---|
-| 🔴 TRẢ LẠI | Giao lại Nhịp 4 (§2). Trần **2 vòng**, sau đó dừng và **xem lại đặc tả** |
+| ⏳ CHƯA KẾT LUẬN | Nó còn thiếu số liệu — chạy tiếp đoạn nó xin, đừng ép nó kết luận sớm |
+| 🔴 TRẢ LẠI | Giao lại Nhịp 5 (§3). Trần **2 vòng**, sau đó dừng và **xem lại đặc tả** |
 | 🟡 ĐẠT CÓ ĐIỀU KIỆN | Được commit; góp ý chuyển thành mã việc mới nếu người dùng đồng ý |
 | ✅ ĐẠT | Commit + gộp nhánh (§5) |
+
+⚠️ Biên bản nào có bảng kết quả máy toàn ✅ mà bạn **chưa hề chạy lượt nào** thì đó là số liệu bịa —
+trả lại và bắt viết kịch bản. Đây là chế độ hỏng nguy hiểm nhất của mô hình mới.
 
 > **Reviewer phải chạy phiên riêng, ngữ cảnh sạch** — không được thấy quá trình viết đặc tả hay viết
 > mã. Đây là phần chịu lực của toàn bộ quy trình: người viết và người kiểm phải độc lập.
@@ -123,7 +148,7 @@ Commit message theo `CLAUDE.md` R29, **luôn kèm mã việc ở cuối** để 
 
 | Tình huống | Xử lý |
 |---|---|
-| Sửa file ngoài danh sách trắng | `git checkout -- <file>` khôi phục (file mới thì `rm`), ghi CHẶN-A vào biên bản, nêu rõ ở Nhịp 4 |
+| Sửa file ngoài danh sách trắng | `git checkout -- <file>` khôi phục (file mới thì `rm`), ghi CHẶN-A vào biên bản, nêu rõ ở Nhịp 5 |
 | Làm hỏng nhiều thứ, muốn về mốc sạch | `git reset --hard` — **chỉ an toàn nếu đã commit trước**, đó là lý do checklist §3 bắt cây làm việc sạch |
 | Lỡ `git commit` | `git reset --soft HEAD~1` giữ nguyên nội dung; nhắc lại lệnh cấm ở lượt sau |
 | Đòi thêm thư viện | Không cho tự thêm. `spec-writer` cập nhật §7 của đặc tả trước, commit, rồi giao lại |

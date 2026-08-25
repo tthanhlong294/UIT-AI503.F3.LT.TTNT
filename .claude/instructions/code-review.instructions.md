@@ -5,8 +5,12 @@ description: Chuẩn review mã nguồn — lệnh kiểm bắt buộc, danh sá
 
 # Instructions: Chuẩn review mã nguồn
 
-Áp dụng cho mọi lượt review trong quy trình 5 nhịp (xem `CLAUDE.md` §2.9).
+Áp dụng cho mọi lượt review trong quy trình 6 nhịp (xem `CLAUDE.md` §2.9).
 Nguyên tắc bao trùm: **máy kiểm trước, người đọc sau**. Con người chỉ nên tốn sức vào thứ máy không bắt được.
+
+⚠️ **Người review không tự chạy lệnh** (R42). Mọi lệnh trong tài liệu này phải được gói vào
+`docs/kiem-may/<mã việc>.review.ps1` để **người dùng** chạy. Người review đọc kết quả họ dán về.
+Quy ước viết kịch bản: `docs/kiem-may/README.md`.
 
 ---
 
@@ -18,13 +22,20 @@ ruff check src tests
 pytest -q
 ```
 
-Không chạy đủ ba lệnh → **biên bản review không hợp lệ**. Không được suy đoán kết quả.
+Thiếu bất kỳ lệnh nào trong kịch bản, hoặc chưa nhận được kết quả chạy → **biên bản review không hợp
+lệ**. Không được suy đoán kết quả, không được điền ✅ vào ô chưa có bằng chứng.
 
 Kèm theo, luôn kiểm phạm vi thay đổi:
 
 ```bash
-git status --short
+git status --short --untracked-files=all
 git diff --stat
+```
+
+Và một lượt trong container — dùng đúng image `faceid:arm64`, **không dựng image mới** (R43):
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd)":/app -w /app faceid:arm64 python3 -m pytest -q
 ```
 
 ---

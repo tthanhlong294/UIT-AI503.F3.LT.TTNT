@@ -193,6 +193,11 @@ Script benchmark còn phải: **warm-up 10 frame đầu rồi mới đo**, ghi r
 
 ### Cấm về hành vi
 
+0. ❌ **KHÔNG CHẠY BẤT CỨ THỨ GÌ.** Không `pytest`, `black`, `ruff`, `python`, `docker`, `git`.
+   Người dùng là người duy nhất chạy lệnh trong dự án này. Bạn viết mã và viết **kịch bản kiểm**;
+   họ chạy; họ dán kết quả về cho bạn đọc. Quy ước viết kịch bản: `docs/kiem-may/README.md`.
+   Hệ quả bắt buộc: **không được viết bất kỳ kết quả chạy nào mà bạn chưa nhận được**.
+   Chưa có kết quả thì ghi `[CHƯA CHẠY]`, không ghi "đã kiểm, sạch".
 1. ❌ **Không `git commit` / `push` / `reset` / `checkout` / `merge` / đổi nhánh.** Người dùng tự commit.
 2. ❌ **Không bịa số liệu.** Không viết số đo mẫu, không viết kết quả "ví dụ" vào code hay tài liệu.
    Chưa có số → để trống hoặc ghi `[CHƯA ĐO]`.
@@ -213,17 +218,20 @@ Script benchmark còn phải: **warm-up 10 frame đầu rồi mới đo**, ghi r
 ## 10. Quy trình làm việc của bạn — theo đúng 6 bước
 
 ```
-1. ĐỌC   → file này + đúng 1 file docs/dac-ta/<mã việc>.md
+1. ĐỌC   → file này + docs/kiem-may/README.md + đúng 1 file docs/dac-ta/<mã việc>.md
 2. XÁC   → Nhắc lại 3 dòng: mục tiêu, danh sách trắng file, tiêu chí nghiệm thu.
            Thiếu/mâu thuẫn thông tin → DỪNG, hỏi.
 3. LÀM   → Cài đặt đúng chữ ký hàm đặc tả đưa. Không đổi tên, không đổi kiểu trả về.
-4. KIỂM  → black --line-length 100 src tests
-           ruff check src tests
-           pytest -q
-           Cả ba phải sạch/xanh.
-5. SOÁT  → Tự đối chiếu checklist §11. Sửa hết rồi mới sang bước 6.
-6. BÁO   → Xuất báo cáo theo mẫu §12. KHÔNG commit. KHÔNG tự làm việc tiếp theo.
+4. VIẾT KỊCH BẢN → docs/kiem-may/<mã việc>.coder.ps1
+           Gồm: black · ruff · pytest host · pytest trong faceid:arm64 · git status
+           · một phép đột biến cho mỗi guard quan trọng.
+5. SOÁT  → Tự đối chiếu checklist §11 bằng mắt. Sửa hết rồi mới sang bước 6.
+6. BÁO   → Xuất báo cáo theo mẫu §12, nêu rõ lệnh cần chạy, rồi DỪNG.
+           KHÔNG commit. KHÔNG tự làm việc tiếp theo. KHÔNG đoán trước kết quả.
 ```
+
+Người dùng chạy xong sẽ dán khối kết quả về. Lúc đó bạn mới đọc, đối chiếu, và sửa nếu có đoạn đỏ.
+Vòng lặp này lặp cho tới khi mọi đoạn xanh, rồi mới chuyển sang người review.
 
 Khi được giao **file review** (`docs/review/<mã việc>.review.md`):
 sửa **đúng** các mục 🔴 CHẶN và 🟡 CẦN SỬA được liệt kê, theo đúng chỉ dẫn trong đó.
@@ -231,12 +239,16 @@ sửa **đúng** các mục 🔴 CHẶN và 🟡 CẦN SỬA được liệt kê
 
 ---
 
-## 11. Checklist tự kiểm — chạy trước khi báo hoàn thành
+## 11. Checklist tự kiểm — soát bằng mắt trước khi báo hoàn thành
 
-- [ ] `git status --short` — **không có file nào ngoài DANH SÁCH TRẮNG** bị thay đổi
-- [ ] `black --check --line-length 100 src tests` sạch
-- [ ] `ruff check src tests` sạch
-- [ ] `pytest -q` xanh
+Bốn dòng đầu **do kịch bản kiểm trả lời**, không phải do bạn chạy. Bạn chỉ cần chắc kịch bản có đủ
+bốn đoạn đó. Những dòng còn lại bạn tự soát bằng cách đọc lại mã.
+
+- [ ] Kịch bản có đoạn `git status --short --untracked-files=all` để lộ file ngoài DANH SÁCH TRẮNG
+- [ ] Kịch bản có đoạn `black --check --line-length 100 src tests`
+- [ ] Kịch bản có đoạn `ruff check src tests`
+- [ ] Kịch bản có đoạn `pytest -q` trên host **và** trong `faceid:arm64`
+- [ ] Mỗi guard quan trọng có một phép đột biến, kèm dự đoán ca nào phải đỏ
 - [ ] Không `print()` trong `src/`
 - [ ] Không số magic — mọi tham số đọc từ config
 - [ ] Truy cập phần cứng đều qua interface có backend `mock`
@@ -259,15 +271,23 @@ sửa **đúng** các mục 🔴 CHẶN và 🟡 CẦN SỬA được liệt kê
 |---|---|---|
 | src/... | tạo mới | 84 |
 
+### Lệnh cần chạy
+powershell -ExecutionPolicy Bypass -File docs/kiem-may/<mã việc>.coder.ps1
+Kịch bản gồm <n> đoạn — xin dán toàn bộ đầu ra về.
+
 ### Kết quả kiểm tra
-- black : sạch
-- ruff  : sạch
-- pytest: 7 passed
-- git status: chỉ các file trong danh sách trắng
+- black : [CHƯA CHẠY]
+- ruff  : [CHƯA CHẠY]
+- pytest host / faceid:arm64 : [CHƯA CHẠY]
+- git status: [CHƯA CHẠY]
+
+### Phép đột biến trong kịch bản
+| # | Phá gì | Ca dự đoán phải đỏ |
+|---|---|---|
 
 ### Đối chiếu tiêu chí nghiệm thu
-- [x] <tiêu chí 1 trong đặc tả>
-- [x] <tiêu chí 2>
+- [ ] <tiêu chí 1 trong đặc tả — chỉ tích khi đã có bằng chứng từ kết quả chạy>
+- [ ] <tiêu chí 2>
 
 ### Điểm cần người dùng lưu ý
 - <chỗ đặc tả mơ hồ mà tôi đã diễn giải theo cách nào, và vì sao>
