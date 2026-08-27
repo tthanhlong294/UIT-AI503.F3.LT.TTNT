@@ -1,7 +1,32 @@
 # P2-04-export-ncnn — Export YOLOv8n-face sang NCNN và kiểm chứng tương đương
 
 > Mã việc: `P2-04-export-ncnn` · Phần còn lại của bước **2.2** trong `CLAUDE.md` §5 Phase 2
-> Nhánh: `feat/p2-04-export-ncnn` · Đặc tả viết ngày 27/08/2026
+> Nhánh: `feat/p2-04-export-ncnn` · Đặc tả viết ngày 27/08/2026 · **sửa đổi vòng 2, cùng ngày**
+
+---
+
+## 0. Vòng 2 — GIAO LẠI, đọc mục này trước
+
+Bản đặc tả commit `9816027` đã được cài đặt xong: `scripts/export_detector_ncnn.py`,
+`tests/test_export_detector_ncnn.py`, `requirements-dev.txt`, và lượt chạy thật đã sinh
+`results/export_ncnn_20260827_2027.{json,meta.json}`. **Không viết lại từ đầu.**
+
+Vòng này chỉ **bổ sung** đúng bốn thay đổi, phát sinh từ chuẩn mới ở
+`.claude/instructions/experiment-protocol.instructions.md` §2 — được chốt sau khi bạn đã nộp mã:
+
+| # | Việc | Chỗ sửa |
+|---|---|---|
+| 1 | Thêm hàm `xac_dinh_moi_truong()` | `scripts/export_detector_ncnn.py`, xem §5.2 |
+| 2 | `thu_thap_metadata_ncnn` trả thêm khoá `moi_truong` | cùng tệp |
+| 3 | Thêm ba ca kiểm thử 20b, 20c, 20d | `tests/test_export_detector_ncnn.py`, xem §8.4 |
+| 4 | Chạy lại lượt sinh kết quả để `.meta.json` có trường mới | lượt của **người dùng**, §12b |
+
+Lý do thay đổi giữa chừng, nói thẳng để bạn không phải đoán: chuẩn `moi_truong` ra đời sau khi đặc
+tả vòng 1 đã commit. Đây là **khiếm khuyết của đặc tả**, không phải của bạn. Mọi thứ bạn đã làm ở
+vòng 1 vẫn đúng hợp đồng lúc đó và **giữ nguyên**.
+
+Bảng dữ kiện §3 giờ đã có số thật từ lượt chạy của bạn — đọc lại, vì một dòng trong đó (fp16) hoá ra
+sai và §7.3 đã sửa theo.
 
 ---
 
@@ -16,7 +41,7 @@ nửa ONNX. Thiếu nửa NCNN thì không kết luận được bộ suy luận
 Chương 2 §2.6.3 của báo cáo còn treo dòng `[CHƯA VIẾT — CHẶN VÌ CHƯA ĐO]`.
 
 Vì sao phải kiểm chứng thay vì export xong là tin: đường NCNN đi qua **hai** phép biến đổi liên tiếp
-(PyTorch → PNNX → NCNN), nhiều hơn đường ONNX một chặng, và NCNN lưu trọng số ở fp16 theo mặc định.
+(PyTorch → PNNX → NCNN), nhiều hơn đường ONNX một chặng.
 Mỗi chặng là một chỗ có thể mất nhánh xử lý điểm mốc hoặc lệch chuẩn hoá đầu vào mà vẫn cho ra tệp
 **chạy được**. Không đo thì sai lệch chỉ lộ ra ở Phase 3 dưới dạng độ chính xác thấp không rõ nguyên nhân.
 
@@ -57,14 +82,20 @@ Mã việc này **không** thêm khoá cấu hình nào: toàn bộ tham số đ
 | `ultralytics` | `8.4.39` | **đã kiểm** (`P2-01` §3) |
 | `YOLO('models/yolov8n-face.pt').task` | `pose`, 1 lớp `face`, `kpt_shape=[5,3]` | **đã kiểm** (`P2-01` §3) |
 | Thứ tự 5 điểm mốc | mắt trái · mắt phải · mũi · khoé miệng trái · khoé miệng phải | **đã kiểm** trên 60 ảnh LFW |
-| Cấu trúc thư mục `ultralytics` sinh ra khi `format="ncnn"` | thư mục `<stem>_ncnn_model/` gồm `model.ncnn.param`, `model.ncnn.bin`, `metadata.yaml` | **CHƯA KIỂM — xác minh ở bước 1** |
-| `YOLO(<thư mục ncnn>, task="pose")` có trả về `keypoints` | chưa rõ | **CHƯA KIỂM — xác minh ở bước 1** |
-| `ultralytics` tải công cụ PNNX từ mạng ở lần export đầu | nhiều khả năng có | **CHƯA KIỂM** |
+| Cấu trúc thư mục `ultralytics` sinh ra khi `format="ncnn"` | thư mục `<stem>_ncnn_model/` gồm **bốn** tệp: `model.ncnn.param`, `model.ncnn.bin`, `metadata.yaml`, `model_ncnn.py` | **đã kiểm** — lượt chạy 27/08/2026 20:26 |
+| Kích thước `model.ncnn.bin` | 12 354 804 B (imgsz 320) · 12 480 804 B (imgsz 640) | **đã kiểm** |
+| Kích thước `model.ncnn.param` | 19 257 B (320) · 19 260 B (640) | **đã kiểm** |
+| `metadata.yaml` | có, 449 B, ghi `task: pose`, `batch: 1`, `imgsz: [320, 320]`, `names: {0: face}`, `kpt_shape`, **`half: false`** | **đã kiểm** |
+| `YOLO(<thư mục ncnn>, task="pose")` có trả về `keypoints` | **có** — guard `_bao_dam_ncnn_co_diem_moc` không kích hoạt trong lượt chạy 50 ảnh × 2 độ phân giải | **đã kiểm** |
+| Độ khớp NCNN so với `.pt` | khớp số mặt 100/100 · IoU TB 0,9999996 · sai số điểm mốc TB 2,3 × 10⁻⁵ px | **đã kiểm** — `results/export_ncnn_20260827_2027.json` |
 
-⚠️ Ba dòng cuối chưa ai kiểm chứng. **Bước đầu tiên của bạn là xác minh chúng** (§7.1), trước khi
-viết dòng mã sản phẩm nào. Nếu thực tế khác bảng này — tên tệp khác, thiếu `metadata.yaml`, hoặc
-bản NCNN **không trả về điểm mốc** — thì **dừng lại và báo**, đừng tự xoay xở. Trường hợp cuối làm
-đổ toàn bộ thiết kế kiểm chứng ở §7.3 và cần sửa đặc tả, không phải sửa mã.
+⚠️ **`half: false` — bản NCNN là fp32, không phải fp16.** Bản đặc tả vòng 1 đoán sai điều này và
+suy ra rằng sai số sẽ lớn hơn ONNX. Thực tế ngược lại: sai số ở mức làm tròn float32 (10⁻⁵ px), tức
+phép chuyển đổi gần như không mất mát. §7.3 đã sửa theo dữ kiện này.
+
+`model_ncnn.py` là script mẫu do PNNX sinh kèm, **không cần** cho đường nạp lại của `ultralytics`.
+Nó bị import khi thư mục được nạp nên sinh ra `__pycache__/` bên trong — hiện tượng bình thường,
+`models/*` đã gitignore.
 
 ---
 
@@ -168,11 +199,21 @@ def kiem_chung_tuong_duong_ncnn(
         LoiMoHinh: bản NCNN phát hiện được khuôn mặt nhưng KHÔNG trả về điểm mốc.
     """
 
+def xac_dinh_moi_truong() -> str:
+    """Trả về mã môi trường chạy: 'pc_x86' | 'docker_arm64' | 'pi5'.
+
+    Quy tắc (experiment-protocol.instructions.md §2): có `/.dockerenv` → `docker_arm64`;
+    kiến trúc máy là aarch64/arm64 → `pi5`; còn lại → `pc_x86`. Script tự suy ra, KHÔNG
+    nhận từ tham số dòng lệnh — người gõ tay thì sớm muộn cũng gõ nhầm, mà nhầm ở đây
+    không có gì báo lỗi và làm mất nguyên một cột trong bảng so sánh môi trường.
+    """
+
 def thu_thap_metadata_ncnn(cfg_tho: dict, seed: int) -> dict:
     """Gom metadata theo R17: commit, cấu hình, phiên bản thư viện, thiết bị, thời điểm, seed.
 
-    Khác `_thu_thap_metadata` của P2-01 ở chỗ phần `phien_ban` phải có `ncnn`, và không
-    cần `onnx`/`onnxruntime`.
+    Hai điểm khác `_thu_thap_metadata` của P2-01: phần `phien_ban` phải có `ncnn` và không
+    cần `onnx`/`onnxruntime`; bản ghi phải có thêm khoá `moi_truong` lấy từ
+    `xac_dinh_moi_truong()`.
     """
 
 def main(argv: list[str] | None = None) -> int:
@@ -201,17 +242,20 @@ không lẫn khác biệt do lấy mẫu ảnh khác nhau — **cùng seed thì 
 
 ## 7. Thiết kế bắt buộc
 
-### 7.1. Bước xác minh trước khi viết mã
+### 7.1. Bước xác minh — đã do người dùng chạy, bạn KHÔNG chạy lại
 
-Chạy đúng một lần, trong thư mục tạm **ngoài repo**, và **báo kết quả vào phần Vướng mắc**:
+Ba dòng `CHƯA KIỂM` ở §3 được trả lời bằng notebook
+[`notebooks/03_xac_minh_export_ncnn.ipynb`](../../notebooks/03_xac_minh_export_ncnn.ipynb), do người
+dùng chạy **trước khi** đặc tả này được commit. Notebook giữ nguyên đầu ra trong tệp, nên bạn **đọc
+được** cây tệp thật, nội dung `metadata.yaml` và bảng đối chiếu ở đó — hãy đọc nó trước khi viết mã.
 
-1. Chép `models/yolov8n-face.pt` sang thư mục tạm, gọi `YOLO(...).export(format="ncnn", imgsz=320)`
-   ở đó — để lần chạy thăm dò không làm bẩn `models/`.
-2. In cây tệp sinh ra kèm kích thước từng tệp, và nội dung `metadata.yaml`.
-3. Nạp lại bằng `YOLO(<thư mục>, task="pose")`, chạy trên 3 ảnh LFW, in `boxes.xyxy` và
-   `keypoints.xy` cạnh kết quả của bản `.pt`.
+Bạn **không** export thử, **không** chạy `ultralytics` để thăm dò. Cứ tin bảng §3 — nếu mã bạn viết
+xong lại hành xử khác bảng đó, **dừng và báo**, đừng tự sửa bảng cũng đừng tự xoay xở: sai lệch ở
+đây là lỗi đặc tả, và phải sửa đặc tả rồi giao lại (R39).
 
-Ba dòng "CHƯA KIỂM" ở §3 phải được trả lời bằng đầu ra thật của bước này. **Khác bảng §3 → dừng, báo.**
+Notebook đó **không thay thế** script bạn sắp viết: nó không ghi `.meta.json`, không quét đủ cỡ mẫu,
+và không chạy được bằng dòng lệnh trên máy không màn hình. Nó trả lời câu hỏi *"chuyển đổi có mất
+mát gì không"*; script trả lời câu hỏi *"số liệu nào đi vào báo cáo"*.
 
 ### 7.2. Export
 
@@ -241,10 +285,18 @@ Ba đại lượng và ba ngưỡng **giống hệt** `P2-01` §7, lấy từ h�
 So sánh công bằng về độ phân giải: bản NCNN xuất ở `imgsz=320` phải đối chiếu với bản `.pt` chạy
 **cũng ở 320**.
 
-⚠️ **NCNN lưu trọng số ở fp16 theo mặc định, nên sai số dự kiến lớn hơn ONNX.** Nếu không đạt
-ngưỡng: **báo cáo đúng số thật và dừng** (R7). Tuyệt đối không nới ngưỡng, không đổi sang so sánh
-lỏng hơn, không lặng lẽ bật `half=False` rồi báo đạt — mọi thay đổi tham số export đều phải qua
-sửa đặc tả. Một kết quả "không đạt" có số liệu kèm theo là **kết quả hợp lệ** của mã việc này.
+⚠️ Nếu không đạt ngưỡng: **báo cáo đúng số thật và dừng** (R7). Tuyệt đối không nới ngưỡng, không
+đổi sang so sánh lỏng hơn, không lặng lẽ đổi tham số export rồi báo đạt — mọi thay đổi tham số đều
+phải qua sửa đặc tả. Một kết quả "không đạt" có số liệu kèm theo là **kết quả hợp lệ** của mã việc.
+
+⚠️ **Kết quả vòng 1 đạt ở mức đáng ngờ — điểm này sẽ bị soi khi review.** Sai số 2,3 × 10⁻⁵ px là
+mức làm tròn float32. Với `half: false` thì con số đó **hợp lý**, nhưng nó cũng là dấu hiệu của một
+chế độ hỏng nghiêm trọng khác: hai phía của phép so sánh vô tình nạp **cùng một mô hình**. Hai giả
+thuyết này cho ra số liệu giống hệt nhau, nên số liệu không phân biệt được chúng.
+
+Cách phân biệt, và bạn **phải** trả lời trong báo cáo vòng này: chỉ ra bằng `file:dòng` nơi hai
+đường nạp tách nhau, và nêu bằng chứng rằng đường NCNN thật sự chạy qua `ncnn` — ví dụ gỡ tạm thư
+mục NCNN rồi xác nhận lượt chạy hỏng, chứ không âm thầm rơi về bản `.pt`.
 
 ⚠️ **Guard quan trọng nhất — thiếu điểm mốc phải làm hỏng phép đo, không được làm ngơ.**
 Nếu bản NCNN phát hiện được khuôn mặt nhưng `keypoints` là `None` (hoặc mảng rỗng), `LoiMoHinh`
@@ -261,7 +313,12 @@ results/export_ncnn_<YYYYMMDD_HHMM>.meta.json
 ```
 
 `.meta.json` chứa: `commit`, `cau_hinh`, `phien_ban` (có `ultralytics`, `torch`, `ncnn`, `numpy`),
-`thiet_bi`, `thoi_diem`, `seed`.
+`thiet_bi`, `thoi_diem`, `seed`, và **`moi_truong`**.
+
+`moi_truong` nhận đúng một trong ba giá trị `pc_x86` · `docker_arm64` · `pi5`
+(`experiment-protocol.instructions.md` §2). Đây là khoá để notebook `04_so_sanh_moi_truong.ipynb`
+gộp kết quả từ nhiều máy về một bảng — thứ mà báo cáo cần để trình bày **tính khả chuyển**: cùng
+đầu vào, cùng seed, cùng kết quả trên cả máy phát triển, container ARM64 và Pi 5.
 
 ---
 
@@ -281,12 +338,19 @@ Cột "Assert tối thiểu" là **biểu thức chạy được**.
 | 05 | Export thật tạo thư mục có đủ ba tệp | `@pytest.mark.slow`; `kiem_tra_thu_muc_ncnn(p)` không ném lỗi |
 | 06 | Export lần hai **ghi đè**, không ném lỗi | `@pytest.mark.slow`; gọi hai lần, lần hai trả về cùng đường dẫn |
 
+> Hai dòng 05–06 phải export thật nên đánh dấu `@pytest.mark.slow`. **Bạn viết chúng nhưng không
+> chạy chúng** — chúng thuộc lượt của người dùng ở §12b. Lượt của bạn dùng `-m "not slow"`.
+> Hệ quả bắt buộc: mọi ca **không** đánh dấu `slow` phải chạy được ở nơi thiếu `ncnn`,
+> `ultralytics`, `torch`; ca nào cần ba gói đó thì hoặc đánh dấu `slow`, hoặc giả lập bằng
+> `monkeypatch`.
+
 ### 8.2. Kiểm tra thư mục NCNN
 
 | # | Yêu cầu | Assert tối thiểu |
 |---|---|---|
 | 07 | Thư mục không tồn tại → `LoiMoHinh` | `pytest.raises(LoiMoHinh)` với `tmp_path / "khong-co"` |
 | 08 | Thiếu `model.ncnn.param` → `LoiMoHinh`, thông báo **nêu tên tệp thiếu** | Dựng thư mục giả trong `tmp_path` chỉ có `.bin` + `metadata.yaml`; `pytest.raises(LoiMoHinh, match="param")` |
+| 08b | Có đủ ba tệp bắt buộc nhưng **thiếu** `model_ncnn.py` → vẫn hợp lệ | Cùng cách dựng thư mục giả, không tạo `model_ncnn.py`; `kiem_tra_thu_muc_ncnn` không ném lỗi. Tệp này là script mẫu của PNNX, không nằm trên đường nạp lại (§3) |
 | 09 | Thiếu `model.ncnn.bin` → `LoiMoHinh`, thông báo nêu tên tệp | `pytest.raises(LoiMoHinh, match="bin")` |
 | 10 | Thiếu `metadata.yaml` → `LoiMoHinh`, thông báo nêu tên tệp | `pytest.raises(LoiMoHinh, match="metadata")` |
 | 11 | Có đủ ba tệp nhưng **một tệp rỗng** → `LoiMoHinh` | Ghi `.bin` rỗng 0 byte; `pytest.raises(LoiMoHinh)` |
@@ -310,8 +374,11 @@ Cột "Assert tối thiểu" là **biểu thức chạy được**.
 
 | # | Yêu cầu | Assert tối thiểu |
 |---|---|---|
-| 19 | `thu_thap_metadata_ncnn` có đủ **sáu** trường | `set(meta) >= {"commit","cau_hinh","phien_ban","thiet_bi","thoi_diem","seed"}` |
+| 19 | `thu_thap_metadata_ncnn` có đủ **bảy** trường | `set(meta) >= {"commit","cau_hinh","phien_ban","thiet_bi","thoi_diem","seed","moi_truong"}` |
 | 20 | Phần `phien_ban` **có khoá `ncnn`** | `"ncnn" in meta["phien_ban"]` |
+| 20b | `moi_truong` nhận đúng một trong ba mã hợp lệ | `xac_dinh_moi_truong() in {"pc_x86","docker_arm64","pi5"}` |
+| 20c | Có `/.dockerenv` → `docker_arm64`, bất kể kiến trúc | Monkeypatch `Path.exists` cho `/.dockerenv` trả `True`; assert `== "docker_arm64"` |
+| 20d | Không có `/.dockerenv`, máy `aarch64` → `pi5` | Monkeypatch `platform.machine` trả `"aarch64"`; assert `== "pi5"` |
 | 21 | Tên tệp kết quả đúng khuôn | `re.fullmatch(r"export_ncnn_\d{8}_\d{4}\.json", p.name)` |
 | 22 | Ghi ra **cả hai** tệp, đọc lại giữ nguyên số liệu | `p.exists() and p.with_suffix(".meta.json").exists()`; `json.loads(...)["iou_trung_binh"] == ban_ghi["iou_trung_binh"]` |
 
@@ -333,6 +400,12 @@ Import ba gói này chỉ được nằm trong thân hàm test cần chúng.
 
 ## 9. Lệnh tự kiểm — bạn chạy, dán nguyên văn kết quả về
 
+> ⚠️ **Hai thứ KHÔNG thuộc phần này**, cả hai đều là lượt của người dùng (§12b):
+> lượt chạy thật `python scripts/export_detector_ncnn.py` — thứ sinh ra thư mục NCNN trong `models/`
+> và tệp `results/export_ncnn_*.json` — và các ca `@pytest.mark.slow` phải export thật.
+> Lý do: số liệu đi vào báo cáo phải qua mắt người ít nhất một lần (R5, R6) và `.meta.json` phải
+> ghi đúng máy đã chạy (R17). Lượt của bạn chỉ gồm phần dưới đây.
+
 ```bash
 python -m black --check --line-length 100 scripts/export_detector_ncnn.py tests/test_export_detector_ncnn.py
 ```
@@ -342,29 +415,36 @@ python -m ruff check scripts/export_detector_ncnn.py tests/test_export_detector_
 ```
 
 ```bash
-python -m pytest tests/test_export_detector_ncnn.py -v
+python -m pytest tests/test_export_detector_ncnn.py -v -m "not slow"
 ```
 
 ```bash
-python -m pytest -q
+python -m pytest tests/test_export_detector_ncnn.py --collect-only -m "not slow"
+```
+
+Lệnh trên canh ràng buộc thu thập ở cuối §8: không gói nặng nào được import ở mức module.
+
+```bash
+python -m pytest -q -m "not slow"
 ```
 
 Lệnh trên là **toàn bộ** bộ kiểm thử của repo — mã việc này import từ `scripts/export_detector.py`
 nên phải chắc không làm hỏng ca nào của `P2-01`.
 
 ```bash
-docker run --rm -v "D:/hoc tap/lop CNTT dai hoc/ky 4/DO AN/UIT-AI503.F3.LT.TTNT:/app" -w /app faceid:arm64 python3 -m pytest -q
+docker run --rm -v "D:/hoc tap/lop CNTT dai hoc/ky 4/DO AN/UIT-AI503.F3.LT.TTNT:/app" -w /app faceid:arm64 python3 -m pytest -q -m "not slow"
 ```
 
-Image đã có sẵn — **không** `docker build` (R43).
+Image đã có sẵn — **không** `docker build` (R43). Container không có `ncnn`/`ultralytics`/`torch`,
+nên lệnh này cũng là phép kiểm rằng bạn đã import ba gói đó đúng chỗ.
 
 ```bash
 git status --short --untracked-files=all
 ```
 
-Phải cho thấy đúng ba tệp của §2, cộng các tệp `results/export_ncnn_*.json` và `.meta.json` do
-chính lần chạy thật sinh ra. Thư mục NCNN trong `models/` không xuất hiện vì `models/*` đã gitignore.
-Bất kỳ tệp nào khác là vi phạm phạm vi.
+Ở lượt của bạn, lệnh này phải cho thấy **đúng ba tệp** của §2 — không hơn. Các tệp
+`results/export_ncnn_*.json` chỉ xuất hiện sau lượt chạy của người dùng ở §12b; thư mục NCNN trong
+`models/` không bao giờ xuất hiện vì `models/*` đã gitignore. Bất kỳ tệp nào khác là vi phạm phạm vi.
 
 ### Quét mẫu vi phạm — cả bốn lệnh phải rỗng
 
@@ -399,6 +479,7 @@ Bốn phép. Mỗi phép: sao lưu ra `$env:TEMP` → sửa → `pytest` → kh�
 | ĐB2 | Trong `kiem_tra_thu_muc_ncnn`, bỏ kiểm tệp rỗng | dòng 11 |
 | ĐB3 | Trong `kiem_chung_tuong_duong_ncnn`, thay nhánh thiếu điểm mốc bằng mảng 0 thay vì ném `LoiMoHinh` | dòng 14 |
 | ĐB4 | Trong `kiem_chung_tuong_duong_ncnn`, luôn gán `dat = True` | dòng 18 |
+| ĐB5 | Trong `xac_dinh_moi_truong`, luôn trả `'pc_x86'` bất kể môi trường | dòng 20c **và** 20d |
 
 ĐB3 là phép quan trọng nhất — nó canh đúng chỗ hỏng đắt nhất ở §7.3.
 
@@ -439,14 +520,67 @@ trước, đừng báo xong. Ghi kết quả thật vào bảng báo cáo kể c
 
 Theo mẫu §12 của [`docs/quy-tac-cai-dat.md`](../quy-tac-cai-dat.md), tối thiểu gồm:
 
-1. **Kết quả bước xác minh §7.1** — cây tệp thật, nội dung `metadata.yaml`, và câu trả lời dứt khoát
-   cho câu hỏi *bản NCNN có trả về điểm mốc không*.
-2. Kết quả sáu lệnh §9, dán nguyên văn dòng tổng kết.
+1. **Bốn việc ở §0** đã xử lý thế nào, mỗi việc một dòng.
+2. **Trả lời nghi vấn ở §7.3**: `file:dòng` nơi hai đường nạp `.pt` và NCNN tách nhau, kèm bằng
+   chứng rằng đường NCNN thật sự đi qua `ncnn` chứ không rơi về bản `.pt`.
+3. Kết quả các lệnh §9, dán nguyên văn dòng tổng kết.
 3. Kết quả bốn lệnh `grep`, giải trình dòng nào không rỗng.
 4. Bảng bốn phép đột biến: ca dự đoán đỏ · ca thật sự đỏ · `sha256` khôi phục có khớp không.
-5. **Số đo tương đương thật** cho cả 320 và 640: tỉ lệ khớp số mặt, IoU trung bình và nhỏ nhất, sai
-   số điểm mốc trung bình và lớn nhất, kết luận đạt/không đạt từng độ phân giải. Kèm đường dẫn tệp
-   trong `results/` và **kích thước thư mục NCNN** từng độ phân giải.
+5. **Lệnh người dùng cần chạy** ở §12b, viết sẵn đầy đủ để chép thẳng. Ô số đo tương đương để
+   `[CHƯA CHẠY — chờ lượt của người dùng]`, **không đoán trước**.
 6. Vướng mắc: chỗ nào trong đặc tả này mơ hồ, thiếu, hoặc mâu thuẫn.
 
 **Không commit.** Để nguyên cây làm việc cho người review.
+
+---
+
+## 12b. Lượt chạy thật — người dùng chạy, không phải người cài đặt
+
+Sau khi §9 xanh hết, người dùng chạy:
+
+```bash
+python -m pytest tests/test_export_detector_ncnn.py -v -m slow
+```
+
+Kết quả mong đợi: hai ca 05–06 xanh. Đây là lần export thật đầu tiên, có thể mất vài phút.
+
+```bash
+python scripts/export_detector_ncnn.py --dry-run
+```
+
+Kết quả mong đợi: in bảng kế hoạch hai độ phân giải, mã thoát `0`, và **không tạo tệp nào**.
+
+```bash
+python scripts/export_detector_ncnn.py
+```
+
+Kết quả mong đợi: sinh hai thư mục `models/yolov8n-face-{320,640}_ncnn_model/`, một cặp tệp
+`results/export_ncnn_<YYYYMMDD_HHMM>.{json,meta.json}`, và in bảng số đo tương đương. Mã thoát `0`
+nghĩa là cả hai độ phân giải đạt cả ba ngưỡng §7.3; mã thoát `1` nghĩa là **có độ phân giải không
+đạt** — đó là kết quả hợp lệ, dán về nguyên văn, không chạy lại cho tới khi ra số đẹp.
+
+Lần chạy đầu có thể mất vài phút vì `ultralytics` tải công cụ PNNX về; máy không ra được mạng thì
+lệnh này hỏng ở đó — dán nguyên văn lỗi về.
+
+```bash
+ls -la models/yolov8n-face-320_ncnn_model models/yolov8n-face-640_ncnn_model
+```
+
+Dùng để điền kích thước tệp vào bảng B3 của `models/README.md`.
+
+Số đo từ lượt chạy này là **nguồn duy nhất** cho mọi con số NCNN trong biên bản review và trong
+báo cáo (R6). Kết quả `coder` mô tả không thay thế được nó.
+
+### Xử lý bộ kết quả của vòng 1
+
+`results/export_ncnn_20260827_2027.{json,meta.json}` sinh ra trước khi chuẩn `moi_truong` ra đời,
+nên `.meta.json` của nó thiếu trường đó. Sau khi lượt chạy vòng 2 xong và cho số liệu tương đương,
+**xoá bộ cũ** — mỗi lần chạy có ý nghĩa mới giữ một tệp, không phải mỗi lần bấm chạy (P2-01 §9):
+
+```bash
+rm results/export_ncnn_20260827_2027.json results/export_ncnn_20260827_2027.meta.json
+```
+
+Chỉ xoá **sau khi** đã có bộ mới và đã đối chiếu thấy số trùng khớp. Nếu số vòng 2 **khác** vòng 1
+thì giữ cả hai và báo lại — hai lượt chạy cùng seed, cùng mã, cùng máy mà ra số khác nhau là dấu
+hiệu có gì đó không tất định, phải truy ra trước khi commit.
