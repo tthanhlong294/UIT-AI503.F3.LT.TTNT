@@ -193,11 +193,12 @@ Script benchmark còn phải: **warm-up 10 frame đầu rồi mới đo**, ghi r
 
 ### Cấm về hành vi
 
-0. ❌ **KHÔNG CHẠY BẤT CỨ THỨ GÌ.** Không `pytest`, `black`, `ruff`, `python`, `docker`, `git`.
-   Người dùng là người duy nhất chạy lệnh trong dự án này. Bạn viết mã và viết **kịch bản kiểm**;
-   họ chạy; họ dán kết quả về cho bạn đọc. Quy ước viết kịch bản: `docs/kiem-may/README.md`.
-   Hệ quả bắt buộc: **không được viết bất kỳ kết quả chạy nào mà bạn chưa nhận được**.
-   Chưa có kết quả thì ghi `[CHƯA CHẠY]`, không ghi "đã kiểm, sạch".
+0. ⚠️ **CHỈ chạy các lệnh kiểm ở §9 của đặc tả**: `black`, `ruff`, `pytest` trên host, `pytest`
+   trong `faceid:arm64`, `git` chỉ-đọc, và các phép đột biến. **Không** `pip install`, **không**
+   `docker build` (image duy nhất là `faceid:arm64`), **không** chạy script thu thập dữ liệu hay
+   benchmark — số liệu vào `results/` thuộc vai khác và do người dùng chạy.
+   Hệ quả bắt buộc: **chỉ ghi con số bạn thật sự nhìn thấy trong đầu ra lệnh**. Lệnh nào chưa chạy
+   được thì ghi `[CHƯA CHẠY]` kèm lý do, không ghi "đã kiểm, sạch".
 1. ❌ **Không `git commit` / `push` / `reset` / `checkout` / `merge` / đổi nhánh.** Người dùng tự commit.
 2. ❌ **Không bịa số liệu.** Không viết số đo mẫu, không viết kết quả "ví dụ" vào code hay tài liệu.
    Chưa có số → để trống hoặc ghi `[CHƯA ĐO]`.
@@ -218,20 +219,23 @@ Script benchmark còn phải: **warm-up 10 frame đầu rồi mới đo**, ghi r
 ## 10. Quy trình làm việc của bạn — theo đúng 6 bước
 
 ```
-1. ĐỌC   → file này + docs/kiem-may/README.md + đúng 1 file docs/dac-ta/<mã việc>.md
+1. ĐỌC   → file này + đúng 1 file docs/dac-ta/<mã việc>.md
 2. XÁC   → Nhắc lại 3 dòng: mục tiêu, danh sách trắng file, tiêu chí nghiệm thu.
            Thiếu/mâu thuẫn thông tin → DỪNG, hỏi.
 3. LÀM   → Cài đặt đúng chữ ký hàm đặc tả đưa. Không đổi tên, không đổi kiểu trả về.
-4. VIẾT KỊCH BẢN → docs/kiem-may/<mã việc>.coder.ps1
-           Gồm: black · ruff · pytest host · pytest trong faceid:arm64 · git status
-           · một phép đột biến cho mỗi guard quan trọng.
-5. SOÁT  → Tự đối chiếu checklist §11 bằng mắt. Sửa hết rồi mới sang bước 6.
-6. BÁO   → Xuất báo cáo theo mẫu §12, nêu rõ lệnh cần chạy, rồi DỪNG.
-           KHÔNG commit. KHÔNG tự làm việc tiếp theo. KHÔNG đoán trước kết quả.
+4. CHẠY  → Đúng các lệnh §9 đặc tả: black · ruff · pytest host · pytest trong faceid:arm64
+           · git status · một phép đột biến cho mỗi guard quan trọng.
+           Đỏ → sửa MÃ (không sửa ca kiểm thử) → chạy lại, cho tới khi xanh hết.
+5. SOÁT  → Tự đối chiếu checklist §11 bằng mắt. Máy không bắt được việc hiểu sai đặc tả.
+6. BÁO   → Xuất báo cáo theo mẫu §12, dán nguyên văn dòng tổng kết từng lệnh, rồi DỪNG.
+           KHÔNG commit. KHÔNG tự làm việc tiếp theo.
 ```
 
-Người dùng chạy xong sẽ dán khối kết quả về. Lúc đó bạn mới đọc, đối chiếu, và sửa nếu có đoạn đỏ.
-Vòng lặp này lặp cho tới khi mọi đoạn xanh, rồi mới chuyển sang người review.
+Khôi phục sau mỗi phép đột biến bằng bản sao lưu đặt **ngoài repo**, rồi đối chiếu `sha256`.
+Tuyệt đối không dùng `git checkout -- <tệp>`: mã bạn vừa viết chưa commit, lệnh đó xoá sạch.
+
+Xanh hết rồi mới chuyển sang người review — và người review sẽ **chạy lại** mọi phép kiểm này bằng
+tay người dùng, nên báo cáo sai sự thật chỉ làm mất thêm một vòng.
 
 Khi được giao **file review** (`docs/review/<mã việc>.review.md`):
 sửa **đúng** các mục 🔴 CHẶN và 🟡 CẦN SỬA được liệt kê, theo đúng chỉ dẫn trong đó.
@@ -241,14 +245,13 @@ sửa **đúng** các mục 🔴 CHẶN và 🟡 CẦN SỬA được liệt kê
 
 ## 11. Checklist tự kiểm — soát bằng mắt trước khi báo hoàn thành
 
-Bốn dòng đầu **do kịch bản kiểm trả lời**, không phải do bạn chạy. Bạn chỉ cần chắc kịch bản có đủ
-bốn đoạn đó. Những dòng còn lại bạn tự soát bằng cách đọc lại mã.
+Năm dòng đầu **do máy trả lời** — bạn đã chạy ở bước 4. Những dòng còn lại bạn tự soát bằng mắt.
 
-- [ ] Kịch bản có đoạn `git status --short --untracked-files=all` để lộ file ngoài DANH SÁCH TRẮNG
-- [ ] Kịch bản có đoạn `black --check --line-length 100 src tests`
-- [ ] Kịch bản có đoạn `ruff check src tests`
-- [ ] Kịch bản có đoạn `pytest -q` trên host **và** trong `faceid:arm64`
-- [ ] Mỗi guard quan trọng có một phép đột biến, kèm dự đoán ca nào phải đỏ
+- [ ] `git status --short --untracked-files=all` không lộ file nào ngoài DANH SÁCH TRẮNG
+- [ ] `black --check --line-length 100 src tests` sạch
+- [ ] `ruff check src tests` sạch
+- [ ] `pytest -q` xanh trên host **và** trong `faceid:arm64`
+- [ ] Mỗi guard quan trọng đã chạy một phép đột biến, `sha256` khôi phục khớp
 - [ ] Không `print()` trong `src/`
 - [ ] Không số magic — mọi tham số đọc từ config
 - [ ] Truy cập phần cứng đều qua interface có backend `mock`
@@ -271,19 +274,16 @@ bốn đoạn đó. Những dòng còn lại bạn tự soát bằng cách đọ
 |---|---|---|
 | src/... | tạo mới | 84 |
 
-### Lệnh cần chạy
-powershell -ExecutionPolicy Bypass -File docs/kiem-may/<mã việc>.coder.ps1
-Kịch bản gồm <n> đoạn — xin dán toàn bộ đầu ra về.
+### Kết quả kiểm tra — dán nguyên văn dòng tổng kết
+- black : <dòng tổng kết thật>
+- ruff  : <dòng tổng kết thật>
+- pytest host : <dòng tổng kết thật>
+- pytest faceid:arm64 : <dòng tổng kết thật>
+- git status : <danh sách tệp>
 
-### Kết quả kiểm tra
-- black : [CHƯA CHẠY]
-- ruff  : [CHƯA CHẠY]
-- pytest host / faceid:arm64 : [CHƯA CHẠY]
-- git status: [CHƯA CHẠY]
-
-### Phép đột biến trong kịch bản
-| # | Phá gì | Ca dự đoán phải đỏ |
-|---|---|---|
+### Phép đột biến đã chạy
+| # | Phá gì | Ca dự đoán phải đỏ | Ca thật sự đỏ | sha256 khôi phục |
+|---|---|---|---|---|
 
 ### Đối chiếu tiêu chí nghiệm thu
 - [ ] <tiêu chí 1 trong đặc tả — chỉ tích khi đã có bằng chứng từ kết quả chạy>

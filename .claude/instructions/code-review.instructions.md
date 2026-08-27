@@ -5,12 +5,15 @@ description: Chuẩn review mã nguồn — lệnh kiểm bắt buộc, danh sá
 
 # Instructions: Chuẩn review mã nguồn
 
-Áp dụng cho mọi lượt review trong quy trình 6 nhịp (xem `CLAUDE.md` §2.9).
+Áp dụng cho mọi lượt review trong quy trình 5 nhịp (xem `CLAUDE.md` §2.9).
 Nguyên tắc bao trùm: **máy kiểm trước, người đọc sau**. Con người chỉ nên tốn sức vào thứ máy không bắt được.
 
-⚠️ **Người review không tự chạy lệnh** (R42). Mọi lệnh trong tài liệu này phải được gói vào
-`docs/kiem-may/<mã việc>.review.ps1` để **người dùng** chạy. Người review đọc kết quả họ dán về.
-Quy ước viết kịch bản: `docs/kiem-may/README.md`.
+⚠️ **Người review không tự chạy lệnh** (R42), dù `coder` thì có. Mọi lệnh trong tài liệu này phải
+được đưa cho **người dùng** chạy, mỗi khối đúng một lệnh kèm kết quả mong đợi; người review đọc kết
+quả họ dán về. Quy ước: `docs/kiem-may/README.md`.
+
+Hệ quả quan trọng: bảng kết quả mà `coder` dán về là **lời khai của bên bị chấm**, không phải bằng
+chứng. Không chép nó vào biên bản; dựng lại phép kiểm và lấy số từ lượt chạy của người dùng.
 
 ---
 

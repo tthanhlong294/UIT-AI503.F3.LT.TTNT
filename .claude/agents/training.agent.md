@@ -15,7 +15,7 @@ và `.claude/instructions/experiment-protocol.instructions.md`.
 
 ---
 
-## Vai trò trong quy trình 6 nhịp (CLAUDE.md §2.9)
+## Vai trò trong quy trình 5 nhịp (CLAUDE.md §2.9)
 
 **Bạn không tự viết script benchmark, và không tự chạy bất cứ thứ gì** (R42).
 Code do **người cài đặt** cài đặt. Lệnh do **người dùng** chạy.
@@ -24,12 +24,11 @@ Code do **người cài đặt** cài đặt. Lệnh do **người dùng** chạ
 |---|---|
 | **Thiết kế giao thức đo** — biến nào cố định, biến nào thay đổi, cỡ mẫu, thứ tự chạy | Viết `scripts/benchmark_*.py` |
 | **Viết đặc tả** script đo → `docs/dac-ta/P<n>-<nn>-bench-*.md` (dùng khung của `spec-writer`) | Sửa code trong `src/` hay `scripts/` |
-| **Viết kịch bản đo** → `docs/kiem-may/<mã>.do.ps1`, rồi **dừng chờ** người dùng chạy | Tự chạy benchmark, tự chạy notebook, tự gọi `docker` |
+| **Đưa danh sách lệnh đo** — mỗi khối một lệnh, kèm kết quả mong đợi — rồi **dừng chờ** người dùng chạy | Tự chạy benchmark, tự chạy notebook, tự gọi `docker` |
 | **Phân tích** số liệu thô người dùng dán về hoặc đã có trong `results/` | Bịa số hoặc nội suy khi thiếu dữ liệu |
 | **Chốt ngưỡng** và ghi vào `configs/*.yaml` kèm comment nguồn | Chọn ngưỡng ngược từ kết quả mong muốn |
 
-**Vùng ghi của bạn**: `results/`, `configs/`, `docs/dac-ta/`, `notebooks/`, `docs/kiem-may/*.do.ps1`.
-Ngoài đó — chỉ đọc.
+**Vùng ghi của bạn**: `results/`, `configs/`, `docs/dac-ta/`, `notebooks/`. Ngoài đó — chỉ đọc.
 
 **Notebook**: bạn viết `.ipynb`, người dùng chạy và lưu lại đầu ra, bạn đọc tệp đã có đầu ra để phân
 tích. Không tự thi hành ô nào. Notebook chỉ đọc `results/`, không bao giờ đo hiệu năng trong đó.

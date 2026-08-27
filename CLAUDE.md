@@ -19,8 +19,9 @@
 6. Cần làm gì → tra bảng **§6 Bản đồ nhanh** để biết dùng agent/skill/prompt nào.
 7. **Một tác tử chuyên trách viết code, Claude thiết kế – kiểm định – viết báo cáo.** Bàn giao qua file, không qua
    hội thoại: đặc tả → code → biên bản review → commit (xem §2.9).
-8. ⭐ **Không agent nào được chạy mã, notebook hay Docker** (R42). Cần số liệu → viết kịch bản vào
-   `docs/kiem-may/`, dừng lại, chờ người dùng chạy và dán kết quả về.
+8. ⭐ **Chỉ `coder` được chạy lệnh** (R42), và chỉ trong phiên riêng của nó. Các vai còn lại —
+   `code-reviewer`, `training`, `spec-writer`, `paper-writer`, phiên chính — **không chạy gì**:
+   cần số liệu thì đưa **danh sách lệnh rời**, dừng lại, chờ người dùng chạy và dán kết quả về.
 9. ⭐ **Đúng một image Docker cho cả dự án: `faceid:arm64`** (R43, §3.1).
 
 ---
@@ -173,10 +174,10 @@ bị chấp nhận sai thì cận trên khoảng tin cậy 95 % của FAR vẫn 
   ghi rõ phần nào cần Pi 5 thật, rồi báo cáo.
 - **R37.** Không tự ý gọi subagent hoặc workflow trừ khi người dùng yêu cầu.
 
-### 2.9. Phân vai người cài đặt ↔ người kiểm định — quy trình 6 nhịp
+### 2.9. Phân vai người cài đặt ↔ người kiểm định — quy trình 5 nhịp
 
-**Người cài đặt viết code. Claude thiết kế, kiểm định và viết báo cáo.
-Người dùng — và chỉ người dùng — chạy mọi thứ.**
+**Người cài đặt viết code và tự chạy phần kiểm của mình. Claude thiết kế, kiểm định và viết báo cáo.
+Khâu kiểm định do người dùng chạy.**
 Ba vai **không chia sẻ ngữ cảnh làm việc**, nên mọi bàn giao đi qua **file trong repo**.
 
 - **R38.** Claude **không viết code sản phẩm** vào `src/`, `tests/`, `scripts/`.
@@ -187,11 +188,18 @@ Ba vai **không chia sẻ ngữ cảnh làm việc**, nên mọi bàn giao đi q
 - **R40.** Code **chưa có biên bản review phán quyết ĐẠT** thì không được commit vào `dev`/`main`.
 - **R41.** Người review **không được tự sửa code** — nếu sửa thì không còn ai review bản sửa đó.
   Agent `code-reviewer` cố ý **không có tool `Edit`**.
-- **R42.** ⭐ **Không agent nào được chạy mã của đồ án.** Cấm chạy: `pytest`, `black`, `ruff`,
-  `python scripts/*.py`, `python src/*.py`, notebook, và **mọi lệnh `docker`**.
-  Agent cần số liệu thì **viết một kịch bản kiểm** vào `docs/kiem-may/` rồi **dừng lại chờ**.
-  Người dùng chạy và dán kết quả về. Agent chỉ **đọc** kết quả đó.
-  *Vẫn được phép*: `git` chỉ-đọc (`log`, `status`, `diff`, `show`) và các tool đọc file.
+- **R42.** ⭐ **Chỉ vai `coder` được chạy lệnh, và chỉ để tự kiểm mã của chính nó**: `black`, `ruff`,
+  `pytest` trên host, `pytest` trong `faceid:arm64`, `git` chỉ-đọc, và các phép đột biến do đặc tả
+  yêu cầu. `coder` chạy trong **phiên riêng** (cửa sổ VS Code khác), không dùng chung ngữ cảnh với
+  phiên thiết kế — nó dán kết quả chạy về cho người dùng.
+  **Mọi vai còn lại không chạy gì**: `code-reviewer`, `training`, `spec-writer`, `paper-writer` và
+  phiên chính đều **đưa danh sách lệnh rời** — mỗi khối đúng một lệnh — rồi **dừng lại chờ** người
+  dùng chạy và dán kết quả về. Các vai này chỉ **đọc** kết quả đó.
+  *Vẫn được phép cho mọi vai*: `git` chỉ-đọc (`log`, `status`, `diff`, `show`) và các tool đọc file.
+  **Không vai nào** được `git commit`/`push`, dựng image Docker mới, hay chạy `pip install`.
+  ⚠️ Ranh giới chịu lực: **người viết mã không được là người chấm mã**. `coder` chạy lệnh trên mã
+  của chính nó là **tự kiểm**, không phải kiểm định; số liệu vào biên bản review phải đến từ lượt
+  chạy của người dùng.
 - **R43.** ⭐ **Toàn dự án dùng đúng MỘT image Docker: `faceid:arm64`.**
   Cấm cờ `-t` với tên khác, cấm image tạm cho một mã việc, cấm để `docker compose` tự đặt tên.
   Chỉ dựng lại image khi `requirements.txt` hoặc `deploy/Dockerfile.arm64` đổi — mã nguồn được gắn
@@ -200,48 +208,54 @@ Ba vai **không chia sẻ ngữ cảnh làm việc**, nên mọi bàn giao đi q
 ```
 N1 ĐẶC TẢ (Claude/spec-writer) ──▶ docs/dac-ta/P<n>-<nn>-<slug>.md
         ▼
-N2 SINH MÃ (agent coder, nhánh feat/<mã> riêng, không commit, KHÔNG CHẠY GÌ)
-   └─▶ đồng thời viết docs/kiem-may/<mã>.coder.ps1 rồi DỪNG
+N2 SINH MÃ (agent coder, phiên riêng, nhánh feat/<mã>, không commit)
+   └─▶ tự chạy §9 đặc tả: black · ruff · pytest host · pytest faceid:arm64 · git status
+       · các phép đột biến ──▶ đỏ thì sửa rồi chạy lại ──▶ dán kết quả về, DỪNG
         ▼
-N3 NGƯỜI DÙNG CHẠY ──▶ dán khối kết quả về ──▶ coder đọc, sửa nếu đỏ ──▶ lặp lại N3
-        ▼
-N4 REVIEW (Claude/code-reviewer) ──▶ viết docs/kiem-may/<mã>.review.ps1 rồi DỪNG
+N3 REVIEW (Claude/code-reviewer) ──▶ đưa DANH SÁCH LỆNH RỜI rồi DỪNG
    └─▶ người dùng chạy, dán kết quả ──▶ biên bản docs/review/<mã>.review.md
-        ├── 🔴 TRẢ LẠI ──▶ N5 coder sửa ──▶ quay lại N3   (trần 2 vòng)
+        ├── 🔴 TRẢ LẠI ──▶ N4 coder sửa và chạy lại ──▶ quay lại N3   (trần 2 vòng)
         ▼
-N6 ✅ ĐẠT ──▶ commit + gộp nhánh ──▶ Cổng C (đo) ──▶ Cổng D (báo cáo)
+N5 ✅ ĐẠT ──▶ commit + gộp nhánh ──▶ Cổng C (đo) ──▶ Cổng D (báo cáo)
 ```
 
 **Ranh giới ghi file — kiểm được bằng `git diff --name-only`:**
 
-| Vai | Được ghi vào |
-|---|---|
-| Claude · `coder` | `src/`, `tests/`, `scripts/`, `docs/kiem-may/*.coder.ps1` |
-| Claude · `spec-writer` | `docs/dac-ta/`, `configs/` |
-| Claude · `code-reviewer` | `docs/review/`, `docs/kiem-may/*.review.ps1` — **chỉ đọc** code |
-| Claude · `training` | `results/`, `notebooks/`, `docs/kiem-may/*.do.ps1` |
-| Claude · `paper-writer` | `report/`, `docs/nhat-ky/` |
-| Claude · phiên chính | `.claude/**` — khung quy trình: định nghĩa agent, prompt, instruction |
-| **Người dùng** | **là người duy nhất chạy lệnh**, và là người duy nhất `git commit`/`push` |
+| Vai | Được ghi vào | Chạy lệnh |
+|---|---|---|
+| Claude · `coder` | `src/`, `tests/`, `scripts/` | **có** — chỉ để tự kiểm, xem R42 |
+| Claude · `spec-writer` | `docs/dac-ta/`, `configs/` | không |
+| Claude · `code-reviewer` | `docs/review/` — **chỉ đọc** code | không |
+| Claude · `training` | `results/`, `notebooks/` | không |
+| Claude · `paper-writer` | `report/`, `docs/nhat-ky/` | không |
+| Claude · phiên chính | `.claude/**` — khung quy trình: định nghĩa agent, prompt, instruction | không |
+| **Người dùng** | chạy khâu **kiểm định**, và là người duy nhất `git commit`/`push` | — |
 
 `configs/*.yaml` do Claude giữ vì mọi ngưỡng phải chốt từ `results/` (R7, R16) — không để AI tự chọn.
 
-**Vì sao chuyển sang mô hình này.** Agent tự chạy lệnh có ba chỗ hỏng: nó báo kết quả mà người dùng
-không nhìn thấy đầu ra thật; nó dễ dựng image Docker rác mỗi lượt; và khi nó vừa viết mã vừa chấm mã
-thì không còn ai đứng ngoài. Người dùng cầm quyền chạy thì mọi con số vào báo cáo đều đi qua mắt
-người thật ít nhất một lần — đúng tinh thần R5 và R6.
+**Vì sao mô hình có hình dạng này.** Hai chế độ hỏng cần chặn, và chúng đối nghịch nhau:
 
-**Kịch bản kiểm — quy ước bắt buộc** (chi tiết ở `docs/kiem-may/README.md`):
+| Chế độ hỏng | Cách chặn |
+|---|---|
+| Tác tử vừa viết mã vừa chấm mã thì không còn ai đứng ngoài | Khâu **kiểm định** do người dùng chạy; `code-reviewer` không có `Edit`, không có `Bash` |
+| Bắt người dùng chạy cả những lệnh máy vụn vặt của vòng sửa mã thì mỗi vòng lặp mất một nhịp chờ | Vòng `black`/`ruff`/`pytest` của N2 do `coder` tự chạy |
 
-| | Ai viết | Tên tệp | Người dùng chạy |
+Ranh giới nằm ở chỗ: **tự kiểm** là việc của người viết mã, **kiểm định** là việc của người ngoài.
+Số liệu đi vào biên bản review — và từ đó đi vào báo cáo — luôn đến từ lượt chạy của người dùng,
+đúng tinh thần R5 và R6.
+
+**Lệnh kiểm — quy ước bắt buộc:**
+
+| | Ai đưa lệnh | Ai chạy | Khi nào |
 |---|---|---|---|
-| Tự kiểm của người cài đặt | `coder` | `docs/kiem-may/<mã>.coder.ps1` | sau N2 và sau mỗi lần sửa |
-| Kiểm định độc lập | `code-reviewer` | `docs/kiem-may/<mã>.review.ps1` | sau N4 |
-| Đo hiệu năng | `training` | `docs/kiem-may/<mã>.do.ps1` | trên máy đo |
+| Tự kiểm của người cài đặt | đặc tả §9 | `coder`, trong phiên của nó | sau N2 và sau mỗi lần sửa |
+| Kiểm định độc lập | `code-reviewer` | **người dùng** | ở N3 |
+| Đo hiệu năng | `training` | **người dùng**, trên máy đo | Cổng C |
 
-Mỗi kịch bản phải: chạy được bằng **một lệnh duy nhất**, in đầu ra có **mốc phân đoạn rõ ràng**
-để dán về không lẫn, **tự khôi phục** mọi thứ nó sửa (kiểm đột biến) và **đối chiếu `sha256`** sau khi
-khôi phục, và **không bao giờ** `git commit` hay dựng image mới.
+Lệnh do các vai không-chạy đưa ra phải: **mỗi khối đúng một lệnh** để dán về không lẫn, nêu rõ
+**kết quả mong đợi** của từng lệnh, và với phép đột biến thì kèm đủ bốn bước *sao lưu ra ngoài repo →
+sửa → chạy → khôi phục và đối chiếu `sha256`*. Không lệnh nào được `git commit`, dựng image mới,
+hay `pip install`.
 
 **Đo và vẽ là hai việc tách rời — không được trộn:**
 
@@ -265,7 +279,7 @@ sinh ra từ mã việc nào.
 **Mã việc** `P<Phase>-<nn>-<slug>` xuất hiện nguyên vẹn ở 5 chỗ, tạo chuỗi truy vết:
 đặc tả → tên nhánh → biên bản review → commit message → nhật ký tuần.
 
-Ánh xạ vào 4 cổng: **Cổng A** = N1 · **Cổng B** = N2–N6 · **Cổng C** = `training` đo · **Cổng D** = `paper-writer`.
+Ánh xạ vào 4 cổng: **Cổng A** = N1 · **Cổng B** = N2–N5 · **Cổng C** = `training` đo · **Cổng D** = `paper-writer`.
 
 ---
 
@@ -312,8 +326,8 @@ UIT-AI503.F3.LT.TTNT/
 │   ├── dac-ta/                      # Đặc tả từng mã việc — spec-writer viết, coder thực thi (§2.9)
 │   │   └── P0-01-nen-tang.md
 │   ├── review/                      # Biên bản review mã nguồn — Claude viết (§2.9)
-│   ├── kiem-may/                    # Kịch bản kiểm — agent viết, NGƯỜI DÙNG chạy (§2.9, R42)
-│   │   └── README.md                #   Quy ước viết kịch bản + mẫu
+│   ├── kiem-may/                    # ĐÓNG BĂNG 27/08/2026 — di tích quy trình kịch bản .ps1
+│   │   └── README.md                #   Vì sao bỏ, và lệnh kiểm giờ nằm ở đâu
 │   └── nhat-ky/                     # Nhật ký tuần (tuan-01.md, tuan-02.md, ...)
 │
 ├── configs/                         # TẤT CẢ tham số ở đây (R16)
@@ -399,9 +413,9 @@ tệ hơn là **không còn biết số đo lấy từ image nào**, khiến k�
 | File | Gọi khi nào | Nhiệm vụ |
 |---|---|---|
 | `onboarding-with-skills.md` | **Đầu mỗi phiên làm việc mới**, hoặc khi mất ngữ cảnh | Quét repo, xác định đang ở Phase nào, tổng hợp việc đã/đang/sắp làm, chỉ ra skill/prompt cần dùng tiếp |
-| `coder.agent.md` | **Nhịp 2 và 5** — cài đặt theo đặc tả | Viết code vào `src/`, `tests/`, `scripts/` theo danh sách trắng; viết kịch bản tự kiểm; **không chạy, không commit** |
+| `coder.agent.md` | **Nhịp 2 và 4** — cài đặt theo đặc tả, chạy trong phiên riêng | Viết code vào `src/`, `tests/`, `scripts/` theo danh sách trắng; **tự chạy** §9 đặc tả và dán kết quả về; **không commit** |
 | `spec-writer.agent.md` | **Nhịp 1** (Cổng A) — trước mọi hạng mục code | Chuyển một bước trong §5 thành đặc tả có chữ ký hàm, danh sách trắng file, ánh xạ tham số → `configs/`, tiêu chí nghiệm thu chạy được |
-| `code-reviewer.agent.md` | **Nhịp 4** — sau khi người dùng dán kết quả tự kiểm | Viết kịch bản kiểm định độc lập, chờ kết quả, đối chiếu đặc tả, phân loại lỗi 4 mức, ra phán quyết, ghi `docs/review/` |
+| `code-reviewer.agent.md` | **Nhịp 3** — sau khi `coder` dán kết quả tự kiểm | Đưa danh sách lệnh kiểm định độc lập cho người dùng chạy, chờ kết quả, đối chiếu đặc tả, phân loại lỗi 4 mức, ra phán quyết, ghi `docs/review/` |
 | `training.agent.md` | Cổng C của Phase 2, 3, 4, 7 | **Thiết kế giao thức đo**, chạy benchmark, phân tích số liệu, chốt ngưỡng từ ROC, ghi kết quả đúng chuẩn `results/`. *Không tự viết script — viết đặc tả cho `coder`* |
 | `paper-writer.agent.md` | Cổng D mỗi Phase & Phase 8 | Viết/cập nhật chương báo cáo từ dữ liệu thật trong `results/`, đúng văn phong học thuật, không bịa số |
 
@@ -425,7 +439,7 @@ tệ hơn là **không còn biết số đo lấy từ image nào**, khiến k�
 |---|---|
 | `data-pipeline.prompt.md` | Phase 1 — thu thập, chuẩn hoá, crop/align, kiểm chất lượng, tách train/test, đăng ký embedding |
 | `eda.prompt.md` | Phase 1 & 6 — phân tích thống kê CSDL khuôn mặt và phân tích kết quả benchmark |
-| `coder-handoff.prompt.md` | Mọi Phase — lệnh bàn giao Nhịp 2/Nhịp 5 cho `coder`, quy ước nhánh `feat/`, cách dán kết quả chạy, xử lý sự cố (§2.9) |
+| `coder-handoff.prompt.md` | Mọi Phase — lệnh bàn giao Nhịp 2/Nhịp 4 cho `coder`, quy ước nhánh `feat/`, cách đọc kết quả nó báo về, xử lý sự cố (§2.9) |
 
 ### 4.4. Instructions — `.claude/instructions/`
 
