@@ -10,6 +10,7 @@ tham số chuẩn hoá (thứ tự kênh, độ lệch, hệ số chia) đọc t
 cứng trong module này (xem `chuan_bi_dau_vao`).
 """
 
+import math
 from pathlib import Path
 
 import cv2
@@ -75,11 +76,19 @@ def _doc_chuoi_khong_rong(cfg: dict, khoa: str) -> str:
 
 
 def _doc_so_thuc(cfg: dict, khoa: str) -> float:
-    """Đọc một tham số kiểu số (int hoặc float) trong `cfg`, ném `LoiCauHinh` nếu sai."""
+    """Đọc một tham số kiểu số (int hoặc float) trong `cfg`, ném `LoiCauHinh` nếu sai.
+
+    Giá trị phải **hữu hạn**: `nan`, `inf`, `-inf` đều bị từ chối. Lý do: `nan` lách qua
+    mọi phép so sánh (`nan <= 0` là `False`), còn `inf` làm phép chia cho ra tensor toàn 0
+    khiến mọi khuôn mặt giống hệt nhau mà không có dấu hiệu lỗi nào.
+    """
     gia_tri = lay_gia_tri(cfg, khoa)
     if isinstance(gia_tri, bool) or not isinstance(gia_tri, (int, float)):
         raise LoiCauHinh(f"Cấu hình '{khoa}' phải là số, nhận {gia_tri!r}")
-    return float(gia_tri)
+    gia_tri_float = float(gia_tri)
+    if not math.isfinite(gia_tri_float):
+        raise LoiCauHinh(f"Cấu hình '{khoa}' phải là số hữu hạn, nhận {gia_tri!r}")
+    return gia_tri_float
 
 
 def _doc_so_nguyen_duong(cfg: dict, khoa: str) -> int:
@@ -209,6 +218,19 @@ class ArcFaceBackend(BoNhanDien):
                 f"đọc từ đồ thị ONNX ({so_chieu_thuc_te})"
             )
 
+        # Đối chiếu 'input_size' với hai chiều cuối của đồ thị ONNX — cùng lý lẽ với chốt
+        # embedding_dim ở trên. Trục động (chuỗi kiểu "None"/"?", hoặc None) nghĩa là mô hình
+        # chấp nhận nhiều kích thước: bỏ qua phép đối chiếu, không có gì để so.
+        kich_thuoc_dau_vao_onnx = (dau_vao.shape[-2], dau_vao.shape[-1])
+        la_kich_thuoc_tinh = all(
+            isinstance(v, int) and not isinstance(v, bool) for v in kich_thuoc_dau_vao_onnx
+        )
+        if la_kich_thuoc_tinh and kich_thuoc_dau_vao_onnx != kich_thuoc_vao:
+            raise LoiCauHinh(
+                f"Cấu hình 'input_size' ({list(kich_thuoc_vao)}) không khớp kích thước đầu vào "
+                f"thật đọc từ đồ thị ONNX ({list(kich_thuoc_dau_vao_onnx)})"
+            )
+
         self._so_chieu = so_chieu_thuc_te
         self._ten_dau_vao = dau_vao.name
         self._kich_thuoc_vao = kich_thuoc_vao
@@ -257,7 +279,7 @@ class ArcFaceBackend(BoNhanDien):
         vec = dau_ra[0].astype(np.float32)
 
         do_dai = float(np.linalg.norm(vec))
-        if do_dai == 0.0:
+        if not math.isfinite(do_dai) or do_dai == 0.0:
             raise ValueError("Vectơ đặc trưng có độ dài 0, không thể chuẩn hoá")
 
         return (vec / do_dai).astype(np.float32)
@@ -293,13 +315,13 @@ class ArcFaceBackend(BoNhanDien):
         for anh in danh_sach_anh:
             vec = self.trich_dac_trung(anh)
             do_dai = float(np.linalg.norm(vec))
-            if do_dai == 0.0:
+            if not math.isfinite(do_dai) or do_dai == 0.0:
                 raise ValueError("Vectơ đặc trưng có độ dài 0, không thể chuẩn hoá")
             vec_da_chuan_hoa.append(vec / do_dai)
 
         trung_binh = np.mean(vec_da_chuan_hoa, axis=0)
         do_dai_trung_binh = float(np.linalg.norm(trung_binh))
-        if do_dai_trung_binh == 0.0:
+        if not math.isfinite(do_dai_trung_binh) or do_dai_trung_binh == 0.0:
             raise ValueError("Vectơ trung bình có độ dài 0, không thể chuẩn hoá")
 
         logger.info("Đã đăng ký danh tính từ %d ảnh", len(danh_sach_anh))

@@ -36,6 +36,17 @@ từ đâu — không có nó thì biên bản không tái lập được.
    powershell -ExecutionPolicy Bypass -File docs/kiem-may/<tên>.ps1
    ```
 
+   ⚠️ **Bắt buộc tắt trình phân trang của git** ngay đầu kịch bản:
+
+   ```powershell
+   $env:GIT_PAGER = "cat"
+   ```
+
+   Thiếu dòng này thì `git diff`, `git log`, `git show` đẩy đầu ra qua `less`; màn hình đứng ở dấu
+   `:` chờ bấm phím và kịch bản treo giữa chừng. Đã xảy ra thật ở lượt review `P3-01b`.
+   Lệnh git có đầu ra **được ống dẫn tiếp** (`| Select-String`) thì git tự tắt phân trang — chỉ những
+   lệnh in thẳng ra màn hình mới treo, nên lỗi này rất dễ lọt khi viết.
+
 2. **In mốc phân đoạn rõ ràng** để người dùng dán về không lẫn, và agent đọc không đoán mò:
 
    ```
