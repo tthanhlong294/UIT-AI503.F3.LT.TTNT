@@ -13,6 +13,13 @@ Ba nhóm ca theo mức phụ thuộc:
   `enroll()`/`identify()` (chuẩn hoá trước khi trung bình, chọn điểm cao nhất, ngưỡng...),
   tách biệt khỏi suy luận ONNX thật — suy luận đã được kiểm ở §6.2–§6.3. Nhờ vậy nhóm này
   không cần mô hình lẫn dữ liệu, chạy được cả trong container ARM64.
+- §6.6–§6.9 (dòng 39–47, P3-01b): vá ba lỗ hổng G5/G6/G7 ghi ở
+  `docs/dac-ta/P3-01b-chan-gia-tri-hong.md`. Dòng 39–43 chặn `mean`/`scale` không hữu hạn qua
+  `ArcFaceBackend.__init__`/`chuan_bi_dau_vao`. Dòng 44–45 chặn `NaN` lan vào độ dài vectơ —
+  dòng 44 dùng `_backend_gia_voi_session` (thay `_session` giả, GIỮ NGUYÊN `trich_dac_trung`
+  thật) để chạm đúng nhánh mã cần kiểm, khác với `_backend_gia` vốn thay hẳn hàm đó. Dòng 46
+  đối chiếu `input_size` với đồ thị ONNX, cần mô hình thật. Dòng 47 nạp
+  `configs/recognize.yaml` THẬT — không cần mô hình, chạy được cả trong container ARM64.
 """
 
 from pathlib import Path
@@ -21,6 +28,7 @@ import cv2
 import numpy as np
 import pytest
 
+from src.common.config import lay_gia_tri, nap_cau_hinh
 from src.common.exceptions import LoiCauHinh, LoiMoHinh
 from src.recognizer.arcface_backend import ArcFaceBackend, chuan_bi_dau_vao
 from src.recognizer.base import do_tuong_dong
@@ -81,6 +89,31 @@ def _backend_gia(vectors_theo_thu_tu_goi: list[np.ndarray]) -> ArcFaceBackend:
         return v
 
     backend.trich_dac_trung = _tra_vector_gia
+    return backend
+
+
+class _SessionGia:
+    """Session ONNX GIẢ — `run()` trả sẵn một vectơ đặc trưng, không cần mô hình thật.
+
+    Khác với `_backend_gia()` (thay hẳn `trich_dac_trung`), lớp này chỉ giả phần suy luận
+    ONNX bên trong, để `trich_dac_trung()` THẬT vẫn chạy — cần thiết để kiểm chốt độ dài NaN
+    (§6.7, dòng 44 của `docs/dac-ta/P3-01b-chan-gia-tri-hong.md`) đúng đoạn mã sản phẩm.
+    """
+
+    def __init__(self, vec: np.ndarray) -> None:
+        self._vec = vec
+
+    def run(self, _ten_dau_ra: object, _dau_vao: object) -> list[np.ndarray]:
+        return [np.array([self._vec], dtype=np.float32)]
+
+
+def _backend_gia_voi_session(vec_dau_ra: np.ndarray) -> ArcFaceBackend:
+    """Dựng `ArcFaceBackend` GIẢ với `_session` giả — `trich_dac_trung()` thật vẫn chạy."""
+    backend = object.__new__(ArcFaceBackend)
+    backend._session = _SessionGia(vec_dau_ra)
+    backend._ten_dau_vao = "input"
+    backend._kich_thuoc_vao = (112, 112)
+    backend._cfg_chuan_hoa = {"channel_order": "rgb", "mean": 127.5, "scale": 128.0}
     return backend
 
 
@@ -518,3 +551,155 @@ def test_dong38_chon_diem_cao_nhat_khong_phai_nguoi_dau():
     ma, diem = backend.identify(np.zeros((1, 1, 3), dtype=np.uint8), gallery, nguong=0.9)
     assert ma == "nguoi_dung"
     assert diem == pytest.approx(1.0, abs=1e-6)
+
+
+# ============================================================================
+# §6.6 — chặn 'mean'/'scale' không hữu hạn ở ArcFaceBackend.__init__ (dòng 39-43, P3-01b)
+# ============================================================================
+
+
+def test_dong39_scale_inf_nem_loicauhinh():
+    """Chốt G5 — dòng 39 của đặc tả P3-01b.
+
+    KHÔNG cần `_bo_qua_neu_thieu(_MODEL_PATH)`: mọi tham số cấu hình được xác thực TRƯỚC khi
+    `__init__` chạm tới hệ thống tệp/ONNX (xem thứ tự gọi trong `ArcFaceBackend.__init__`) —
+    cùng cách test_dong06/07/08 cũ đã khai thác. Nhờ vậy ca này chạy được cả khi chưa có
+    `models/mobilefacenet.onnx`, kể cả trong container ARM64.
+    """
+    cfg = _cfg_hop_le()
+    cfg["scale"] = float("inf")
+    with pytest.raises(LoiCauHinh) as exc_info:
+        ArcFaceBackend(cfg)
+    assert "scale" in str(exc_info.value)
+
+
+def test_dong40_scale_nan_nem_loicauhinh():
+    """Chốt G5 — dòng 40 của đặc tả P3-01b. Không cần mô hình thật, xem lý do ở test_dong39."""
+    cfg = _cfg_hop_le()
+    cfg["scale"] = float("nan")
+    with pytest.raises(LoiCauHinh) as exc_info:
+        ArcFaceBackend(cfg)
+    assert "scale" in str(exc_info.value)
+
+
+def test_dong41_mean_inf_nem_loicauhinh():
+    """Chốt G6 — dòng 41 của đặc tả P3-01b. Không cần mô hình thật, xem lý do ở test_dong39."""
+    cfg = _cfg_hop_le()
+    cfg["mean"] = float("inf")
+    with pytest.raises(LoiCauHinh) as exc_info:
+        ArcFaceBackend(cfg)
+    assert "mean" in str(exc_info.value)
+
+
+def test_dong42_mean_am_vo_cung_va_nan_nem_loicauhinh():
+    """Chốt G6 — dòng 42 của đặc tả P3-01b, hai giá trị `mean = -inf` và `mean = nan`.
+
+    Không cần mô hình thật, xem lý do ở test_dong39.
+    """
+    for gia_tri in (float("-inf"), float("nan")):
+        cfg = _cfg_hop_le()
+        cfg["mean"] = gia_tri
+        with pytest.raises(LoiCauHinh) as exc_info:
+            ArcFaceBackend(cfg)
+        assert "mean" in str(exc_info.value)
+
+
+def test_dong43_mean_0_va_am127_5_duoc_chap_nhan():
+    """Ca chống vá quá tay — dòng 43 của đặc tả P3-01b, xem §6.1.
+
+    `mean` chỉ cần hữu hạn, KHÔNG cần dương: `mean = 0` (phương án x/255, §4.2 đặc tả P3-01)
+    và `mean = -127,5` đều hợp lệ. Chốt `math.isfinite` không được chặn nhầm hai giá trị này —
+    nếu chặn nhầm thì đây là dấu hiệu vá quá tay (xem §10 đặc tả P3-01b).
+    """
+    anh = _anh_bgr_10_20_30()
+
+    cfg_0 = _cfg_chuan_hoa_hop_le()
+    cfg_0["mean"] = 0.0
+    ra_0 = chuan_bi_dau_vao(anh, cfg_0)  # không ném lỗi
+
+    cfg_am = _cfg_chuan_hoa_hop_le()
+    cfg_am["mean"] = -127.5
+    ra_am = chuan_bi_dau_vao(anh, cfg_am)  # không ném lỗi
+
+    assert not np.allclose(ra_0, ra_am)
+
+
+# ============================================================================
+# §6.7 — chốt NaN cho độ dài vectơ, G6 (dòng 44-45, P3-01b)
+# ============================================================================
+
+
+def test_dong44_trich_dac_trung_do_dai_nan_nem_loi_khong_tra_ve_nan():
+    """Chốt G6 — dòng 44 của đặc tả P3-01b.
+
+    `trich_dac_trung()` THẬT (không bị thay thế) phải ném lỗi khi độ dài vectơ là NaN. Nếu vì lý
+    do gì đó không ném lỗi, phép assert dưới đây vẫn phải chặn được mọi mảng NaN lọt ra ngoài.
+    """
+    vec_nan = np.full(512, np.nan, dtype=np.float32)
+    backend = _backend_gia_voi_session(vec_nan)
+    anh = np.zeros((112, 112, 3), dtype=np.uint8)
+
+    try:
+        vec = backend.trich_dac_trung(anh)
+    except ValueError:
+        pass
+    else:
+        assert not np.any(np.isnan(vec)), "trich_dac_trung không được trả vectơ chứa NaN"
+        pytest.fail("trich_dac_trung phải ném ValueError khi độ dài vectơ đặc trưng là NaN")
+
+
+def test_dong45_enroll_mot_anh_cho_vector_nan_nem_loi_khong_dang_ky():
+    """Chốt G6 — dòng 45 của đặc tả P3-01b.
+
+    Một ảnh trong danh sách cho vectơ NaN → không đăng ký.
+    """
+    vecs = [
+        np.array([1.0, 0.0], dtype=np.float32),
+        np.full(2, np.nan, dtype=np.float32),
+    ]
+    backend = _backend_gia(vecs)
+
+    with pytest.raises(ValueError):
+        backend.enroll(
+            [np.zeros((1, 1, 3), dtype=np.uint8), np.zeros((1, 1, 3), dtype=np.uint8)],
+            {"min_images_per_user": 2},
+        )
+
+
+# ============================================================================
+# §6.8 — đối chiếu input_size với đồ thị ONNX, G7 (dòng 46, P3-01b)
+# ============================================================================
+
+
+def test_dong46_input_size_lech_do_thi_onnx_nem_loicauhinh():
+    """Chốt G7 — dòng 46 của đặc tả P3-01b. Thông báo phải nêu CẢ HAI con số 64 và 112."""
+    _bo_qua_neu_thieu(_MODEL_PATH)
+    cfg = _cfg_hop_le()
+    cfg["input_size"] = [64, 64]
+    with pytest.raises(LoiCauHinh) as exc_info:
+        ArcFaceBackend(cfg)
+    thong_bao = str(exc_info.value)
+    assert "64" in thong_bao
+    assert "112" in thong_bao
+
+
+# ============================================================================
+# §6.9 — tệp cấu hình thật, G1 (dòng 47, P3-01b) — ca quan trọng nhất của mã việc này
+# ============================================================================
+
+
+def test_dong47_nap_configs_recognize_yaml_that_khop_moc_da_do():
+    """Chốt G1 — dòng 47 của đặc tả P3-01b.
+
+    Nạp `configs/recognize.yaml` THẬT (không phải `_cfg_hop_le()` viết tay) và đối chiếu bốn
+    giá trị chuẩn hoá đã chốt bằng thực nghiệm (models/README.md §3.3, tách biệt 0,6010). Không
+    cần mô hình ONNX, chỉ đọc YAML — không được skip, phải chạy cả trong container ARM64.
+    """
+    cfg_toan_bo = nap_cau_hinh("configs/recognize.yaml")
+    cfg_arcface = lay_gia_tri(cfg_toan_bo, "arcface")
+
+    assert cfg_arcface["channel_order"] == "rgb"
+    assert cfg_arcface["mean"] == 127.5
+    assert cfg_arcface["scale"] == 128.0
+    assert cfg_arcface["embedding_dim"] == 512
+    assert cfg_arcface["input_size"] == [112, 112]
