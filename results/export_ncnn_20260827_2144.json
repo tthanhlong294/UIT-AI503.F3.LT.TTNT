@@ -1,0 +1,32 @@
+{
+  "n_anh": 50,
+  "n_phep_so_sanh": 100,
+  "n_khop_so_mat": 100,
+  "iou_trung_binh": 0.9999996117008513,
+  "iou_nho_nhat": 0.9999971799670258,
+  "sai_so_diem_moc_trung_binh": 2.3293407740554064e-05,
+  "sai_so_diem_moc_lon_nhat": 5.501634636633284e-05,
+  "dat": true,
+  "theo_kich_thuoc": {
+    "320": {
+      "n_anh": 50,
+      "n_khop_so_mat": 50,
+      "iou_trung_binh": 0.9999995998221927,
+      "iou_nho_nhat": 0.9999975374391337,
+      "sai_so_diem_moc_trung_binh": 2.4870081959611645e-05,
+      "sai_so_diem_moc_lon_nhat": 5.501634636633284e-05,
+      "dat": true,
+      "thu_muc_ncnn": "models\\yolov8n-face-320_ncnn_model"
+    },
+    "640": {
+      "n_anh": 50,
+      "n_khop_so_mat": 50,
+      "iou_trung_binh": 0.9999996235795099,
+      "iou_nho_nhat": 0.9999971799670258,
+      "sai_so_diem_moc_trung_binh": 2.171673352149648e-05,
+      "sai_so_diem_moc_lon_nhat": 3.814697265625e-05,
+      "dat": true,
+      "thu_muc_ncnn": "models\\yolov8n-face-640_ncnn_model"
+    }
+  }
+}

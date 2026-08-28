@@ -1,0 +1,42 @@
+{
+  "commit": "fcb3a9536f1a2f051f5deade0339fa07cf9de43e",
+  "cau_hinh": {
+    "export": {
+      "weights_pt": "models/yolov8n-face.pt",
+      "kich_thuoc": [
+        320,
+        640
+      ],
+      "opset": 12,
+      "batch": 1,
+      "simplify": true,
+      "out_dir": "models"
+    },
+    "inference": {
+      "conf_threshold": 0.5,
+      "iou_threshold": 0.45,
+      "max_faces": 10,
+      "num_threads": 0
+    },
+    "thu_tu_diem_moc": [
+      "mat_trai",
+      "mat_phai",
+      "mui",
+      "mieng_trai",
+      "mieng_phai"
+    ]
+  },
+  "phien_ban": {
+    "ultralytics": "8.4.39",
+    "torch": "2.5.1",
+    "ncnn": "1.0.20260526",
+    "numpy": "2.2.0"
+  },
+  "thiet_bi": {
+    "hostname": "ThanhLong-X1",
+    "he_dieu_hanh": "Windows-11-10.0.26200-SP0"
+  },
+  "thoi_diem": "2026-08-27T21:44:21.648642+07:00",
+  "seed": 42,
+  "moi_truong": "pc_x86"
+}
