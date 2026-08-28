@@ -27,7 +27,8 @@ Trước mỗi lần đo, ghi lại và giữ **cố định** trong suốt phi�
 
 | Yếu tố | Cách ghi | Ghi chú |
 |---|---|---|
-| Thiết bị | `Raspberry Pi 5 8GB` / `Docker ARM64 trên <CPU>` | Không trộn kết quả từ 2 nền tảng trong cùng bảng |
+| **Môi trường** | trường `moi_truong` trong `.meta.json`, nhận **đúng một** trong ba mã: `pc_x86` · `docker_arm64` · `pi5` | **Bắt buộc mọi lần đo.** Đây là trường để nhóm, không phải mô tả tự do |
+| Thiết bị | `Raspberry Pi 5 8GB` / `Docker ARM64 trên <CPU>` | Mô tả người đọc; không thay thế `moi_truong` |
 
 > ⛔ **TUYỆT ĐỐI không dùng thời gian đo trong container ARM64 giả lập làm số hiệu năng.**
 >
@@ -37,8 +38,14 @@ Trước mỗi lần đo, ghi lại và giữ **cố định** trong suốt phi�
 >
 > Container dùng để kiểm **tính đúng đắn** (code chạy được trên ARM64, test xanh, thư viện nạp được).
 > Mọi con số **FPS, latency, thông lượng** phải đo trên **Raspberry Pi 5 thật**. Số đo từ container
-> chỉ được ghi vào `results/` khi cột `device` nói rõ là môi trường giả lập, và **không được đưa vào
+> chỉ được ghi vào `results/` khi `moi_truong` ghi rõ `docker_arm64`, và **không được đưa vào
 > bảng đối chiếu chỉ tiêu** ở Chương 4.
+>
+> Điều **được phép và nên làm**: đặt ba môi trường cạnh nhau trong một bảng để chứng minh **tính
+> khả chuyển** — cùng đầu vào, cùng seed, cùng kết quả nhận diện ở cả `pc_x86`, `docker_arm64` và
+> `pi5`. Đó là kết luận về tính đúng đắn, không phải về tốc độ. Bảng như vậy phải chú thích ngay
+> dưới rằng cột `docker_arm64` là số tham khảo. Notebook `04_so_sanh_moi_truong.ipynb` dựng bảng này
+> bằng cách nhóm theo trường `moi_truong`.
 | Tản nhiệt | `tản nhiệt nhôm + quạt` / `không tản nhiệt` | Ảnh hưởng lớn tới FPS do throttling |
 | Nguồn điện | `27W USB-C chính hãng` | Nguồn yếu gây throttle |
 | OS & kernel | `Raspberry Pi OS 64-bit, kernel 6.6` | |
@@ -157,6 +164,7 @@ Lưu thô để có thể tính lại mọi chỉ số về sau mà không phả
   "git_dirty": false,
   "script": "scripts/benchmark_recognize.py",
   "command": "python scripts/benchmark_recognize.py --backend arcface --n-samples 100 --seed 42",
+  "moi_truong": "pi5",
   "device": {
     "name": "Raspberry Pi 5 8GB",
     "cooling": "tản nhiệt nhôm + quạt 5V",
@@ -194,6 +202,12 @@ Lưu thô để có thể tính lại mọi chỉ số về sau mà không phả
 
 > `git_dirty: true` là **cảnh báo** — kết quả đo từ code chưa commit khó tái lập.
 > Commit trước khi chạy benchmark chính thức.
+
+> **`moi_truong`** nhận đúng một trong ba giá trị `pc_x86` · `docker_arm64` · `pi5`, không viết tự do.
+> Đây là khoá để notebook `04_so_sanh_moi_truong.ipynb` nhóm kết quả; một giá trị sai chính tả làm
+> mất nguyên một cột trong bảng so sánh. Script tự suy ra giá trị này (kiểm `platform.machine()` và
+> sự tồn tại của `/.dockerenv`), không để người chạy tự gõ — người gõ tay thì sớm muộn cũng gõ nhầm,
+> mà nhầm ở đây không có gì báo lỗi.
 
 ### Đặt tên file
 
@@ -287,6 +301,8 @@ Theo đúng thứ tự, **không sửa số liệu**:
 ## 9. Checklist trước khi đưa số liệu vào báo cáo
 
 - [ ] Có file `.csv` **và** `.meta.json` trong `results/`
+- [ ] `.meta.json` có trường `moi_truong` đúng một trong ba mã hợp lệ
+- [ ] Số hiệu năng đưa vào bảng đối chiếu chỉ tiêu **chỉ** lấy từ `moi_truong = pi5`
 - [ ] `git_dirty = false` trong meta (code đã commit)
 - [ ] Đạt cỡ mẫu tối thiểu §6
 - [ ] Có warm-up, đã loại frame đầu

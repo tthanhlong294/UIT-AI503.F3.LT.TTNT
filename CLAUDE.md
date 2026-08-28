@@ -249,25 +249,59 @@ Số liệu đi vào biên bản review — và từ đó đi vào báo cáo —
 | | Ai đưa lệnh | Ai chạy | Khi nào |
 |---|---|---|---|
 | Tự kiểm của người cài đặt | đặc tả §9 | `coder`, trong phiên của nó | sau N2 và sau mỗi lần sửa |
+| **Chạy thật script sản phẩm** | đặc tả §12b | **người dùng** | sau khi §9 xanh |
 | Kiểm định độc lập | `code-reviewer` | **người dùng** | ở N3 |
 | Đo hiệu năng | `training` | **người dùng**, trên máy đo | Cổng C |
+
+⭐ Ranh giới giữa dòng 1 và dòng 2 nằm ở **thứ lần chạy sinh ra**, không ở việc ai gõ lệnh:
+`black`/`ruff`/`pytest`/đột biến không để lại gì ngoài cây làm việc, nên `coder` chạy để rút ngắn
+vòng lặp. Còn lệnh nào **ghi vào `results/`, `models/`, `data/` hay `report/`** thì người dùng chạy —
+số liệu đi vào báo cáo phải qua mắt người ít nhất một lần (R5, R6) và `.meta.json` phải ghi đúng
+máy đã chạy (R17). `coder` **không** chạy `scripts/export_*.py`, `scripts/benchmark_*.py`,
+`scripts/collect_*.py`, `scripts/download_*.py` ở chế độ ghi thật.
 
 Lệnh do các vai không-chạy đưa ra phải: **mỗi khối đúng một lệnh** để dán về không lẫn, nêu rõ
 **kết quả mong đợi** của từng lệnh, và với phép đột biến thì kèm đủ bốn bước *sao lưu ra ngoài repo →
 sửa → chạy → khôi phục và đối chiếu `sha256`*. Không lệnh nào được `git commit`, dựng image mới,
 hay `pip install`.
 
-**Đo và vẽ là hai việc tách rời — không được trộn:**
+**Đo, vẽ và minh hoạ là ba việc tách rời — không được trộn:**
 
 | | Ai chạy | Ở đâu | Ghi ra |
 |---|---|---|---|
-| **Đo** — `scripts/benchmark_*.py` | **người dùng**, trên máy đo (Pi 5 thật) | dòng lệnh, không giao diện | `results/*.csv` + `.meta.json` |
+| **Đo** — `scripts/benchmark_*.py`, `scripts/export_*.py` | **người dùng**, trên máy đo (Pi 5 thật) | dòng lệnh, không giao diện | `results/*.csv` + `.meta.json` |
 | **Vẽ cho báo cáo** — `scripts/plot_*.py` | **người dùng**, máy phát triển | dòng lệnh | `report/figures/*.pdf` |
-| **Khám phá** — `notebooks/*.ipynb` | **người dùng**, máy phát triển | Jupyter | biểu đồ xem tại chỗ |
+| **Minh hoạ & khám phá** — `notebooks/*.ipynb` | **người dùng**, máy phát triển | Jupyter | đầu ra lưu trong chính tệp `.ipynb`, **được commit** |
 
-Cả ba **chỉ đọc** `results/`, không tự sinh số. **Tuyệt đối không đo hiệu năng trong notebook**:
+Cả ba **chỉ đọc** `results/`, không tự sinh số đo. **Tuyệt đối không đo hiệu năng trong notebook**:
 Pi 5 chạy không màn hình, Jupyter thêm chi phí làm sai lệch phép đo, và thứ tự chạy ô lộn xộn
-khiến kết quả không tái lập được. Notebook để *hiểu* số liệu, script để *tạo* ra chúng.
+khiến kết quả không tái lập được. Notebook để *cho xem*, script để *tạo* ra số.
+
+⭐ **Notebook là phương tiện minh hoạ chính thức của đồ án, không phải bản nháp.** Đồ án này tồn tại
+để trình bày trước hội đồng: một con số trong `results/*.json` không mở ra cho ai xem được, còn một
+notebook có đầu ra lưu sẵn thì mở ra là thấy cả pipeline. Vì vậy:
+
+- **Không dùng tệp tạm ngoài repo** để lấy dữ kiện. Mọi lượt chạy sinh ra thứ đi vào đặc tả hay báo
+  cáo đều phải để lại vết **trong đồ án** — notebook có đầu ra, hoặc tệp trong `results/`.
+- Notebook được **commit kèm đầu ra**, không xoá output trước khi commit.
+- Notebook đánh số theo thứ tự trình bày, không theo thứ tự viết: `01_` dữ liệu · `02_`–`03_` khối
+  phát hiện · `04_` so sánh môi trường · `05_` ngưỡng và ROC.
+- Notebook **được phép** chạy pipeline thật để minh hoạ (nạp mô hình, chạy một vài ảnh, vẽ khung bao
+  và điểm mốc). Ranh giới cấm chỉ là **đo thời gian**.
+
+**Ba môi trường chạy — luôn phân biệt rõ trong mọi kết quả:**
+
+| Mã | Môi trường | Số hiệu năng dùng được không |
+|---|---|---|
+| `pc_x86` | Máy phát triển Windows x86-64 | Có, nhưng **không phải phần cứng đích** |
+| `docker_arm64` | Container `faceid:arm64` qua QEMU | **Không** — QEMU giả lập, thời gian không quy đổi được |
+| `pi5` | Raspberry Pi 5 thật | **Có** — đây là số kết luận chỉ tiêu §1 |
+
+Mọi `.meta.json` phải mang trường `moi_truong` nhận một trong ba giá trị trên, để notebook
+`04_so_sanh_moi_truong.ipynb` nhóm được. Bảng ba môi trường trình bày được **tính khả chuyển**
+(cùng đầu vào, cùng kết quả nhận diện ở cả ba nơi — một luận điểm mạnh), nhưng cột `docker_arm64`
+phải ghi rõ là **số tham khảo**, không dùng kết luận chỉ tiêu. Nói trước điều này trong báo cáo là
+cẩn trọng phương pháp; để hội đồng phát hiện thì thành lỗ hổng.
 
 Notebook do Claude **viết** nhưng người dùng **chạy**. Claude đọc lại tệp `.ipynb` đã có đầu ra để
 phân tích — không tự thi hành ô nào.
@@ -367,7 +401,12 @@ UIT-AI503.F3.LT.TTNT/
 ├── scripts/                         # Script CLI: enroll, benchmark, export model, collect data
 ├── tests/                           # pytest — chạy được KHÔNG cần Pi (dùng backend mock)
 │
-├── notebooks/                       # EDA, phân tích kết quả
+├── notebooks/                       # Minh hoạ pipeline cho báo cáo — commit KÈM đầu ra (§2.9)
+│   ├── 01_eda_khuon_mat.ipynb       #   Dữ liệu: phân bố, tách biệt embedding, 3 tập impostor
+│   ├── 02_phan_tich_hieu_nang_detect.ipynb
+│   ├── 03_xac_minh_export_ncnn.ipynb#   .pt vs ONNX vs NCNN trên cùng ảnh
+│   ├── 04_so_sanh_moi_truong.ipynb  #   pc_x86 · docker_arm64 · pi5
+│   └── 05_nguong_va_roc.ipynb       #   Quét ngưỡng, ROC/DET, ba con số FAR
 ├── results/                         # Output thực nghiệm (R17) — CSV/JSON + .meta.json
 │
 ├── report/                          # Báo cáo LaTeX/Markdown
@@ -728,9 +767,14 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
   `P2-01` (export ONNX, bước 2.2) · `P2-02` (`src/detector/`, bước 2.3) ·
   `P2-03` (`benchmark_detect.py`, bước 2.6) · `P3-01` (`src/recognizer/`, bước 3.1 và 3.3).
   Tổng **379 test xanh** trên host, và 28 xanh / 10 skip trong container ARM64.
-  **Việc tiếp theo**: `P3-01b` — vá ba lỗ hổng cấu hình mà biên bản `P3-01` ghi ở mục G5–G7
-  (chặn `inf`/`nan` cho `mean`/`scale`, đối chiếu `input_size` với đồ thị ONNX). Sau đó `P3-02`
-  backend dlib và `P3-03` `scripts/enroll.py` — cả hai chạy được trên LFW, không cần camera.
+  `P3-01b` (vá ba lỗ hổng cấu hình khối nhận diện) đã gộp ngày 27/08/2026.
+  **Việc tiếp theo**: `P2-04` export NCNN — đặc tả đã viết, chờ chạy
+  `notebooks/03_xac_minh_export_ncnn.ipynb` để chốt bảng dữ kiện §3. Sau đó `P2-05` (backend NCNN
+  trong `src/detector/`), `P3-02` (backend dlib) và `P3-03` (`scripts/enroll.py`) — tất cả chạy
+  được trên LFW, không cần camera.
+- **Notebook còn thiếu**: `01_eda_khuon_mat.ipynb` (bước 1.13, chặn vì chưa có gallery) ·
+  `04_so_sanh_moi_truong.ipynb` (chặn vì chưa có Pi 5) · `05_nguong_va_roc.ipynb` (Phase 3).
+  Notebook là phương tiện trình bày chính khi bảo vệ, không phải bản nháp — xem §2.9.
 - ⚠️ **Rủi ro tiến độ lớn nhất: chưa có Raspberry Pi 5 và camera.** Camera — không phải bo mạch — mới
   là thứ định nghĩa miền dữ liệu, nên nó chặn cả Phase 1, 3 và 4. Bốn trên sáu chỉ tiêu cam kết ở §1
   không đo được nếu thiếu. Vướng mắc này đã sang tuần thứ ba. **Cổng C của Phase 2 vẫn mở**: số đo

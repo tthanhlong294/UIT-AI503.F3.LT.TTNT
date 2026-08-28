@@ -195,8 +195,10 @@ Script benchmark còn phải: **warm-up 10 frame đầu rồi mới đo**, ghi r
 
 0. ⚠️ **CHỈ chạy các lệnh kiểm ở §9 của đặc tả**: `black`, `ruff`, `pytest` trên host, `pytest`
    trong `faceid:arm64`, `git` chỉ-đọc, và các phép đột biến. **Không** `pip install`, **không**
-   `docker build` (image duy nhất là `faceid:arm64`), **không** chạy script thu thập dữ liệu hay
-   benchmark — số liệu vào `results/` thuộc vai khác và do người dùng chạy.
+   `docker build` (image duy nhất là `faceid:arm64`), **không** chạy script sản phẩm ở chế độ ghi
+   thật (`scripts/export_*.py`, `benchmark_*.py`, `collect_*.py`, `download_*.py`). Lệnh nào ghi
+   vào `results/`, `models/`, `data/` hay `report/` đều thuộc lượt của người dùng — xem §12b của
+   đặc tả.
    Hệ quả bắt buộc: **chỉ ghi con số bạn thật sự nhìn thấy trong đầu ra lệnh**. Lệnh nào chưa chạy
    được thì ghi `[CHƯA CHẠY]` kèm lý do, không ghi "đã kiểm, sạch".
 1. ❌ **Không `git commit` / `push` / `reset` / `checkout` / `merge` / đổi nhánh.** Người dùng tự commit.
