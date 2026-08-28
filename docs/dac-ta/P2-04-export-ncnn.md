@@ -396,6 +396,31 @@ Cột "Assert tối thiểu" là **biểu thức chạy được**.
 --collect-only` phải chạy trót lọt **kể cả khi máy không có `ncnn`, `ultralytics`, `torch`**.
 Import ba gói này chỉ được nằm trong thân hàm test cần chúng.
 
+### 8.6. Trình bày bảng CLI — bổ sung sau vòng review 1
+
+> **Xuất xứ**: `docs/review/P2-04-export-ncnn.review.md` — mục 🟡 CẦN SỬA-1 (vòng 1) và
+> 🔵 GÓP Ý-8 (vòng 2). Hai dòng dưới đây được thêm **sau** khi mã đã cài đặt, nên §0 không
+> nhắc tới chúng. Dòng 28 đã có ca kiểm thử; dòng 28b thì chưa.
+
+`_in_bang_ket_qua` là **bảng người đọc chép thẳng vào báo cáo**. Làm tròn hai chữ số thập phân
+biến sai số `2,33 × 10⁻⁵ px` thành `0.00` và IoU `0,9999996` thành `1.0000` — bảng khi đó tuyên bố
+*"bản NCNN khớp tuyệt đối với bản gốc"*, mạnh hơn hẳn thứ đã đo là *"khớp tới mức 10⁻⁵ px"*, và
+không chứng minh được. Đây là vi phạm R5. Cách trình bày đúng đã được
+`notebooks/03_xac_minh_export_ncnn.ipynb` mục 3.2 chốt: giữ nguyên bậc độ lớn.
+
+Ràng buộc chỉ áp cho **hiển thị**. `ghi_ket_qua` vẫn ghi giá trị đầy đủ vào `results/*.json`,
+không qua `_in_bang_ket_qua` — sửa cách in **không** làm số liệu đã đo phải đo lại.
+
+| # | Yêu cầu | Assert tối thiểu |
+|---|---|---|
+| 28 | Hai cột **sai số điểm mốc** giữ bậc độ lớn, không làm tròn về `0.00` | Gọi `_in_bang_ket_qua` với `sai_so_diem_moc_trung_binh=2.33e-05`, `sai_so_diem_moc_lon_nhat=5.50e-05`; tách cột 6 và 7 của dòng `\| 320 \|`; assert `"0.00" not in o[6]` và `"e-05" in o[6]` (tương tự `o[7]`) |
+| 28b | Hai cột **IoU** giữ bậc độ lớn, không làm tròn về `1.0000` | Cùng lượt gọi, với `iou_trung_binh=0.9999996`, `iou_nho_nhat=0.9999971`; assert `o[4] != "1.0000"` và `o[5] != "1.0000"` |
+
+Ca kiểm thử phải **tách đúng ô** của dòng bảng (`[c.strip() for c in dong.split("|")]`) rồi mới
+assert, không tìm chuỗi trên toàn bộ đầu ra — nếu không, một cột khác chứa `e-05` cũng làm ca xanh.
+
+Nhánh `"n/a"` khi giá trị là `None` giữ nguyên, không đổi.
+
 ---
 
 ## 9. Lệnh tự kiểm — bạn chạy, dán nguyên văn kết quả về
