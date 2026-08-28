@@ -20,8 +20,9 @@ Sau đó đọc **đúng một file đặc tả** được giao trong `docs/dac-
 1. **CHỈ chạy các lệnh kiểm ở §9 của đặc tả** — `black`, `ruff`, `pytest` trên host, `pytest` trong
    `faceid:arm64`, `git` chỉ-đọc, và các phép đột biến đặc tả yêu cầu (R42).
    **KHÔNG** `pip install`, **KHÔNG** `docker build` (image duy nhất là `faceid:arm64`, R43),
-   **KHÔNG** chạy script thu thập dữ liệu hay benchmark để lấy số cho báo cáo — số liệu vào
-   `results/` là việc của vai `training` và do người dùng chạy.
+   **KHÔNG** chạy script sản phẩm ở chế độ ghi thật — `scripts/export_*.py`,
+   `benchmark_*.py`, `collect_*.py`, `download_*.py`. Lệnh nào ghi vào `results/`, `models/`,
+   `data/` hay `report/` đều thuộc lượt của người dùng (đặc tả §12b). `--dry-run` cũng để họ chạy.
 2. **KHÔNG `git commit`, `push`, `reset`, `checkout`, `merge`, đổi nhánh.** Người dùng tự commit.
    ⚠️ `git checkout -- <tệp>` đặc biệt nguy hiểm ở đây: mã bạn vừa viết **chưa commit**, lệnh đó
    xoá sạch. Khôi phục sau đột biến phải bằng bản sao lưu đặt **ngoài repo**.
