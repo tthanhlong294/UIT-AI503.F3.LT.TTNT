@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 
 from src.common.exceptions import LoiCauHinh, LoiMoHinh
-from src.detector.yolo_face import YoloFaceDetector, letterbox, nms
+from src.detector.yolo_face import YoloFaceDetector, giai_ma_dau_ra, letterbox, nms
 
 _MODEL_320 = Path("models/yolov8n-face-320.onnx")
 _MODEL_640 = Path("models/yolov8n-face-640.onnx")
@@ -474,3 +474,101 @@ def test_doi_chieu_ultralytics_tren_anh_lfw_mau(d320, anh_lfw):
         [kq_onnx[0].x1, kq_onnx[0].y1, kq_onnx[0].x2, kq_onnx[0].y2], khung_pt
     ):
         assert abs(thuc_te - doi_chung) < 2.0
+
+
+# ============================================================================
+# P2-05 §7.1 — hàm module-level giai_ma_dau_ra (đã trích khỏi detect, §5.1) và ten_backend
+#
+# Số hàng 01-08 trong bảng §7.1 của đặc tả P2-05 ánh xạ sang các ca dưới đây;
+# đánh số tiếp nối dãy test_dong<nn> sẵn có trong tệp này để không trùng tên hàm:
+#   §7.1 hàng 01 -> test_dong43   §7.1 hàng 05 -> test_dong47
+#   §7.1 hàng 02 -> test_dong44   §7.1 hàng 06 -> test_dong48
+#   §7.1 hàng 03 -> test_dong45   §7.1 hàng 07 -> test_dong49  (mục tiêu ĐB1)
+#   §7.1 hàng 04 -> test_dong46   §7.1 hàng 08 -> test_dong50
+#              (mục tiêu ĐB2)
+# ============================================================================
+
+
+def _hang_ung_vien(
+    cx: float,
+    cy: float,
+    w: float,
+    h: float,
+    conf: float,
+    diem_moc: list[tuple[float, float]] | None = None,
+) -> np.ndarray:
+    """Dựng một hàng 20 kênh của tensor thô YOLOv8n-face.
+
+    Bố cục kênh: 0-3 (cx, cy, w, h), 4 (conf), 5+3k / 6+3k (x, y điểm mốc thứ k),
+    7+3k (visibility). Không truyền `diem_moc` thì năm điểm mốc để 0.
+    """
+    hang = np.zeros(20, dtype=np.float64)
+    hang[0:4] = (cx, cy, w, h)
+    hang[4] = conf
+    if diem_moc is not None:
+        for k, (px, py) in enumerate(diem_moc):
+            hang[5 + k * 3] = px
+            hang[5 + k * 3 + 1] = py
+            hang[5 + k * 3 + 2] = 1.0
+    return hang
+
+
+def test_dong43_mang_rong_tra_ve_rong():
+    ket_qua = giai_ma_dau_ra(np.zeros((0, 20)), 1.0, 0, 0, 100, 100, 0.5, 0.45, 10)
+    assert ket_qua == []
+
+
+def test_dong44_moi_ung_vien_duoi_nguong_tra_ve_rong():
+    mang = np.stack([_hang_ung_vien(50, 50, 20, 20, 0.1) for _ in range(3)])
+    assert giai_ma_dau_ra(mang, 1.0, 0, 0, 200, 200, 0.5, 0.45, 10) == []
+
+
+def test_dong45_mot_ung_vien_hop_le_toa_do_quy_ve_anh_goc():
+    diem_moc = [(100, 200), (120, 200), (110, 220), (102, 240), (118, 240)]
+    mang = _hang_ung_vien(60, 60, 40, 40, 0.9, diem_moc)[None, :]
+
+    kq = giai_ma_dau_ra(mang, 0.5, 10, 20, 1000, 1000, 0.5, 0.45, 10)
+
+    assert len(kq) == 1
+    # x1 = round((60 - 40/2 - 10) / 0.5) = 60 ; y1 = round((60 - 20 - 20) / 0.5) = 40
+    # x2 = round((60 + 20 - 10) / 0.5) = 140 ; y2 = round((60 + 20 - 20) / 0.5) = 120
+    assert (kq[0].x1, kq[0].y1, kq[0].x2, kq[0].y2) == (60, 40, 140, 120)
+    # điểm mốc 0: ((100 - 10) / 0.5, (200 - 20) / 0.5) = (180, 360)
+    assert kq[0].landmarks[0] == pytest.approx([180.0, 360.0])
+
+
+def test_dong46_max_faces_cat_dung_so_luong():
+    mang = np.stack([_hang_ung_vien(100 + i * 300, 100, 50, 50, 0.9 - i * 0.05) for i in range(5)])
+    kq = giai_ma_dau_ra(mang, 1.0, 0, 0, 2000, 2000, 0.5, 0.45, 2)
+    assert len(kq) == 2
+
+
+def test_dong47_ket_qua_sap_theo_do_tin_cay_giam_dan():
+    confs = [0.6, 0.9, 0.7, 0.55, 0.95]
+    mang = np.stack([_hang_ung_vien(100 + i * 300, 100, 50, 50, confs[i]) for i in range(5)])
+    kq = giai_ma_dau_ra(mang, 1.0, 0, 0, 2000, 2000, 0.5, 0.45, 10)
+    ds_conf = [f.confidence for f in kq]
+    assert ds_conf == sorted(ds_conf, reverse=True)
+
+
+def test_dong48_nam_diem_moc_trich_dung_vi_tri():
+    diem_moc = [(10, 20), (30, 20), (20, 35), (12, 50), (28, 50)]
+    mang = _hang_ung_vien(50, 50, 40, 40, 0.9, diem_moc)[None, :]
+
+    kq = giai_ma_dau_ra(mang, 1.0, 0, 0, 500, 500, 0.5, 0.45, 10)
+
+    assert kq[0].landmarks.shape == (5, 2)
+    assert kq[0].landmarks[2] == pytest.approx([20.0, 35.0])
+
+
+def test_dong49_toa_do_bi_kep_trong_bien_anh_goc():
+    mang = _hang_ung_vien(0, 0, 400, 400, 0.9)[None, :]
+    kq = giai_ma_dau_ra(mang, 1.0, 0, 0, 100, 100, 0.5, 0.45, 10)
+    assert len(kq) == 1
+    f = kq[0]
+    assert 0 <= f.x1 <= f.x2 <= 100
+    assert 0 <= f.y1 <= f.y2 <= 100
+
+
+def test_dong50_ten_backend_la_onnx(d320):
+    assert d320.ten_backend == "onnx"

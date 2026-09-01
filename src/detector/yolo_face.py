@@ -142,6 +142,119 @@ def _lay_so_trong_khoang(
     return gia_tri
 
 
+def _kiem_tra_khung_hinh(khung_hinh: np.ndarray) -> None:
+    """Kiểm tra khung hình đầu vào của `detect`, ném ValueError nếu không hợp lệ.
+
+    Tách riêng khỏi thân `detect` để backend NCNN (`ncnn_backend.py`) dùng lại đúng cùng
+    một bộ kiểm — hai backend phải giữ chung hợp đồng đầu vào, xem
+    `docs/dac-ta/P2-05-detector-ncnn.md` §6.1.
+
+    Args:
+        khung_hinh: Giá trị cần kiểm — kỳ vọng ảnh BGR hình dạng (H, W, 3), kiểu uint8,
+            không rỗng.
+
+    Raises:
+        ValueError: sai kiểu, sai số chiều/số kênh, sai dtype, hoặc rỗng. Gộp chung
+            "sai kiểu" với "sai hình dạng" theo hợp đồng của
+            `docs/dac-ta/P2-02-detector.md` §5, §6.5.
+    """
+    if not isinstance(khung_hinh, np.ndarray):
+        # ValueError (không phải TypeError) vì đây là lỗi dữ liệu đầu vào theo hợp đồng của
+        # đặc tả (docs/dac-ta/P2-02-detector.md §5, §6.5): "sai kiểu" gộp chung với
+        # "sai hình dạng" — cùng mẫu với src/preprocess/align.py.
+        raise ValueError(  # noqa: TRY004
+            f"khung_hinh phải là numpy.ndarray, nhận kiểu {type(khung_hinh).__name__}"
+        )
+    if khung_hinh.ndim != 3 or khung_hinh.shape[2] != 3:
+        raise ValueError(
+            f"khung_hinh phải có hình dạng (H, W, 3), nhận hình dạng {khung_hinh.shape}"
+        )
+    if khung_hinh.dtype != np.uint8:
+        raise ValueError(f"khung_hinh phải có kiểu uint8, nhận kiểu {khung_hinh.dtype}")
+    if khung_hinh.shape[0] == 0 or khung_hinh.shape[1] == 0:
+        raise ValueError(f"khung_hinh không được rỗng, nhận hình dạng {khung_hinh.shape}")
+
+
+def giai_ma_dau_ra(
+    mang_tho: np.ndarray,
+    r: float,
+    dx: int,
+    dy: int,
+    rong_goc: int,
+    cao_goc: int,
+    conf_threshold: float,
+    iou_threshold: float,
+    max_faces: int,
+) -> list[FaceBox]:
+    """Giải mã tensor thô 20 kênh của YOLOv8n-face thành danh sách FaceBox.
+
+    Phần hậu xử lý dùng chung cho cả hai backend (ONNX và NCNN): lọc ngưỡng tin cậy, NMS,
+    quy toạ độ về ảnh gốc, kẹp biên, trích năm điểm mốc. Hai backend chỉ khác nhau ở cách
+    nạp và chạy mô hình — xem `docs/dac-ta/P2-05-detector-ncnn.md` §6.1.
+
+    Args:
+        mang_tho: Mảng (N, 20) — đã chuyển vị, mỗi hàng một ứng viên.
+        r: Tỉ lệ thu/phóng của phép letterbox, để quy toạ độ về ảnh gốc.
+        dx: Độ lệch ngang (pixel) của phép letterbox.
+        dy: Độ lệch dọc (pixel) của phép letterbox.
+        rong_goc: Chiều rộng ảnh gốc, dùng để kẹp toạ độ.
+        cao_goc: Chiều cao ảnh gốc, dùng để kẹp toạ độ.
+        conf_threshold: Ngưỡng độ tin cậy — ứng viên thấp hơn bị loại.
+        iou_threshold: Ngưỡng IoU cho non-maximum suppression.
+        max_faces: Số khuôn mặt tối đa giữ lại.
+
+    Returns:
+        Danh sách FaceBox theo độ tin cậy giảm dần, tối đa `max_faces` phần tử.
+        Rỗng khi không có ứng viên nào vượt ngưỡng.
+    """
+    mang = mang_tho
+    diem_tin_cay = mang[:, CHI_SO_KENH_CONF]
+    mat_na = diem_tin_cay >= conf_threshold
+    mang = mang[mat_na]
+    diem_tin_cay = diem_tin_cay[mat_na]
+
+    if mang.shape[0] == 0:
+        return []
+
+    cx, cy, w, h = mang[:, 0], mang[:, 1], mang[:, 2], mang[:, 3]
+    khung = np.stack(
+        [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2],
+        axis=1,
+    )
+
+    chi_so_giu = nms(khung, diem_tin_cay, iou_threshold)
+    if not chi_so_giu:
+        return []
+
+    chi_so_giu = chi_so_giu[:max_faces]
+
+    ket_qua: list[FaceBox] = []
+    for i in chi_so_giu:
+        x1 = round(float(np.clip((khung[i, 0] - dx) / r, 0, rong_goc)))
+        y1 = round(float(np.clip((khung[i, 1] - dy) / r, 0, cao_goc)))
+        x2 = round(float(np.clip((khung[i, 2] - dx) / r, 0, rong_goc)))
+        y2 = round(float(np.clip((khung[i, 3] - dy) / r, 0, cao_goc)))
+
+        diem_moc = np.empty((SO_DIEM_MOC, 2), dtype=np.float64)
+        for k in range(SO_DIEM_MOC):
+            cot_x = CHI_SO_BAT_DAU_DIEM_MOC + k * SO_GIA_TRI_MOI_DIEM_MOC
+            diem_moc[k, 0] = (mang[i, cot_x] - dx) / r
+            diem_moc[k, 1] = (mang[i, cot_x + 1] - dy) / r
+
+        ket_qua.append(
+            FaceBox(
+                x1=x1,
+                y1=y1,
+                x2=x2,
+                y2=y2,
+                confidence=float(diem_tin_cay[i]),
+                landmarks=diem_moc,
+            )
+        )
+
+    return ket_qua
+
+
 class YoloFaceDetector:
     """Khối phát hiện khuôn mặt dùng YOLOv8n-face định dạng ONNX."""
 
@@ -209,6 +322,11 @@ class YoloFaceDetector:
         """Cạnh ảnh đầu vào của mô hình, đọc từ đồ thị ONNX chứ không từ cfg."""
         return self._kich_thuoc_vao
 
+    @property
+    def ten_backend(self) -> str:
+        """Tên bộ suy luận của backend này — luôn trả 'onnx'."""
+        return "onnx"
+
     def detect(self, khung_hinh: np.ndarray) -> list[FaceBox]:
         """Phát hiện mọi khuôn mặt trong một khung hình.
 
@@ -223,72 +341,25 @@ class YoloFaceDetector:
         Raises:
             ValueError: khung_hinh sai hình dạng, sai kiểu, hoặc rỗng.
         """
-        if not isinstance(khung_hinh, np.ndarray):
-            # ValueError (không phải TypeError) vì đây là lỗi dữ liệu đầu vào theo hợp đồng của
-            # đặc tả (docs/dac-ta/P2-02-detector.md §5, §6.5): "sai kiểu" gộp chung với
-            # "sai hình dạng" — cùng mẫu với src/preprocess/align.py.
-            raise ValueError(  # noqa: TRY004
-                f"khung_hinh phải là numpy.ndarray, nhận kiểu {type(khung_hinh).__name__}"
-            )
-        if khung_hinh.ndim != 3 or khung_hinh.shape[2] != 3:
-            raise ValueError(
-                f"khung_hinh phải có hình dạng (H, W, 3), nhận hình dạng {khung_hinh.shape}"
-            )
-        if khung_hinh.dtype != np.uint8:
-            raise ValueError(f"khung_hinh phải có kiểu uint8, nhận kiểu {khung_hinh.dtype}")
-        if khung_hinh.shape[0] == 0 or khung_hinh.shape[1] == 0:
-            raise ValueError(f"khung_hinh không được rỗng, nhận hình dạng {khung_hinh.shape}")
+        _kiem_tra_khung_hinh(khung_hinh)
 
         cao_goc, rong_goc = khung_hinh.shape[:2]
         anh_letterbox, r, dx, dy = letterbox(khung_hinh, self._kich_thuoc_vao)
         tensor_vao = _tien_xu_ly(anh_letterbox)
 
         dau_ra = self._session.run(None, {self._ten_dau_vao: tensor_vao})[0]
-        mang = dau_ra[0].T  # (N, SO_KENH_DAU_RA)
+        mang_tho = dau_ra[0].T  # (N, SO_KENH_DAU_RA)
 
-        diem_tin_cay = mang[:, CHI_SO_KENH_CONF]
-        mat_na = diem_tin_cay >= self._conf_threshold
-        mang = mang[mat_na]
-        diem_tin_cay = diem_tin_cay[mat_na]
-
-        if mang.shape[0] == 0:
-            return []
-
-        cx, cy, w, h = mang[:, 0], mang[:, 1], mang[:, 2], mang[:, 3]
-        khung = np.stack(
-            [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2],
-            axis=1,
+        ket_qua = giai_ma_dau_ra(
+            mang_tho,
+            r,
+            dx,
+            dy,
+            rong_goc,
+            cao_goc,
+            self._conf_threshold,
+            self._iou_threshold,
+            self._max_faces,
         )
-
-        chi_so_giu = nms(khung, diem_tin_cay, self._iou_threshold)
-        if not chi_so_giu:
-            return []
-
-        chi_so_giu = chi_so_giu[: self._max_faces]
-
-        ket_qua: list[FaceBox] = []
-        for i in chi_so_giu:
-            x1 = round(float(np.clip((khung[i, 0] - dx) / r, 0, rong_goc)))
-            y1 = round(float(np.clip((khung[i, 1] - dy) / r, 0, cao_goc)))
-            x2 = round(float(np.clip((khung[i, 2] - dx) / r, 0, rong_goc)))
-            y2 = round(float(np.clip((khung[i, 3] - dy) / r, 0, cao_goc)))
-
-            diem_moc = np.empty((SO_DIEM_MOC, 2), dtype=np.float64)
-            for k in range(SO_DIEM_MOC):
-                cot_x = CHI_SO_BAT_DAU_DIEM_MOC + k * SO_GIA_TRI_MOI_DIEM_MOC
-                diem_moc[k, 0] = (mang[i, cot_x] - dx) / r
-                diem_moc[k, 1] = (mang[i, cot_x + 1] - dy) / r
-
-            ket_qua.append(
-                FaceBox(
-                    x1=x1,
-                    y1=y1,
-                    x2=x2,
-                    y2=y2,
-                    confidence=float(diem_tin_cay[i]),
-                    landmarks=diem_moc,
-                )
-            )
-
         logger.debug("Phát hiện %d khuôn mặt trong khung hình", len(ket_qua))
         return ket_qua
