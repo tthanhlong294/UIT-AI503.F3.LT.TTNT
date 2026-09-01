@@ -1,8 +1,28 @@
 # P2-05-detector-ncnn — Backend NCNN cho khối phát hiện khuôn mặt
 
 > Mã việc: `P2-05-detector-ncnn` · Bước **2.3** mở rộng, chuẩn bị cho ma trận đo **2.6**
-> Nhánh: `feat/p2-05-detector-ncnn` · Đặc tả viết ngày 28/08/2026
+> Nhánh: `feat/p2-05-detector-ncnn` · Đặc tả viết ngày 28/08/2026 · **sửa đổi vòng 2 ngày 30/08/2026**
 > Tiền đề: `P2-04` đã đóng (merge `8ff1063`) — hai thư mục NCNN đã có trong `models/`
+
+---
+
+## 0b. Vòng 2 — GIAO LẠI, đọc mục này trước
+
+Mã vòng 1 đã cài đặt xong và **giữ nguyên**. Lượt chạy trong container ARM64 ngày 30/08/2026 cho
+435 ca xanh, nhưng lộ ra **một khiếm khuyết của đặc tả này** — không phải lỗi của bạn:
+
+| # | Việc | Chỗ sửa |
+|---|---|---|
+| 1 | Ca dòng 22 đổi tiêu chí: bỏ ngưỡng IoU, dùng **dung sai 2 px trên từng cạnh và từng toạ độ điểm mốc** | `tests/test_ncnn_backend.py`, xem §6.4 |
+| 2 | Thông báo assert của ca dòng 22 phải nêu tên ảnh, cạnh nào, độ lệch thật | cùng tệp |
+| 3 | Bảo đảm ca dòng 22 dùng `pytest.importorskip("ncnn")` (dòng 22b) | cùng tệp |
+
+Lý do: ngưỡng `IoU ≥ 0,99` mà vòng 1 đặt phụ thuộc kích thước khuôn mặt trong ảnh, nên nó đo sai thứ
+cần đo. Chi tiết ở §6.4. **Không sửa gì trong `src/`** trừ khi §8 chỉ ra lỗi thật.
+
+Bảy ca đỏ còn lại của lượt chạy đó (`test_export_detector.py`, `test_yolo_face.py`) **nằm ngoài phạm
+vi mã việc này** — chúng thiếu `pytest.importorskip` từ `P2-01`/`P2-04`, và sẽ được xử lý bằng một mã
+việc dọn dẹp riêng. Đừng động vào chúng.
 
 ---
 
@@ -198,13 +218,34 @@ báo.
 
 `imgsz` không phải số nguyên dương, hoặc hai phần tử khác nhau → `LoiMoHinh`.
 
-### 6.4. Hai backend phải cho cùng kết quả
+### 6.4. Hai backend phải cho cùng kết quả — dung sai tính bằng PIXEL, không bằng IoU
 
-Trên cùng ảnh, cùng cấu hình, hai backend phải trả về **cùng số khuôn mặt** và khung bao lệch nhau
-không quá dung sai đã đo ở `P2-04`. Dung sai dùng trong ca kiểm thử: **IoU ≥ 0,99** và **sai số điểm
-mốc ≤ 0,5 px** — nới rộng hai bậc so với mức đo được (3 × 10⁻⁷ và 2,5 × 10⁻⁵ px) để ca kiểm thử
-không vỡ vì khác biệt làm tròn giữa các nền tảng, nhưng vẫn chặt hơn nhiều so với mức đủ để phát
-hiện một lỗi thật.
+Trên cùng ảnh, cùng cấu hình, hai backend phải trả về **cùng số khuôn mặt**, và:
+
+| Đại lượng | Dung sai |
+|---|---|
+| Từng cạnh khung bao (`x1`, `y1`, `x2`, `y2`) | lệch ≤ **2 px** |
+| Từng toạ độ điểm mốc | lệch ≤ **2 px** |
+
+**Không dùng ngưỡng IoU tuyệt đối.** Vòng 1 đặt `IoU ≥ 0,99` và ca dòng 22 đỏ trong container ARM64:
+
+```
+_iou((190, 180, 250, 250), (191, 180, 250, 250)) = 0,9833  <  0,99
+```
+
+Hai backend lệch **đúng một pixel** ở cạnh trái, nhưng khung chỉ 60 × 70 px nên IoU tụt dưới ngưỡng.
+Cùng độ lệch một pixel đó trên khung 200 px cho IoU 0,995 — qua ngưỡng dễ dàng. Nghĩa là ngưỡng IoU
+đo *kích thước khuôn mặt trong ảnh* nhiều hơn đo *hai backend có khớp nhau không*: cùng một lỗi sẽ
+bị bắt hay bị bỏ qua tuỳ người trong ảnh đứng gần hay xa camera. Đó là tiêu chí sai, không phải
+ngưỡng đặt chưa khéo.
+
+Vì sao 2 px là mức đúng: `giai_ma_dau_ra` ép toạ độ về `int` bằng `round()`, nên một giá trị float
+rơi sát mốc `.5` sẽ nhảy một đơn vị khi hai nền tảng tính lệch nhau ở chữ số thứ sáu — đúng hiện
+tượng quan sát được giữa host x86 và container ARM64. Hai pixel cho biên an toàn qua các nền tảng,
+trong khi lỗi thật (sai chuẩn hoá đầu vào, sai letterbox, sai thứ tự kênh) làm lệch **hàng chục**
+pixel chứ không phải một.
+
+Ca dòng 22 phải chạy được **cả trên host lẫn trong container ARM64** với cùng bộ dung sai này.
 
 ---
 
@@ -242,7 +283,8 @@ Mỗi dòng là một ca kiểm thử, đặt tên `test_dong<nn>`.
 | 19 | `num_threads` ngoài miền → `LoiCauHinh` | `num_threads = -1` và `= 999` |
 | 20 | `detect` với đầu vào sai kiểu/hình dạng/rỗng → `ValueError` | ba ca, cùng hợp đồng với `YoloFaceDetector` |
 | 21 | Nạp mô hình thật và chạy được trên một ảnh LFW | `@pytest.mark.slow`; assert trả về `list[FaceBox]` |
-| 22 | **Hai backend cho cùng kết quả trên cùng ảnh** | `@pytest.mark.slow`; ≥ 3 ảnh; assert bằng số mặt, IoU ≥ 0,99, sai số điểm mốc ≤ 0,5 px (§6.4) |
+| 22 | **Hai backend cho cùng kết quả trên cùng ảnh** | `@pytest.mark.slow`; ≥ 3 ảnh; assert bằng số mặt, **mỗi cạnh khung lệch ≤ 2 px**, **mỗi toạ độ điểm mốc lệch ≤ 2 px** (§6.4). Thông báo assert phải nêu tên ảnh, cạnh nào, và độ lệch thật — để lượt sau không phải chạy lại mới biết lệch bao nhiêu |
+| 22b | Ca dòng 22 dùng `pytest.importorskip("ncnn")`, **không** `import ncnn` trần | đọc mã; ca phải skip chứ không đỏ ở nơi thiếu gói |
 
 ### 7.3. Factory — `tests/test_detector_factory.py`
 
@@ -358,6 +400,11 @@ lúc đó rất khó truy ngược. Đây là loại lỗi phải bắt bằng �
   Tách riêng vì đây là hai trách nhiệm khác nhau: mã việc này làm cho NCNN **chạy được**, `P2-06`
   làm cho nó **được đo**.
 - **Đo hiệu năng**, so sánh tốc độ hai backend — bước 2.6, cần Pi 5 thật.
+- **Dọn dẹp marker `pytest`** — đăng ký `markers` trong `pyproject.toml`, bật `--strict-markers`, và
+  đổi bảy ca cũ trong `test_export_detector.py`/`test_yolo_face.py` sang `pytest.importorskip`.
+  Ba việc cùng một loại, thuộc mã việc dọn dẹp riêng. Hiện `pyproject.toml:7-9` không khai báo
+  `markers`, nên mọi ca `@pytest.mark.slow` đều sinh `PytestUnknownMarkWarning` — và quan trọng hơn,
+  một marker gõ sai tên sẽ **không** bị loại khỏi lượt `-m "not slow"` mà cũng không ai báo.
 - **Chốt backend chính thức** vào `configs/detect.yaml` — Cổng C của Phase 2, quyết định từ số đo.
 - Quantization, fp16, hay bất kỳ tối ưu NCNN nào — chưa bàn tới khi chưa có số đo cơ sở.
 
@@ -384,12 +431,26 @@ docker build -f deploy/Dockerfile.arm64 -t faceid:arm64 .
 Bắt buộc vì `requirements.txt` đã đổi (R43). Vẫn đúng một tên image, không tag khác.
 
 ```bash
-docker run --rm -v "D:/hoc tap/lop CNTT dai hoc/ky 4/DO AN/UIT-AI503.F3.LT.TTNT:/app" -w /app faceid:arm64 python3 -m pytest -q
+docker run --rm -v "D:/hoc tap/lop CNTT dai hoc/ky 4/DO AN/UIT-AI503.F3.LT.TTNT:/app" -w /app faceid:arm64 python3 -m pytest -q -m "not slow"
 ```
 
-Kết quả mong đợi: không ca nào đỏ, và **số ca skip không tăng** so với lần chạy trước — wheel
-`aarch64` đã có (§3), nên các ca cần `ncnn` phải chạy được trong container chứ không bị bỏ qua.
-Skip tăng là dấu hiệu image dựng lại chưa kéo được gói; kiểm lại trước khi kết luận.
+⚠️ **Bắt buộc có `-m "not slow"`.** Vòng 1 đặc tả này ghi thiếu, và lượt chạy ngày 30/08/2026 đỏ
+bảy ca vì lý do chẳng liên quan gì tới mã đang chấm: các ca `slow` cần `ultralytics`/`onnx`, hai gói
+mà container **cố ý không cài** (Pi 5 chỉ chạy `onnxruntime`, xem `P0-02`). Container dùng để kiểm
+**tính đúng đắn trên ARM64**, không phải để chạy phần phụ thuộc công cụ của máy phát triển.
+
+Kết quả mong đợi: **không ca nào đỏ**, và số ca xanh tăng so với lần chạy trước vì có thêm các ca
+của `P2-05`. Số ca skip không được tăng — wheel `ncnn` `aarch64` đã cài được vào image (§3), nên ca
+nhanh của backend NCNN phải chạy thật chứ không bị bỏ qua.
+
+```bash
+docker run --rm -v "D:/hoc tap/lop CNTT dai hoc/ky 4/DO AN/UIT-AI503.F3.LT.TTNT:/app" -w /app faceid:arm64 python3 -m pytest -q -m slow
+```
+
+Lượt riêng cho ca `slow` trong container. Ở đây các ca cần `ultralytics`/`onnx` **phải skip**, còn
+**ca dòng 22 phải xanh** — đó là phép kiểm rằng hai backend khớp nhau trên chính kiến trúc ARM64,
+nơi lệch làm tròn một pixel đã từng xuất hiện (§6.4). Ca nào đỏ vì `ModuleNotFoundError` là lỗi của
+ca đó, không phải của mã việc này: nó thiếu `pytest.importorskip`.
 
 ```bash
 python -m pytest -m slow -v
