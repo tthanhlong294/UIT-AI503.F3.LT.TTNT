@@ -1,9 +1,12 @@
 """Kiểm thử cho scripts/benchmark_detect.py.
 
-Không cần mô hình ONNX thật cho bất kỳ ca nào ở đây: `YoloFaceDetector` được thay bằng một
-lớp giả lập qua `monkeypatch.setattr(bd, "YoloFaceDetector", ...)` — đúng ràng buộc §10 của
-đặc tả P2-03 ("Ca test không được đòi hỏi mô hình thật trừ khi đánh dấu @pytest.mark.slow").
-Không có ca nào trong tệp này được đánh dấu slow.
+Không cần mô hình thật cho bất kỳ ca nào ở đây: từ P2-06, `benchmark_detect` nạp mô hình qua
+`tao_bo_phat_hien`, nên chỗ chèn giả lập là `monkeypatch.setattr(bd, "tao_bo_phat_hien", ...)`
+— trước đó là `bd.YoloFaceDetector`. Đây là phép đổi ĐÚNG MỘT DÒNG ở mỗi ca cũ; mọi assert của
+chúng giữ nguyên, vì chính chúng là lưới an toàn của phép đổi P2-06 §5.1.
+
+Ràng buộc §10 của đặc tả P2-03 vẫn giữ ("Ca test không được đòi hỏi mô hình thật trừ khi đánh
+dấu @pytest.mark.slow"). Không có ca nào trong tệp này được đánh dấu slow.
 """
 
 import ast
@@ -28,13 +31,19 @@ from src.common.types import FaceBox
 # ============================================================================
 
 
-def _lam_lop_detector_gia(kich_thuoc_vao: int = 320, so_lan_co_mat: int | None = None):
-    """Sinh một lớp thay thế YoloFaceDetector, giữ đúng chữ ký constructor (đường_dẫn, cfg).
+def _lam_lop_detector_gia(
+    kich_thuoc_vao: int = 320,
+    so_lan_co_mat: int | None = None,
+    ten_backend: str = "onnx",
+):
+    """Sinh một lớp bộ phát hiện giả, giữ đúng chữ ký constructor (đường_dẫn, cfg).
 
     Args:
         kich_thuoc_vao: Giá trị trả về bởi thuộc tính `kich_thuoc_vao`.
         so_lan_co_mat: Số lệnh gọi `detect` đầu tiên trả về một khuôn mặt; các lệnh gọi
             sau đó trả về danh sách rỗng. `None` nghĩa là luôn trả về một khuôn mặt.
+        ten_backend: Giá trị trả về bởi thuộc tính `ten_backend` — thứ mà benchmark_detect
+            phải đọc thay vì đoán từ tên đường dẫn (P2-06 §6.1).
     """
 
     class _DetectorGia:
@@ -47,6 +56,10 @@ def _lam_lop_detector_gia(kich_thuoc_vao: int = 320, so_lan_co_mat: int | None =
         def kich_thuoc_vao(self) -> int:
             return kich_thuoc_vao
 
+        @property
+        def ten_backend(self) -> str:
+            return ten_backend
+
         def detect(self, khung_hinh):
             self._so_lan_goi += 1
             # Việc làm giả tốn chút CPU thật để latency_ms > 0 luôn đúng trên mọi máy.
@@ -56,6 +69,47 @@ def _lam_lop_detector_gia(kich_thuoc_vao: int = 320, so_lan_co_mat: int | None =
             return [FaceBox(x1=0, y1=0, x2=10, y2=10, confidence=0.9)]
 
     return _DetectorGia
+
+
+def _lam_factory_gia(
+    kich_thuoc_vao: int = 320,
+    so_lan_co_mat: int | None = None,
+    ten_backend: str = "onnx",
+    bo_dem: list | None = None,
+):
+    """Sinh một hàm thay thế `tao_bo_phat_hien`, giữ đúng chữ ký (đường_dẫn, cfg).
+
+    Args:
+        kich_thuoc_vao: Xem `_lam_lop_detector_gia`.
+        so_lan_co_mat: Xem `_lam_lop_detector_gia`.
+        ten_backend: Xem `_lam_lop_detector_gia`.
+        bo_dem: Nếu truyền vào, mỗi lệnh gọi factory nối thêm đường dẫn mô hình vào danh sách
+            này — cách duy nhất đếm được số lần nạp mô hình của một ô (dòng 52).
+    """
+    lop = _lam_lop_detector_gia(kich_thuoc_vao, so_lan_co_mat, ten_backend)
+
+    def _factory_gia(duong_dan, cfg):
+        if bo_dem is not None:
+            bo_dem.append(Path(duong_dan))
+        return lop(duong_dan, cfg)
+
+    return _factory_gia
+
+
+def _lam_factory_gia_theo_ten(anh_xa_ten_backend: dict[str, str]):
+    """Sinh factory giả trả bộ suy luận KHÁC NHAU tuỳ mô hình, cho ca trộn hai loại.
+
+    Args:
+        anh_xa_ten_backend: Ánh xạ `tên cuối của đường dẫn -> ten_backend` mà bộ phát hiện
+            giả sẽ khai báo.
+    """
+
+    def _factory_gia(duong_dan, cfg):
+        ten = Path(duong_dan).name
+        lop = _lam_lop_detector_gia(ten_backend=anh_xa_ten_backend[ten])
+        return lop(duong_dan, cfg)
+
+    return _factory_gia
 
 
 def _cfg_co_ban() -> dict:
@@ -147,6 +201,7 @@ def _meta_hop_le(tom_tat: dict | None = None) -> dict:
         "script": "scripts/benchmark_detect.py",
         "command": "python scripts/benchmark_detect.py --device-name test",
         "device": {"name": "test", "os": "x", "machine": "x", "processor": "x"},
+        "moi_truong": "pc_x86",
         "software": {
             "python": "3.11",
             "onnxruntime": "1.0",
@@ -254,14 +309,14 @@ def test_dong10_dang_trong_container_false(monkeypatch, tmp_path):
 
 
 def test_dong11_so_ban_ghi_dung_khong_tinh_lam_nong(monkeypatch, tmp_path):
-    monkeypatch.setattr(bd, "YoloFaceDetector", _lam_lop_detector_gia())
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
     anh = _anh_gia(17)
     bg = bd.do_mot_cau_hinh(tmp_path / "gia.onnx", _cfg_co_ban(), 12, anh, 5)
     assert len(bg) == 12
 
 
 def test_dong12_du_sau_khoa(monkeypatch, tmp_path):
-    monkeypatch.setattr(bd, "YoloFaceDetector", _lam_lop_detector_gia())
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
     anh = _anh_gia(15)
     bg = bd.do_mot_cau_hinh(tmp_path / "gia.onnx", _cfg_co_ban(), 10, anh, 5)
     for r in bg:
@@ -276,14 +331,14 @@ def test_dong12_du_sau_khoa(monkeypatch, tmp_path):
 
 
 def test_dong13_sample_idx_lien_tuc(monkeypatch, tmp_path):
-    monkeypatch.setattr(bd, "YoloFaceDetector", _lam_lop_detector_gia())
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
     anh = _anh_gia(15)
     bg = bd.do_mot_cau_hinh(tmp_path / "gia.onnx", _cfg_co_ban(), 10, anh, 5)
     assert [r["sample_idx"] for r in bg] == list(range(len(bg)))
 
 
 def test_dong14_fps_instant_khop_nghich_dao(monkeypatch, tmp_path):
-    monkeypatch.setattr(bd, "YoloFaceDetector", _lam_lop_detector_gia())
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
     anh = _anh_gia(15)
     bg = bd.do_mot_cau_hinh(tmp_path / "gia.onnx", _cfg_co_ban(), 10, anh, 5)
     for r in bg:
@@ -291,7 +346,7 @@ def test_dong14_fps_instant_khop_nghich_dao(monkeypatch, tmp_path):
 
 
 def test_dong15_latency_duong(monkeypatch, tmp_path):
-    monkeypatch.setattr(bd, "YoloFaceDetector", _lam_lop_detector_gia())
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
     anh = _anh_gia(15)
     bg = bd.do_mot_cau_hinh(tmp_path / "gia.onnx", _cfg_co_ban(), 10, anh, 5)
     assert all(r["latency_ms"] > 0 for r in bg)
@@ -505,7 +560,7 @@ def test_dong33_cpu_temp_rong_khong_phai_none(tmp_path):
 
 
 def test_dong34_container_co_canh_bao(monkeypatch, tmp_path, thu_muc_anh_that):
-    monkeypatch.setattr(bd, "YoloFaceDetector", _lam_lop_detector_gia())
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
     monkeypatch.setattr(bd, "dang_trong_container", lambda: True)
     monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path)
     mo_hinh = _tao_mo_hinh_gia(tmp_path)
@@ -529,7 +584,7 @@ def test_dong34_container_co_canh_bao(monkeypatch, tmp_path, thu_muc_anh_that):
 
 
 def test_dong35_container_in_canh_bao_ra_man_hinh(monkeypatch, tmp_path, capsys, thu_muc_anh_that):
-    monkeypatch.setattr(bd, "YoloFaceDetector", _lam_lop_detector_gia())
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
     monkeypatch.setattr(bd, "dang_trong_container", lambda: True)
     monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path)
     mo_hinh = _tao_mo_hinh_gia(tmp_path)
@@ -551,7 +606,7 @@ def test_dong35_container_in_canh_bao_ra_man_hinh(monkeypatch, tmp_path, capsys,
 
 
 def test_dong36_ngoai_container_khong_co_canh_bao(monkeypatch, tmp_path, thu_muc_anh_that):
-    monkeypatch.setattr(bd, "YoloFaceDetector", _lam_lop_detector_gia())
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
     monkeypatch.setattr(bd, "dang_trong_container", lambda: False)
     monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path)
     mo_hinh = _tao_mo_hinh_gia(tmp_path)
@@ -616,7 +671,7 @@ def test_dong39b_warmup_am_tra_ve_1(capsys, tmp_path, monkeypatch):
 
 
 def test_dong40_ma_tran_dung_so_o(monkeypatch, tmp_path, thu_muc_anh_that):
-    monkeypatch.setattr(bd, "YoloFaceDetector", _lam_lop_detector_gia())
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
     monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path)
     m1 = _tao_mo_hinh_gia(tmp_path, "gia1.onnx")
     m2 = _tao_mo_hinh_gia(tmp_path, "gia2.onnx")
@@ -645,7 +700,7 @@ def test_dong40b_ma_tran_hai_mo_hinh_trung_ten_khac_thu_muc(
     monkeypatch, tmp_path, thu_muc_anh_that
 ):
     """CS-2: hai mô hình khác thư mục nhưng trùng tên tệp không được đè mất tổng hợp của nhau."""
-    monkeypatch.setattr(bd, "YoloFaceDetector", _lam_lop_detector_gia())
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
     monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "ket_qua")
     (tmp_path / "v1").mkdir()
     (tmp_path / "v2").mkdir()
@@ -699,7 +754,7 @@ def test_dong42_cau_hinh_hong(tmp_path, monkeypatch):
 
 
 def test_dong43_bang_tong_ket_co_cot_dat(monkeypatch, tmp_path, thu_muc_anh_that, capsys):
-    monkeypatch.setattr(bd, "YoloFaceDetector", _lam_lop_detector_gia())
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
     monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path)
     mo_hinh = _tao_mo_hinh_gia(tmp_path)
     ma = bd.main(
@@ -718,3 +773,206 @@ def test_dong43_bang_tong_ket_co_cot_dat(monkeypatch, tmp_path, thu_muc_anh_that
     ra = capsys.readouterr()
     assert "10" in ra.out
     assert "Đạt" in ra.out or "KHÔNG" in ra.out
+
+
+# ============================================================================
+# P2-06 §7 — hai bộ suy luận trong một ma trận (dòng 44-54)
+# ============================================================================
+
+
+def _tham_so_main(mo_hinh, thu_muc_anh, *them_mo_hinh) -> list[str]:
+    """Dựng danh sách tham số main() tối giản cho một ô ma trận (1 mô hình x 1 mức luồng)."""
+    return [
+        "--device-name",
+        "PC test",
+        "--anh-dir",
+        str(thu_muc_anh),
+        "--models",
+        str(mo_hinh),
+        *[str(m) for m in them_mo_hinh],
+        "--threads",
+        "1",
+    ]
+
+
+def _doc_meta_duy_nhat(thu_muc: Path) -> dict:
+    """Đọc tệp .meta.json duy nhất trong thư mục kết quả, khẳng định đúng một tệp."""
+    tep = list(thu_muc.glob("*.meta.json"))
+    assert len(tep) == 1, f"Cần đúng một tệp meta, thấy {len(tep)}"
+    return json.loads(tep[0].read_text(encoding="utf-8"))
+
+
+def test_dong44_duong_dan_onnx_cho_backend_onnx(monkeypatch, tmp_path):
+    """Dòng 01: bản ghi lấy `backend` từ đối tượng phát hiện, trường hợp ONNX."""
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia(ten_backend="onnx"))
+    bg = bd.do_mot_cau_hinh(tmp_path / "gia.onnx", _cfg_co_ban(), 10, _anh_gia(15), 5)
+    assert bg
+    assert {r["backend"] for r in bg} == {"onnx"}
+
+
+def test_dong45_thu_muc_ncnn_cho_backend_ncnn(monkeypatch, tmp_path):
+    """Dòng 02: cùng hàm đó, mô hình là THƯ MỤC, backend phải là ncnn."""
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia(ten_backend="ncnn"))
+    thu_muc = tmp_path / "gia_ncnn_model"
+    thu_muc.mkdir()
+    bg = bd.do_mot_cau_hinh(thu_muc, _cfg_co_ban(), 10, _anh_gia(15), 5)
+    assert bg
+    assert {r["backend"] for r in bg} == {"ncnn"}
+
+
+def test_dong46_imgsz_lay_tu_detector_khong_tu_ten_tep(monkeypatch, tmp_path):
+    """Dòng 03: tên tệp nói 320, đối tượng phát hiện nói 999 — bản ghi phải theo đối tượng."""
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia(kich_thuoc_vao=999))
+    bg = bd.do_mot_cau_hinh(tmp_path / "yolov8n-face-320.onnx", _cfg_co_ban(), 10, _anh_gia(15), 5)
+    assert bg
+    assert {r["imgsz"] for r in bg} == {999}
+
+
+def test_dong47_tron_hai_loai_csv_co_hai_gia_tri_backend(monkeypatch, tmp_path, thu_muc_anh_that):
+    """Dòng 04: một lần chạy trộn cả hai loại mô hình -> cột backend của CSV có hai giá trị."""
+    m_onnx = _tao_mo_hinh_gia(tmp_path, "gia.onnx")
+    m_ncnn = tmp_path / "gia_ncnn_model"
+    m_ncnn.mkdir()
+    monkeypatch.setattr(
+        bd,
+        "tao_bo_phat_hien",
+        _lam_factory_gia_theo_ten({"gia.onnx": "onnx", "gia_ncnn_model": "ncnn"}),
+    )
+    thu_muc_kq = tmp_path / "ket_qua"
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", thu_muc_kq)
+
+    ma = bd.main(_tham_so_main(m_onnx, thu_muc_anh_that, m_ncnn))
+
+    assert ma == 0
+    tep_csv = list(thu_muc_kq.glob("*.csv"))
+    assert len(tep_csv) == 1
+    with open(tep_csv[0], newline="", encoding="utf-8") as f:
+        dong = list(csv.DictReader(f))
+    assert {r["backend"] for r in dong} == {"onnx", "ncnn"}
+
+
+def test_dong48_duong_dan_khong_hop_le_tra_ve_1(monkeypatch, tmp_path, thu_muc_anh_that):
+    """Dòng 05: đuôi lạ -> main trả 1, không để ngoại lệ của factory lọt ra ngoài."""
+    thu_muc_kq = tmp_path / "ket_qua"
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", thu_muc_kq)
+
+    # (a) đường dẫn không tồn tại — chặn ngay ở bước kiểm tồn tại
+    assert bd.main(_tham_so_main("khong/ton/tai.txt", thu_muc_anh_that)) == 1
+
+    # (b) tệp CÓ THẬT nhưng đuôi lạ — phải đi tới factory THẬT và bị LoiCauHinh, main bắt lấy
+    tep_la = tmp_path / "mo_hinh.txt"
+    tep_la.write_bytes(b"\x00")
+    assert bd.main(_tham_so_main(tep_la, thu_muc_anh_that)) == 1
+    assert not thu_muc_kq.exists()
+
+
+def test_dong49_meta_co_khoa_moi_truong(monkeypatch, tmp_path, thu_muc_anh_that):
+    """Dòng 06: .meta.json phải mang đủ khoá bắt buộc, trong đó có `moi_truong`."""
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
+    thu_muc_kq = tmp_path / "ket_qua"
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", thu_muc_kq)
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+
+    ma = bd.main(_tham_so_main(mo_hinh, thu_muc_anh_that))
+
+    assert ma == 0
+    meta = _doc_meta_duy_nhat(thu_muc_kq)
+    assert set(meta) >= set(bd._KHOA_META_BAT_BUOC)
+    assert "moi_truong" in meta
+
+
+def test_dong50_moi_truong_nhan_ma_hop_le(monkeypatch, tmp_path, thu_muc_anh_that):
+    """Dòng 07: giá trị `moi_truong` phải là một trong đúng ba mã của quy ước đo."""
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
+    thu_muc_kq = tmp_path / "ket_qua"
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", thu_muc_kq)
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+
+    ma = bd.main(_tham_so_main(mo_hinh, thu_muc_anh_that))
+
+    assert ma == 0
+    meta = _doc_meta_duy_nhat(thu_muc_kq)
+    assert meta["moi_truong"] in {"pc_x86", "docker_arm64", "pi5"}
+
+
+def test_dong51_ngoai_pi5_notes_co_canh_bao(monkeypatch, tmp_path, thu_muc_anh_that):
+    """Dòng 08: không đo trên Pi 5 -> notes phải mang câu cấm dùng kết luận chỉ tiêu."""
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
+    monkeypatch.setattr(bd, "xac_dinh_moi_truong", lambda: "pc_x86")
+    thu_muc_kq = tmp_path / "ket_qua"
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", thu_muc_kq)
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+
+    ma = bd.main(_tham_so_main(mo_hinh, thu_muc_anh_that) + ["--ghi-chu", "ghi chu cua toi"])
+
+    assert ma == 0
+    meta = _doc_meta_duy_nhat(thu_muc_kq)
+    assert "KHÔNG dùng kết luận chỉ tiêu" in meta["notes"]
+    assert "pc_x86" in meta["notes"]
+    # Ghi chú của người đo không được câu cảnh báo nuốt mất.
+    assert "ghi chu cua toi" in meta["notes"]
+
+
+def test_dong51b_tren_pi5_notes_khong_co_canh_bao(monkeypatch, tmp_path, thu_muc_anh_that):
+    """Ca biên của dòng 08: đo đúng trên phần cứng đích thì notes giữ nguyên ghi chú người đo."""
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
+    monkeypatch.setattr(bd, "xac_dinh_moi_truong", lambda: "pi5")
+    thu_muc_kq = tmp_path / "ket_qua"
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", thu_muc_kq)
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+
+    ma = bd.main(_tham_so_main(mo_hinh, thu_muc_anh_that) + ["--ghi-chu", "ghi chu cua toi"])
+
+    assert ma == 0
+    meta = _doc_meta_duy_nhat(thu_muc_kq)
+    assert meta["notes"] == "ghi chu cua toi"
+
+
+def test_dong52_moi_o_nap_mo_hinh_dung_mot_lan(monkeypatch, tmp_path, thu_muc_anh_that):
+    """Dòng 09: một mô hình x một mức luồng -> factory được gọi ĐÚNG một lần (P2-06 §6.2)."""
+    bo_dem: list = []
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia(bo_dem=bo_dem))
+    thu_muc_kq = tmp_path / "ket_qua"
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", thu_muc_kq)
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+
+    ma = bd.main(_tham_so_main(mo_hinh, thu_muc_anh_that))
+
+    assert ma == 0
+    assert len(bo_dem) == 1
+
+
+def test_dong53_dry_run_co_cot_backend_khong_ghi_tep(monkeypatch, tmp_path, capsys):
+    """Dòng 10: bảng kế hoạch có cột backend và giá trị thật, mà không tạo ra tệp nào."""
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia(ten_backend="ncnn"))
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "ket_qua")
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+    truoc = set(tmp_path.rglob("*"))
+
+    ma = bd.main(
+        ["--device-name", "PC test", "--models", str(mo_hinh), "--threads", "1", "--dry-run"]
+    )
+
+    sau = set(tmp_path.rglob("*"))
+    assert ma == 0
+    assert truoc == sau
+    ra = capsys.readouterr()
+    assert "backend" in ra.out
+    assert "ncnn" in ra.out
+
+
+def test_dong54_cot_csv_van_dung_muoi_khoa_dung_thu_tu(monkeypatch, tmp_path, thu_muc_anh_that):
+    """Dòng 11: thêm bộ suy luận thứ hai không được làm xê dịch lược đồ CSV."""
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
+    thu_muc_kq = tmp_path / "ket_qua"
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", thu_muc_kq)
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+
+    ma = bd.main(_tham_so_main(mo_hinh, thu_muc_anh_that))
+
+    assert ma == 0
+    tep_csv = list(thu_muc_kq.glob("*.csv"))
+    assert len(tep_csv) == 1
+    with open(tep_csv[0], newline="", encoding="utf-8") as f:
+        header = next(csv.reader(f))
+    assert header == list(bd._COT_CSV)

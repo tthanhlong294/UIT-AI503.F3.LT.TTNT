@@ -186,13 +186,88 @@ Ghi nhận về tái lập: nhật ký tuần 4 ghi Python **3.11.15** trong con
 Chênh lệch ở mức bản vá nên không ảnh hưởng các kết quả đã đo, nhưng nghĩa là image hiện tại **không
 giống hệt** image dùng cho những mã việc đầu — cần nhắc lại nếu về sau có số đo nào lệch bất thường.
 
+### 11. Mã việc `P3-01b` — vá ba lỗ hổng cấu hình, và là mã việc đầu tiên chạy theo quy trình 6 nhịp (27/08)
+
+Vá đúng ba lỗ hổng mà lượt kiểm định `P3-01` tìm ra, không hơn. Cả ba đều là khiếm khuyết của **bản
+đặc tả**, không phải của bản cài đặt — người cài đặt trước đó đã chặn đủ 17/17 biến thể mà đặc tả cũ
+liệt kê đích danh.
+
+| Lỗ hổng | Hậu quả trước khi vá |
+|---|---|
+| Hệ số chia nhận giá trị vô cùng | Tensor đầu vào thành toàn số 0. Đo thật trên 6 danh tính LFW: độ tương đồng giữa **những người khác nhau** ra đúng 1,0000 ở mọi cặp — tỉ lệ chấp nhận sai 100 % trong khi hệ thống trông vẫn hoàn hảo |
+| Hai tham số chuẩn hoá nhận `NaN` | `NaN` lách qua mọi phép so sánh, vì `nan <= 0` cho `False`. Cả gallery có thể đăng ký thành vectơ `NaN` mà không một dòng log cảnh báo |
+| Kích thước ảnh đầu vào không đối chiếu với đồ thị mô hình | Thay nhầm mô hình thì lỗi rò ra ngoài dưới dạng ngoại lệ nội bộ của thư viện suy luận, trái hợp đồng của hàm |
+
+Sửa khoảng 10 dòng mã, thêm 9 ca kiểm thử. **38 ca cũ giữ nguyên tuyệt đối** — kiểm bằng máy:
+tệp kiểm thử có 185 dòng thêm và **0 dòng xoá**, bằng chứng mạnh hơn việc đếm đủ số ca.
+
+| Nhịp | Kết quả |
+|---|---|
+| Review vòng 1 | 🟡 Đạt có điều kiện — 0 lỗi chặn, 0 lỗi cần sửa |
+
+Mã việc thứ hai liên tiếp **đạt ngay vòng đầu**. Bốn góp ý còn lại không góp ý nào thuộc trách nhiệm
+người cài đặt: hai là khiếm khuyết đặc tả, một là phần dư thừa mà chính đặc tả yêu cầu, một nằm ngoài
+bảng nghiệm thu.
+
+**Hai ca kiểm thử chống lỗi ngược chiều.** Sửa lỗi kiểu này có một cái bẫy: chặn quá tay còn tệ hơn
+để hở. Nếu chặn luôn mọi giá trị không dương cho tham số độ lệch thì một phương án chuẩn hoá hợp lệ
+sẽ hỏng, mà kiểu lỗi đó khó thấy hơn lỗ hổng ban đầu. Nên có riêng một ca khẳng định hai giá trị hợp
+lệ **phải được chấp nhận**.
+
+Người kiểm định phát hiện đặc tả mới chỉ đòi chứng minh một nửa — rằng ca đó không đỏ oan — mà chưa
+đòi chứng minh nó **biết đỏ khi phải đỏ**. Ca kiểm thử không bao giờ đỏ là ca chết, xanh vĩnh viễn mà
+không canh gì. Người kiểm định tự dựng thêm một phép đột biến mô phỏng đúng lỗi chặn quá tay, và ca
+đó đỏ đúng một mình. Đây là lỗi của khâu viết đặc tả, đã ghi lại.
+
+**Kết quả kiểm định — chín phép đột biến, mã băm khớp cả chín lần khôi phục:**
+
+| Kiểm | Kết quả |
+|---|---|
+| Toàn kho trên máy phát triển | **388 passed** (379 cũ + 9 mới) |
+| Trong container ARM64, có gắn thư mục | **47 passed** trong 248,6 s |
+| Trong container, che khuất thư mục mô hình và dữ liệu | **36 passed, 11 skipped**, 0 failed, 0 error |
+| Chín phép đột biến | mỗi phép đỏ **đúng** các ca đặc tả yêu cầu, không thừa ca nào |
+
+Phép kiểm che khuất thư mục là phép quan trọng nhất: nó tái lập điều kiện của thiết bị chưa có trọng
+số mô hình. Tám trong chín ca mới **vẫn chạy thật** ở điều kiện đó, chỉ một ca bỏ qua vì cần đọc đồ
+thị mô hình. Trong đó ca nạp tệp cấu hình thật chạy được — điều đặc tả cấm nó bỏ qua, vì nó là lá
+chắn duy nhất canh bốn giá trị chuẩn hoá đã chốt bằng thực nghiệm.
+
+**Ba bài học vận hành rút ra khi chạy quy trình mới lần đầu:**
+
+1. **Kịch bản kiểm phải tắt trình phân trang của công cụ quản lý phiên bản.** Không tắt thì đầu ra dài
+   bị đẩy qua trình phân trang, màn hình đứng chờ bấm phím và kịch bản treo giữa chừng. Lỗi khó thấy
+   khi viết vì lệnh có đầu ra được ống dẫn tiếp thì trình phân trang tự tắt. Đã đưa thành yêu cầu bắt
+   buộc trong quy ước viết kịch bản.
+2. **Ảnh container chứa bản sao mã nguồn tại thời điểm dựng, nên nó là mã cũ.** Quy tắc một ảnh duy
+   nhất nói chỉ dựng lại khi khai báo phụ thuộc đổi, nên chạy kiểm thử trong container mà không gắn
+   thư mục làm việc sẽ kiểm nhầm một bản mã không phải bản đang review. Cách đúng là gắn thư mục để
+   lấy mã hiện tại, rồi **che khuất** riêng những thư mục cần vắng mặt. Kiểm bằng máy xác nhận: mã
+   trong ảnh đúng là bản cũ.
+3. **Chạy toàn bộ bộ kiểm thử trong container giả lập là phép kiểm đắt mà ít giá trị.** 47 ca mất hơn
+   bốn phút; toàn kho 388 ca mất hàng chục phút để xác nhận một điều đã biết từ tuần trước và không
+   thuộc mã việc này. Đã bỏ, và **ghi rõ trong biên bản là đánh đổi có ý thức** kèm bảng nêu đúng
+   phần nào không còn được canh — cắt phép kiểm thì phải nói mất gì, không lặng lẽ bỏ rồi để biên bản
+   trông như đã kiểm đủ.
+
+**Một con số bị loại khỏi biên bản.** Bộ dò cấu hình in ra độ tương đồng 0,80 giữa "ba ảnh khác nhau"
+với cấu hình đúng, thoạt nhìn mâu thuẫn với mốc đã chốt là 0,0079. Truy lại: ba ảnh đó là nhiễu ngẫu
+nhiên sinh tạm, không phải khuôn mặt, nên con số vô nghĩa. Đã loại kèm giải trình. Ghi lại đây vì đây
+đúng loại số dễ lọt vào báo cáo rồi không ai truy được nguồn.
+
+**Một ô trong biên bản ghi là chưa đo, không ghi là đạt.** Yêu cầu "thông báo bỏ qua phải nêu rõ
+thiếu gì" không xác minh được ở lượt này vì bộ lọc trong kịch bản kiểm hụt mất phần lý do. Biên bản
+ghi rõ là **bằng chứng gián tiếp** — dựa vào việc tệp kiểm thử có 0 dòng xoá nên các thông báo cũ
+không bị đụng tới — chứ không đánh dấu đạt.
+
 ## Số liệu
 
 | Hạng mục | Giá trị | Nguồn |
 |---|---|---|
-| Số mã việc hoàn tất | **4** | `docs/review/` |
-| Số vòng sửa trung bình | 0,75 | 1 vòng cho `P2-02`, `P2-03`, `P1-05`; 0 vòng cho `P3-01` |
-| Ca kiểm thử toàn kho | **379 passed** | biên bản `P3-01` |
+| Số mã việc hoàn tất | **5** | `docs/review/` |
+| Số vòng sửa trung bình | 0,6 | 1 vòng cho `P2-02`, `P2-03`, `P1-05`; 0 vòng cho `P3-01` và `P3-01b` |
+| Ca kiểm thử toàn kho | **388 passed** | biên bản `P3-01b` |
+| Ca kiểm thử trong container khi thiếu trọng số | **36 passed, 11 skipped**, 0 failed | biên bản `P3-01b` |
 | Ảnh xử lý thành công trong mẻ thử | 198/200 = **99,00 %** | `data/processed/lfw_original/manifest.csv` |
 | Độ tách biệt của mô hình nhận diện | **0,6010** | `models/README.md` §3.3 |
 | Mục báo cáo viết trong tuần | 6 | `report/chapters/` |
@@ -209,15 +284,14 @@ giống hệt** image dùng cho những mã việc đầu — cần nhắc lại
 
 ## Kế hoạch tuần sau
 
-- Chạy `P3-01b` theo quy trình 6 nhịp mới — vừa vá ba lỗ hổng cấu hình vừa thử cơ chế mới trên một
-  mã việc nhỏ. Đặc tả đã viết xong ngày 25/08
 - Viết phương án nhận diện thứ hai và script đăng ký, quét ngưỡng, dựng đường cong ROC — phần lớn
-  việc này chạy được trên LFW, không cần camera
+  việc này chạy được trên bộ dữ liệu đối chứng, không cần camera. Đây là phần đóng góp chính của đồ án
 - Làm trước phần không phụ thuộc phần cứng của khối chấp hành và khối giám sát
 - Quyết định về phần cứng: mua bo mạch, hoặc tách camera ra mua riêng để mở khoá phần thu thập dữ liệu
 
 ---
 
-*Nguồn: lịch sử git từ `6ff0111` đến `456df8c`; biên bản trong `docs/review/` của các mã việc
-`P2-02`, `P2-03`, `P1-05`, `P3-01`; `results/bench_detect_20260819_1453.csv` và tệp mô tả đi kèm;
-`docker system df` chạy ngày 25/08/2026.*
+*Nguồn: lịch sử git từ `6ff0111` đến `baf86ec`; biên bản trong `docs/review/` của các mã việc
+`P2-02`, `P2-03`, `P1-05`, `P3-01`, `P3-01b`; `results/bench_detect_20260819_1453.csv` và tệp mô tả
+đi kèm; `docker system df` chạy ngày 25/08/2026; kết quả ba kịch bản kiểm của `P3-01b` chạy ngày
+26–27/08/2026 (kịch bản giữ ở máy cá nhân, số liệu trích trong biên bản review).*

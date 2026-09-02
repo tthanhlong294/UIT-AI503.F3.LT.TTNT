@@ -1,12 +1,14 @@
-"""Đo hiệu năng khối phát hiện khuôn mặt YOLOv8n-face (ONNX) — bước 2.6 của CLAUDE.md.
+"""Đo hiệu năng khối phát hiện khuôn mặt YOLOv8n-face — bước 2.6 của CLAUDE.md.
 
-Xem docs/dac-ta/P2-03-benchmark-detect.md. Script này là CÔNG CỤ, không phải phép đo: chỉ khi
-chạy trên Raspberry Pi 5 thật thì số đo mới có giá trị đưa vào Cổng C của Phase 2 (xem chốt
-chặn container ở dưới và experiment-protocol.instructions.md §2).
+Xem docs/dac-ta/P2-03-benchmark-detect.md và docs/dac-ta/P2-06-benchmark-ncnn.md. Script này là
+CÔNG CỤ, không phải phép đo: chỉ khi chạy trên Raspberry Pi 5 thật thì số đo mới có giá trị đưa
+vào Cổng C của Phase 2 (xem chốt chặn container ở dưới và experiment-protocol.instructions.md §2).
 
-Ma trận đo: {tệp .onnx được liệt kê ở --models} × {số luồng ở --threads}. Cùng một tập ảnh đã
-nạp sẵn được dùng lại cho MỌI ô của ma trận để bảo đảm so sánh công bằng (chỉ đổi đúng một biến
-mỗi lần — xem experiment-protocol.instructions.md §2 "Quy tắc so sánh công bằng").
+Ma trận đo: {mô hình được liệt kê ở --models} × {số luồng ở --threads}. Mỗi mô hình là một tệp
+.onnx hoặc một thư mục mô hình NCNN; việc đường dẫn nào đi với bộ suy luận nào do
+src/detector/factory.py quyết định — script này KHÔNG tự đoán lại. Cùng một tập ảnh đã nạp sẵn
+được dùng lại cho MỌI ô của ma trận để bảo đảm so sánh công bằng (chỉ đổi đúng một biến mỗi lần
+— xem experiment-protocol.instructions.md §2 "Quy tắc so sánh công bằng").
 """
 
 import sys
@@ -28,10 +30,11 @@ import cv2
 import numpy as np
 import onnxruntime as ort
 
+from scripts.export_detector_ncnn import xac_dinh_moi_truong
 from src.common.config import nap_cau_hinh
 from src.common.exceptions import LoiCauHinh, LoiMoHinh
 from src.common.logging import lay_logger
-from src.detector import YoloFaceDetector
+from src.detector import tao_bo_phat_hien
 
 logger = lay_logger(__name__)
 
@@ -55,6 +58,23 @@ _DUONG_DAN_DOCKERENV = Path("/.dockerenv")
 # không ghi vào results/ thật khi chạy pytest.
 _THU_MUC_KET_QUA_MAC_DINH = Path("results")
 
+# Mã môi trường của phần cứng đích (xem experiment-protocol.instructions.md §2). Chỉ số đo sinh
+# ra ở môi trường này mới dùng để kết luận chỉ tiêu FPS của Cổng C Phase 2.
+_MOI_TRUONG_PHAN_CUNG_DICH = "pi5"
+
+# Câu cảnh báo ghi kèm vào notes của .meta.json khi phép đo KHÔNG chạy trên phần cứng đích.
+# Cảnh báo in ra màn hình biến mất khi đóng cửa sổ; câu này đi cùng số liệu suốt đời tệp đó
+# (P2-06 §6.3). Chỗ {} điền mã môi trường thật đã đo.
+_CANH_BAO_NGOAI_PHAN_CUNG_DICH = (
+    "CẢNH BÁO: phép đo chạy ở môi trường '{}', KHÔNG phải Raspberry Pi 5 thật. Số liệu này "
+    "chỉ dùng để kiểm quy trình đo và so sánh tương đối giữa các cấu hình, KHÔNG dùng kết "
+    f"luận chỉ tiêu >= {NGUONG_FPS_TOI_THIEU:.0f} FPS của Cổng C Phase 2."
+)
+
+# Giá trị hiển thị ở cột backend của bảng kế hoạch --dry-run khi chưa khởi tạo được mô hình
+# (chưa export, đường dẫn sai, hoặc thiếu thư viện suy luận).
+_BACKEND_CHUA_XAC_DINH = "chua-xac-dinh"
+
 _COT_CSV = [
     "run_id",
     "backend",
@@ -76,6 +96,7 @@ _KHOA_META_BAT_BUOC = (
     "script",
     "command",
     "device",
+    "moi_truong",
     "software",
     "config_file",
     "config_snapshot",
@@ -148,32 +169,39 @@ def chon_anh(thu_muc: Path, so_luong: int, seed: int) -> list[Path]:
 
 
 def do_mot_cau_hinh(
-    duong_dan_onnx: Path,
+    duong_dan_mo_hinh: Path,
     cfg: dict,
     so_luong: int,
     anh_da_nap: list[np.ndarray],
     so_lam_nong: int,
 ) -> list[dict]:
-    """Đo một ô của ma trận benchmark (một tệp .onnx tại một mức số luồng).
+    """Đo một ô của ma trận benchmark (một mô hình tại một mức số luồng).
 
     Ảnh phải được truyền vào ĐÃ NẠP SẴN vào bộ nhớ — thời gian đọc tệp không được tính vào
-    phép đo (§3 đặc tả). Vùng đo thời gian chỉ bọc lệnh gọi `detector.detect`.
+    phép đo (§3 đặc tả P2-03). Vùng đo thời gian chỉ bọc lệnh gọi `detector.detect`.
+
+    Mô hình được nạp ĐÚNG MỘT LẦN cho mỗi ô, tại đây và chỉ tại đây (P2-06 §6.2).
+
+    Mỗi bản ghi trả về có thêm hai khoá so với trước: `backend` và `imgsz`, lấy từ chính đối
+    tượng phát hiện — KHÔNG suy từ tên tệp, và không để hàm gọi gán sau (P2-06 §6.1).
 
     Args:
-        duong_dan_onnx: Đường dẫn tệp .onnx cần đo.
-        cfg: Cấu hình truyền cho YoloFaceDetector (đã đặt sẵn inference.num_threads).
+        duong_dan_mo_hinh: Đường dẫn mô hình cần đo. Dạng nào đi với bộ suy luận nào là việc
+            của `tao_bo_phat_hien`, hàm này không xét đến.
+        cfg: Cấu hình truyền cho bộ phát hiện (đã đặt sẵn inference.num_threads).
         so_luong: Số khung hình cần đo (không tính khung làm nóng).
         anh_da_nap: Ảnh đã nạp sẵn vào bộ nhớ, độ dài tối thiểu `so_lam_nong + so_luong`.
             `so_lam_nong` ảnh đầu dùng để làm nóng, phần còn lại dùng để đo.
         so_lam_nong: Số khung hình chạy làm nóng trước, không tính vào kết quả.
 
     Returns:
-        Danh sách bản ghi, mỗi khung hình đo một bản ghi, gồm các khoá `sample_idx`,
-        `latency_ms`, `fps_instant`, `n_faces`, `conf_top`, `cpu_temp_c`.
+        Danh sách bản ghi, mỗi khung hình đo một bản ghi, gồm các khoá `backend`, `imgsz`,
+        `sample_idx`, `latency_ms`, `fps_instant`, `n_faces`, `conf_top`, `cpu_temp_c`.
 
     Raises:
         LoiMoHinh: không nạp được mô hình.
-        LoiCauHinh: cấu hình sai, hoặc không đủ ảnh đã nạp sẵn cho warm-up + đo.
+        LoiCauHinh: cấu hình sai, đường dẫn không khớp bộ suy luận nào, hoặc không đủ ảnh đã
+            nạp sẵn cho warm-up + đo.
     """
     tong_can = so_lam_nong + so_luong
     if len(anh_da_nap) < tong_can:
@@ -182,7 +210,9 @@ def do_mot_cau_hinh(
             f"chỉ có {len(anh_da_nap)}"
         )
 
-    detector = YoloFaceDetector(duong_dan_onnx, cfg)
+    detector = tao_bo_phat_hien(duong_dan_mo_hinh, cfg)
+    ten_backend = detector.ten_backend
+    imgsz = detector.kich_thuoc_vao
 
     for anh in anh_da_nap[:so_lam_nong]:
         detector.detect(anh)
@@ -197,6 +227,8 @@ def do_mot_cau_hinh(
         # Đọc nhiệt độ SAU khi kết thúc phép đo — không để chi phí đọc /sys lọt vào latency.
         ban_ghi.append(
             {
+                "backend": ten_backend,
+                "imgsz": imgsz,
                 "sample_idx": idx,
                 "latency_ms": latency_ms,
                 "fps_instant": 1000.0 / latency_ms,
@@ -207,6 +239,37 @@ def do_mot_cau_hinh(
         )
 
     return ban_ghi
+
+
+def _ten_backend_du_kien(duong_dan_mo_hinh: Path, cfg: dict) -> str:
+    """Tra bộ suy luận của một mô hình để in vào bảng kế hoạch `--dry-run`.
+
+    Nguồn sự thật duy nhất về chuyện đường dẫn nào đi với bộ suy luận nào là
+    `tao_bo_phat_hien` (P2-06 §6.1), nên hàm này khởi tạo thật rồi hỏi `ten_backend` thay vì
+    đoán từ đuôi tệp hay tên thư mục. Bộ phát hiện được giải phóng ngay sau khi đọc xong:
+    `--dry-run` không đo gì nên không được giữ tài nguyên nào lại.
+
+    Args:
+        duong_dan_mo_hinh: Đường dẫn mô hình cần tra.
+        cfg: Toàn bộ nội dung configs/detect.yaml.
+
+    Returns:
+        Tên bộ suy luận do chính đối tượng phát hiện khai báo, hoặc `_BACKEND_CHUA_XAC_DINH`
+        khi chưa khởi tạo được — `--dry-run` chỉ in kế hoạch nên không được hỏng vì một mô
+        hình còn thiếu.
+    """
+    try:
+        detector = tao_bo_phat_hien(duong_dan_mo_hinh, cfg)
+    except (LoiMoHinh, LoiCauHinh) as e:
+        logger.warning("Chưa tra được bộ suy luận của '%s': %s", duong_dan_mo_hinh, e)
+        return _BACKEND_CHUA_XAC_DINH
+
+    try:
+        return detector.ten_backend
+    finally:
+        giai_phong = getattr(detector, "close", None)
+        if callable(giai_phong):
+            giai_phong()
 
 
 def tong_hop(ban_ghi: list[dict]) -> dict:
@@ -319,8 +382,9 @@ def _xay_dung_parser() -> argparse.ArgumentParser:
     """Dựng argparse cho script, theo đúng giao diện dòng lệnh ở §4 đặc tả."""
     parser = argparse.ArgumentParser(
         description=(
-            "Đo hiệu năng khối phát hiện khuôn mặt YOLOv8n-face (ONNX) trên ma trận "
-            "{độ phân giải} x {số luồng} (xem docs/dac-ta/P2-03-benchmark-detect.md)."
+            "Đo hiệu năng khối phát hiện khuôn mặt YOLOv8n-face trên ma trận "
+            "{mô hình} x {số luồng} — mỗi mô hình mang sẵn bộ suy luận và độ phân giải của nó "
+            "(xem docs/dac-ta/P2-03-benchmark-detect.md và P2-06-benchmark-ncnn.md)."
         )
     )
     parser.add_argument(
@@ -329,8 +393,13 @@ def _xay_dung_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--models",
         nargs="+",
-        default=["models/yolov8n-face-320.onnx", "models/yolov8n-face-640.onnx"],
-        help="Danh sách tệp .onnx cần đo",
+        default=[
+            "models/yolov8n-face-320.onnx",
+            "models/yolov8n-face-640.onnx",
+            "models/yolov8n-face-320_ncnn_model",
+            "models/yolov8n-face-640_ncnn_model",
+        ],
+        help="Danh sách mô hình cần đo — tệp .onnx hoặc thư mục *_ncnn_model",
     )
     parser.add_argument(
         "--threads", nargs="+", type=int, default=[1, 2, 4], help="Các mức số luồng cần quét"
@@ -400,11 +469,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         print("\n### BẢNG KẾ HOẠCH BENCHMARK DETECT (DRY-RUN)")
-        print("| Mô hình | Số luồng |")
-        print("|---|---|")
+        print("| Mô hình | backend | Số luồng |")
+        print("|---|---|---|")
         for m in models:
+            # Tra một lần cho mỗi mô hình, dùng lại cho mọi mức luồng của nó.
+            ten_backend = _ten_backend_du_kien(m, cfg)
             for t in threads_list:
-                print(f"| `{m}` | {t} |")
+                print(f"| `{m}` | {ten_backend} | {t} |")
         print(
             f"\nẢnh nguồn : `{args.anh_dir}` (n_frames={args.n_frames}, "
             f"warmup={args.warmup}, seed={args.seed})"
@@ -413,9 +484,15 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     for m in models:
-        if not m.exists() or not m.is_file():
-            logger.error("Không tìm thấy tệp mô hình: %s", m)
-            print(f"Không tìm thấy tệp mô hình: '{m}'. Chạy scripts/export_detector.py trước.")
+        # Chỉ kiểm TỒN TẠI, không kiểm là tệp hay thư mục: mô hình NCNN là một thư mục.
+        # Đường dẫn có hợp lệ hay không do tao_bo_phat_hien phán, và LoiCauHinh nó ném ra
+        # đã được bắt ở vòng đo bên dưới.
+        if not m.exists():
+            logger.error("Không tìm thấy mô hình: %s", m)
+            print(
+                f"Không tìm thấy mô hình: '{m}'. Chạy scripts/export_detector.py hoặc "
+                "scripts/export_detector_ncnn.py trước."
+            )
             return 1
 
     anh_dir = Path(args.anh_dir)
@@ -461,11 +538,6 @@ def main(argv: list[str] | None = None) -> int:
         # tệp (vd. so hai bản export cùng độ phân giải, opset khác) sẽ đè mất tổng hợp của
         # nhau nếu chỉ dùng m.stem — vỡ bất biến "số ô ma trận = số mô hình x số mức luồng".
         for i, m in enumerate(models):
-            detector_do_kich_thuoc = YoloFaceDetector(m, cfg)
-            imgsz = detector_do_kich_thuoc.kich_thuoc_vao
-            del detector_do_kich_thuoc
-            imgsz_theo_mo_hinh[i] = imgsz
-
             for t in threads_list:
                 cfg_combo = dict(cfg)
                 cfg_combo["inference"] = dict(cfg.get("inference", {}))
@@ -474,10 +546,11 @@ def main(argv: list[str] | None = None) -> int:
                 ban_ghi = do_mot_cau_hinh(m, cfg_combo, args.n_frames, anh_da_nap, args.warmup)
                 for r in ban_ghi:
                     r["run_id"] = ""  # điền lại bên dưới sau khi biết run_id
-                    r["backend"] = "onnx"
-                    r["imgsz"] = imgsz
                     r["threads"] = t
 
+                # `backend` và `imgsz` do do_mot_cau_hinh đọc từ chính đối tượng phát hiện
+                # (P2-06 §6.1). Lấy lại imgsz ở đây chỉ để in bảng tổng kết cuối.
+                imgsz_theo_mo_hinh[i] = ban_ghi[0]["imgsz"]
                 tom_tat[f"{i:02d}_{m.stem}_t{t}"] = tong_hop(ban_ghi)
                 toan_bo_ban_ghi.extend(ban_ghi)
     except (LoiMoHinh, LoiCauHinh) as e:
@@ -496,6 +569,12 @@ def main(argv: list[str] | None = None) -> int:
         cac_nhiet_do.append(nhiet_do_bat_dau)
     nhiet_do_max = max(cac_nhiet_do) if cac_nhiet_do else None
 
+    moi_truong = xac_dinh_moi_truong()
+    ghi_chu = args.ghi_chu
+    if moi_truong != _MOI_TRUONG_PHAN_CUNG_DICH:
+        canh_bao_moi_truong = _CANH_BAO_NGOAI_PHAN_CUNG_DICH.format(moi_truong)
+        ghi_chu = f"{ghi_chu} {canh_bao_moi_truong}".strip()
+
     argv_hien_thi = argv if argv is not None else sys.argv[1:]
     meta: dict = {
         "run_id": run_id,
@@ -510,6 +589,7 @@ def main(argv: list[str] | None = None) -> int:
             "machine": platform.machine(),
             "processor": platform.processor(),
         },
+        "moi_truong": moi_truong,
         "software": {
             "python": platform.python_version(),
             "onnxruntime": ort.__version__,
@@ -531,7 +611,7 @@ def main(argv: list[str] | None = None) -> int:
         "cpu_temp_start_c": nhiet_do_bat_dau,
         "cpu_temp_max_c": nhiet_do_max,
         "duration_s": thoi_gian_chay,
-        "notes": args.ghi_chu,
+        "notes": ghi_chu,
         "tom_tat": tom_tat,
     }
     if trong_container:
