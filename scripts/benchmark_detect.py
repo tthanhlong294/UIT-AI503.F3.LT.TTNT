@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import argparse
 import csv
 import datetime
+import importlib.metadata
 import json
 import platform
 import random
@@ -34,6 +35,7 @@ from scripts.export_detector_ncnn import xac_dinh_moi_truong
 from src.common.config import nap_cau_hinh
 from src.common.exceptions import LoiCauHinh, LoiMoHinh
 from src.common.logging import lay_logger
+from src.detector import factory as detector_factory
 from src.detector import tao_bo_phat_hien
 
 logger = lay_logger(__name__)
@@ -70,10 +72,6 @@ _CANH_BAO_NGOAI_PHAN_CUNG_DICH = (
     "chỉ dùng để kiểm quy trình đo và so sánh tương đối giữa các cấu hình, KHÔNG dùng kết "
     f"luận chỉ tiêu >= {NGUONG_FPS_TOI_THIEU:.0f} FPS của Cổng C Phase 2."
 )
-
-# Giá trị hiển thị ở cột backend của bảng kế hoạch --dry-run khi chưa khởi tạo được mô hình
-# (chưa export, đường dẫn sai, hoặc thiếu thư viện suy luận).
-_BACKEND_CHUA_XAC_DINH = "chua-xac-dinh"
 
 _COT_CSV = [
     "run_id",
@@ -241,35 +239,19 @@ def do_mot_cau_hinh(
     return ban_ghi
 
 
-def _ten_backend_du_kien(duong_dan_mo_hinh: Path, cfg: dict) -> str:
-    """Tra bộ suy luận của một mô hình để in vào bảng kế hoạch `--dry-run`.
+def _lay_phien_ban_ncnn() -> str:
+    """Tra phiên bản gói `ncnn` đã cài, dùng cho khối `software` của `.meta.json`.
 
-    Nguồn sự thật duy nhất về chuyện đường dẫn nào đi với bộ suy luận nào là
-    `tao_bo_phat_hien` (P2-06 §6.1), nên hàm này khởi tạo thật rồi hỏi `ten_backend` thay vì
-    đoán từ đuôi tệp hay tên thư mục. Bộ phát hiện được giải phóng ngay sau khi đọc xong:
-    `--dry-run` không đo gì nên không được giữ tài nguyên nào lại.
-
-    Args:
-        duong_dan_mo_hinh: Đường dẫn mô hình cần tra.
-        cfg: Toàn bộ nội dung configs/detect.yaml.
+    Không tự bắt lỗi ở đây — nơi gọi (`main`) chịu trách nhiệm không để một lượt đo dài
+    hỏng chỉ vì thiếu một dòng metadata (P2-06b §4.2).
 
     Returns:
-        Tên bộ suy luận do chính đối tượng phát hiện khai báo, hoặc `_BACKEND_CHUA_XAC_DINH`
-        khi chưa khởi tạo được — `--dry-run` chỉ in kế hoạch nên không được hỏng vì một mô
-        hình còn thiếu.
-    """
-    try:
-        detector = tao_bo_phat_hien(duong_dan_mo_hinh, cfg)
-    except (LoiMoHinh, LoiCauHinh) as e:
-        logger.warning("Chưa tra được bộ suy luận của '%s': %s", duong_dan_mo_hinh, e)
-        return _BACKEND_CHUA_XAC_DINH
+        Chuỗi phiên bản gói `ncnn`.
 
-    try:
-        return detector.ten_backend
-    finally:
-        giai_phong = getattr(detector, "close", None)
-        if callable(giai_phong):
-            giai_phong()
+    Raises:
+        importlib.metadata.PackageNotFoundError: gói `ncnn` chưa được cài trên máy này.
+    """
+    return importlib.metadata.version("ncnn")
 
 
 def tong_hop(ban_ghi: list[dict]) -> dict:
@@ -472,8 +454,9 @@ def main(argv: list[str] | None = None) -> int:
         print("| Mô hình | backend | Số luồng |")
         print("|---|---|---|")
         for m in models:
-            # Tra một lần cho mỗi mô hình, dùng lại cho mọi mức luồng của nó.
-            ten_backend = _ten_backend_du_kien(m, cfg)
+            # Tra một lần cho mỗi mô hình, dùng lại cho mọi mức luồng của nó — CHỈ suy từ
+            # dạng đường dẫn, không khởi tạo mô hình nào (P2-06b §5.1, §6.2 dòng 09).
+            ten_backend = detector_factory.tra_ten_backend(m)
             for t in threads_list:
                 print(f"| `{m}` | {ten_backend} | {t} |")
         print(
@@ -575,6 +558,12 @@ def main(argv: list[str] | None = None) -> int:
         canh_bao_moi_truong = _CANH_BAO_NGOAI_PHAN_CUNG_DICH.format(moi_truong)
         ghi_chu = f"{ghi_chu} {canh_bao_moi_truong}".strip()
 
+    try:
+        phien_ban_ncnn = _lay_phien_ban_ncnn()
+    except importlib.metadata.PackageNotFoundError as e:
+        logger.warning("Không tra được phiên bản gói ncnn: %s", e)
+        phien_ban_ncnn = "khong-xac-dinh"
+
     argv_hien_thi = argv if argv is not None else sys.argv[1:]
     meta: dict = {
         "run_id": run_id,
@@ -595,6 +584,7 @@ def main(argv: list[str] | None = None) -> int:
             "onnxruntime": ort.__version__,
             "opencv-python": cv2.__version__,
             "numpy": np.__version__,
+            detector_factory.TEN_BACKEND_NCNN: phien_ban_ncnn,
         },
         "config_file": args.config,
         "config_snapshot": cfg,

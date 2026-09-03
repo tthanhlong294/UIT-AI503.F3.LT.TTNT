@@ -7,10 +7,17 @@ chúng giữ nguyên, vì chính chúng là lưới an toàn của phép đổi 
 
 Ràng buộc §10 của đặc tả P2-03 vẫn giữ ("Ca test không được đòi hỏi mô hình thật trừ khi đánh
 dấu @pytest.mark.slow"). Không có ca nào trong tệp này được đánh dấu slow.
+
+Từ P2-06b (§6.2), nhánh `--dry-run` không còn khởi tạo mô hình: nó suy `backend` thẳng từ
+DẠNG đường dẫn qua `tra_ten_backend`, không còn đi qua `tao_bo_phat_hien`. Vì vậy
+`test_dong53` (cột backend của bảng dry-run) đã đổi cách dựng dữ liệu — xem docstring của
+chính nó — trong khi `do_mot_cau_hinh` (đường ghi số đo) vẫn đọc `backend` từ
+`detector.ten_backend` như cũ, không đổi gì.
 """
 
 import ast
 import csv
+import importlib.metadata
 import inspect
 import json
 import re
@@ -943,14 +950,35 @@ def test_dong52_moi_o_nap_mo_hinh_dung_mot_lan(monkeypatch, tmp_path, thu_muc_an
 
 
 def test_dong53_dry_run_co_cot_backend_khong_ghi_tep(monkeypatch, tmp_path, capsys):
-    """Dòng 10: bảng kế hoạch có cột backend và giá trị thật, mà không tạo ra tệp nào."""
-    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia(ten_backend="ncnn"))
+    """Dòng 10 (P2-06b): bảng kế hoạch có cột backend suy từ DẠNG đường dẫn thật, không
+    tạo ra tệp nào.
+
+    Cập nhật so với P2-06: từ P2-06b, dry-run không còn khởi tạo mô hình (§5.1) nên
+    `tao_bo_phat_hien` bị monkeypatch ở đây KHÔNG còn ảnh hưởng gì tới cột backend hiển
+    thị — cố tình khai báo lệch ('onnx') để khẳng định điều đó. Dùng một thư mục NCNN có
+    đủ tệp nhận dạng (không cần trọng số thật) để `tra_ten_backend` trả đúng 'ncnn'.
+
+    Tên thư mục CỐ TÌNH không chứa chuỗi con "ncnn" (khác quy ước `*_ncnn_model` thường
+    dùng) — nếu không, chuỗi "ncnn" trong stdout có thể đến từ chính đường dẫn được in ra
+    (cột đầu bảng kế hoạch), khiến assert bên dưới xanh giả kể cả khi cột backend sai.
+    """
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia(ten_backend="onnx"))
     monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "ket_qua")
-    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+    mo_hinh_ncnn = tmp_path / "kieu_thu_muc_b"
+    mo_hinh_ncnn.mkdir()
+    (mo_hinh_ncnn / "model.ncnn.param").write_bytes(b"")
     truoc = set(tmp_path.rglob("*"))
 
     ma = bd.main(
-        ["--device-name", "PC test", "--models", str(mo_hinh), "--threads", "1", "--dry-run"]
+        [
+            "--device-name",
+            "PC test",
+            "--models",
+            str(mo_hinh_ncnn),
+            "--threads",
+            "1",
+            "--dry-run",
+        ]
     )
 
     sau = set(tmp_path.rglob("*"))
@@ -976,3 +1004,69 @@ def test_dong54_cot_csv_van_dung_muoi_khoa_dung_thu_tu(monkeypatch, tmp_path, th
     with open(tep_csv[0], newline="", encoding="utf-8") as f:
         header = next(csv.reader(f))
     assert header == list(bd._COT_CSV)
+
+
+# ============================================================================
+# P2-06b §6.2 — ca đối kháng backend, meta phiên bản ncnn, dry-run khô (dòng 06-09)
+# ============================================================================
+
+
+def test_dong55_backend_lay_tu_doi_tuong_khong_tu_duong_dan(monkeypatch, tmp_path):
+    """Dòng 06: `do_mot_cau_hinh` phải lấy `backend` từ `detector.ten_backend`, không suy từ
+    dạng đường dẫn — dựng lệch cố ý (đường dẫn .onnx, đối tượng khai 'ncnn'), đúng kiểu phép
+    đột biến ĐB1 (P2-06b §7) sẽ làm lộ nếu `do_mot_cau_hinh` đổi nguồn sang `tra_ten_backend`.
+    Đây là ca tái dựng ĐB5 của lượt review P2-06, phép trước đây làm 59/59 ca vẫn xanh.
+    """
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia(ten_backend="ncnn"))
+    bg = bd.do_mot_cau_hinh(tmp_path / "gia.onnx", _cfg_co_ban(), 10, _anh_gia(15), 5)
+    assert bg
+    assert {r["backend"] for r in bg} == {"ncnn"}
+
+
+def test_dong56_meta_software_co_khoa_ncnn(monkeypatch, tmp_path, thu_muc_anh_that):
+    """Dòng 07: khối `software` của .meta.json phải mang khoá `ncnn`."""
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
+    thu_muc_kq = tmp_path / "ket_qua"
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", thu_muc_kq)
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+
+    ma = bd.main(_tham_so_main(mo_hinh, thu_muc_anh_that))
+
+    assert ma == 0
+    meta = _doc_meta_duy_nhat(thu_muc_kq)
+    assert "ncnn" in meta["software"]
+
+
+def test_dong57_thieu_goi_ncnn_khong_hong_luot_do(monkeypatch, tmp_path, thu_muc_anh_that):
+    """Dòng 08: gói `ncnn` vắng mặt trên máy đo không được làm hỏng cả lượt đo — meta vẫn ghi
+    được, với giá trị báo vắng dạng chuỗi thay cho phiên bản thật."""
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
+    monkeypatch.setattr(
+        bd,
+        "_lay_phien_ban_ncnn",
+        lambda: (_ for _ in ()).throw(importlib.metadata.PackageNotFoundError("ncnn")),
+    )
+    thu_muc_kq = tmp_path / "ket_qua"
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", thu_muc_kq)
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+
+    ma = bd.main(_tham_so_main(mo_hinh, thu_muc_anh_that))
+
+    assert ma == 0
+    meta = _doc_meta_duy_nhat(thu_muc_kq)
+    assert isinstance(meta["software"]["ncnn"], str)
+
+
+def test_dong58_dry_run_khong_khoi_tao_mo_hinh_nao(monkeypatch, tmp_path):
+    """Dòng 09: `--dry-run` không được gọi `tao_bo_phat_hien` một lần nào — nó chỉ suy backend
+    từ dạng đường dẫn, không được trả chi phí nạp mô hình thật (P2-06b mục B)."""
+    bo_dem: list = []
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia(bo_dem=bo_dem))
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+
+    ma = bd.main(
+        ["--device-name", "PC test", "--models", str(mo_hinh), "--threads", "1", "--dry-run"]
+    )
+
+    assert ma == 0
+    assert len(bo_dem) == 0
