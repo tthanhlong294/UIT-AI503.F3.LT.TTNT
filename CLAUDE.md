@@ -285,7 +285,7 @@ notebook có đầu ra lưu sẵn thì mở ra là thấy cả pipeline. Vì v�
   cáo đều phải để lại vết **trong đồ án** — notebook có đầu ra, hoặc tệp trong `results/`.
 - Notebook được **commit kèm đầu ra**, không xoá output trước khi commit.
 - Notebook đánh số theo thứ tự trình bày, không theo thứ tự viết: `01_` dữ liệu · `02_`–`03_` khối
-  phát hiện · `04_` so sánh môi trường · `05_` ngưỡng và ROC.
+  phát hiện · `04_` so sánh môi trường · `05_` khối nhận diện · `06_` ngưỡng và ROC.
 - Notebook **được phép** chạy pipeline thật để minh hoạ (nạp mô hình, chạy một vài ảnh, vẽ khung bao
   và điểm mốc). Ranh giới cấm chỉ là **đo thời gian**.
 
@@ -406,7 +406,8 @@ UIT-AI503.F3.LT.TTNT/
 │   ├── 02_phan_tich_hieu_nang_detect.ipynb
 │   ├── 03_xac_minh_export_ncnn.ipynb#   .pt vs ONNX vs NCNN trên cùng ảnh
 │   ├── 04_so_sanh_moi_truong.ipynb  #   pc_x86 · docker_arm64 · pi5
-│   └── 05_nguong_va_roc.ipynb       #   Quét ngưỡng, ROC/DET, ba con số FAR
+│   ├── 05_khoi_nhan_dien.ipynb      #   Hai backend đặt cạnh nhau: điểm mốc, vectơ, tách biệt
+│   └── 06_nguong_va_roc.ipynb       #   Quét ngưỡng, ROC/DET, ba con số FAR
 ├── results/                         # Output thực nghiệm (R17) — CSV/JSON + .meta.json
 │
 ├── report/                          # Báo cáo LaTeX/Markdown
@@ -773,7 +774,9 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
   trong `src/detector/`), `P3-02` (backend dlib) và `P3-03` (`scripts/enroll.py`) — tất cả chạy
   được trên LFW, không cần camera.
 - **Notebook còn thiếu**: `01_eda_khuon_mat.ipynb` (bước 1.13, chặn vì chưa có gallery) ·
-  `04_so_sanh_moi_truong.ipynb` (chặn vì chưa có Pi 5) · `05_nguong_va_roc.ipynb` (Phase 3).
+  `04_so_sanh_moi_truong.ipynb` (chặn vì chưa có Pi 5) · `06_nguong_va_roc.ipynb` (chặn vì chưa có
+  `scripts/enroll.py` ở bước 3.4). `05_khoi_nhan_dien.ipynb` viết ngày 04/09/2026 sau khi `P3-02`
+  đóng — minh hoạ hai backend trên LFW, không sinh số cho báo cáo.
   Notebook là phương tiện trình bày chính khi bảo vệ, không phải bản nháp — xem §2.9.
 - ⚠️ **Rủi ro tiến độ lớn nhất: chưa có Raspberry Pi 5 và camera.** Camera — không phải bo mạch — mới
   là thứ định nghĩa miền dữ liệu, nên nó chặn cả Phase 1, 3 và 4. Bốn trên sáu chỉ tiêu cam kết ở §1
