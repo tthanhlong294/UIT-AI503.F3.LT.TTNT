@@ -619,18 +619,56 @@ provider dành cho CPU, vốn được tối ưu bằng tập lệnh vectơ NEON
 thư viện phía thiết bị là lựa chọn có chủ đích: mỗi thư viện bổ sung đều kéo theo dung lượng, bộ nhớ
 và rủi ro tương thích khi nâng cấp hệ điều hành.
 
-> `[CHƯA VIẾT — CHẶN VÌ CHƯA ĐO]` — đối chiếu với bộ suy luận thứ hai (NCNN).
->
-> Đề cương đặt ra việc so sánh ONNX Runtime với một bộ suy luận khác chuyên cho thiết bị nhúng.
-> Phần này **chưa viết** vì nghiên cứu chưa chạy bộ suy luận đó lần nào. Mọi mô tả về ưu thế tốc độ
-> hay dung lượng của nó lúc này sẽ chỉ là chép lại tài liệu quảng bá của nhà phát triển, không phải
-> điều đã kiểm chứng — trong khi chính điểm cần trả lời là **hơn kém bao nhiêu trên phần cứng cụ
-> thể của đồ án**.
->
-> **Điều kiện gỡ chặn**: có Raspberry Pi 5, xuất được mô hình sang định dạng thứ hai, và đo xong
-> trên cùng kịch bản với ONNX Runtime. Khi đó mục này viết cùng lượt với bảng đối chiếu ở Chương 4.
+### 2.6.4. NCNN — bộ suy luận thiết kế riêng cho thiết bị di động
 
-### 2.6.4. Lượng tử hoá và cấu hình số luồng
+**NCNN** là bộ suy luận mã nguồn mở do Tencent phát triển, hướng tới thiết bị di động và nhúng `[n]`.
+Khác biệt so với ONNX Runtime bắt đầu ngay từ mục tiêu thiết kế: ONNX Runtime là bộ chạy đa nền tảng
+phục vụ cả máy chủ lẫn thiết bị biên, còn NCNN chỉ nhắm vào lớp thiết bị cuối, không có ràng buộc
+tương thích với môi trường máy chủ.
+
+Ba khác biệt về nguyên lý đáng chú ý trong phạm vi nghiên cứu này.
+
+**Mô hình lưu trữ tách đôi.** ONNX gói toàn bộ đồ thị và trọng số trong một tệp `.onnx` duy nhất.
+NCNN tách thành hai phần: tệp `.param` mô tả cấu trúc đồ thị dưới dạng văn bản thuần, và tệp `.bin`
+chứa trọng số ở dạng nhị phân. Với mô hình dùng trong nghiên cứu này, phần cấu trúc chiếm khoảng
+19 KB còn phần trọng số khoảng 12,4 MB. Việc tách đôi cho phép đọc và kiểm tra cấu trúc mạng bằng
+trình soạn thảo văn bản thông thường — chính nhờ đó mà nghiên cứu xác định được đồ thị gồm 234 lớp
+và 279 luồng dữ liệu trung gian, cùng tên hai đầu vào/ra là `in0` và `out0`, mà không cần công cụ
+chuyên dụng.
+
+**Không phụ thuộc thư viện ngoài.** NCNN được viết bằng C++ thuần, không kéo theo BLAS, protobuf hay
+bất kỳ thư viện đại số tuyến tính bên thứ ba nào. Đây là lựa chọn có ý nghĩa trực tiếp với bài toán
+của đồ án: mỗi thư viện phụ thuộc là một nguồn rủi ro khi biên dịch cho ARM64 và khi nâng cấp hệ
+điều hành, đúng vấn đề đã nêu ở §2.6.1.
+
+**Tối ưu quanh tập lệnh vectơ của ARM.** NCNN tối ưu các phép nhân ma trận và tích chập quanh tập
+lệnh NEON — phần mở rộng xử lý vectơ của kiến trúc ARM. Đây là điểm khiến việc so sánh hai bộ suy
+luận **không chuyển được giữa hai kiến trúc**: trên máy phát triển x86-64, NCNN đi qua đường
+SSE/AVX vốn không phải trọng tâm tối ưu của nó, còn ONNX Runtime thì ngược lại. Kết luận về tốc độ
+rút ra trên kiến trúc này không suy ra được cho kiến trúc kia, và Chương 4 §4.x trình bày bằng chứng
+định lượng cho nhận định đó.
+
+**Về độ chính xác số học.** Bản chuyển đổi dùng trong nghiên cứu giữ trọng số ở định dạng dấu phẩy
+động 32 bit — tệp mô tả mô hình ghi `half: false` — nên phép chuyển đổi không kèm theo lượng tử hoá.
+Điều này quan trọng khi đánh giá kết quả ở Chương 4: mọi khác biệt quan sát được giữa hai bộ suy
+luận là khác biệt về **tốc độ thực thi**, không phải về độ chính xác của phép tính.
+
+### 2.6.5. Chuyển đổi qua PNNX
+
+Đường chuyển đổi từ mô hình PyTorch sang NCNN đi qua một định dạng trung gian tên **PNNX** (PyTorch
+Neural Network Exchange) `[n]`, thay vì qua ONNX. Chuỗi biến đổi vì thế dài hơn một chặng so với
+đường ONNX đã mô tả ở §2.6.2.
+
+Mỗi chặng biến đổi là một chỗ có thể làm sai lệch kết quả mà vẫn cho ra tệp chạy được — mất nhánh
+xử lý điểm mốc, đổi thứ tự kênh màu, hoặc lệch quy ước chuẩn hoá đầu vào. Đây là lý do nghiên cứu
+này không chấp nhận bản chuyển đổi cho tới khi kiểm chứng bằng số đo trên cùng tập ảnh, quy trình
+trình bày ở Chương 4.
+
+Một khác biệt kỹ thuật cần lưu ý khi lập trình: NCNN nhận tensor đầu vào ở dạng ba chiều
+`(kênh, cao, rộng)`, **không có chiều lô** như ONNX Runtime. Hệ quả là hai bộ suy luận không dùng
+chung được đoạn mã chuẩn bị dữ liệu, dù mọi bước xử lý trước và sau đều giống nhau.
+
+### 2.6.6. Lượng tử hoá và cấu hình số luồng
 
 **Lượng tử hoá** (quantization) hạ độ chính xác biểu diễn của trọng số và giá trị trung gian, phổ biến
 nhất là từ số thực 32 bit xuống số nguyên 8 bit. Mô hình thu nhỏ khoảng bốn lần, và phép toán số nguyên
