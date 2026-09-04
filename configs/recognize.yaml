@@ -38,12 +38,22 @@ arcface:
   scale: 128.0
 
 # --- Phương án A: dlib / ResNet ---
-# ⚠️ CHƯA TRIỂN KHAI — thư viện `dlib` chưa cài và chưa có trong requirements.txt.
-# Xem docs/dac-ta/P3-01-recognizer.md §10 về lý do tách thành mã việc riêng.
+# Thư viện cài qua gói `dlib-bin` — bản đóng gói sẵn của cùng mã nguồn dlib, có wheel cho cả
+# Windows x86-64 (cp312) lẫn Linux aarch64 (cp311), kiểm ngày 04/09/2026. Chọn bản này thay vì
+# `dlib` gốc vì gói gốc chỉ phát hành mã nguồn, buộc phải biên dịch trên Raspberry Pi 5.
+# ⚠️ Phải ghi rõ nguồn và giấy phép của `dlib-bin` trong báo cáo — đây là bản do bên thứ ba
+# đóng gói, không phải bản phát hành chính thức của tác giả dlib.
 dlib:
   model_path: models/dlib/dlib_face_recognition_resnet_model_v1.dat
   shape_predictor: models/dlib/shape_predictor_68_face_landmarks.dat
   embedding_dim: 128
+
+  # Số lần lấy mẫu nhiễu khi trích đặc trưng. dlib chạy mô hình nhiều lần trên các biến thể
+  # xê dịch nhẹ của cùng ảnh rồi lấy trung bình: giá trị lớn hơn cho vectơ ổn định hơn nhưng
+  # thời gian tăng gần như tuyến tính.
+  # Đặt 0 để phép đo tốc độ ở Cổng C phản ánh chi phí tối thiểu của phương án này; nếu Cổng C
+  # cho thấy độ chính xác chưa đạt thì đây là tham số đầu tiên nên thử nâng.
+  num_jitters: 0
 
 # --- Ngưỡng quyết định ---
 # ⚠️ CHƯA CHỐT. Ngưỡng phải đến từ đường cong ROC đo trên dữ liệu thật (bước 3.5, 3.7c),
