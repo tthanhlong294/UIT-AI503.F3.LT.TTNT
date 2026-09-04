@@ -4,5 +4,11 @@ Biến ảnh khuôn mặt đã căn chỉnh thành vectơ đặc trưng và so k
 """
 
 from .dlib_backend import DlibFaceRecognizer
+from .factory import TEN_BACKEND_ARCFACE, TEN_BACKEND_DLIB, tao_bo_nhan_dien
 
-__all__ = ["DlibFaceRecognizer"]
+__all__ = [
+    "TEN_BACKEND_ARCFACE",
+    "TEN_BACKEND_DLIB",
+    "DlibFaceRecognizer",
+    "tao_bo_nhan_dien",
+]
