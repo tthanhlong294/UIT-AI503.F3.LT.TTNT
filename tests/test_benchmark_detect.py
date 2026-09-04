@@ -205,6 +205,7 @@ def _meta_hop_le(tom_tat: dict | None = None) -> dict:
         "timestamp": "2026-08-19T12:00:00+07:00",
         "git_commit": "abc123",
         "git_dirty": False,
+        "git_dirty_toan_cay": False,
         "script": "scripts/benchmark_detect.py",
         "command": "python scripts/benchmark_detect.py --device-name test",
         "device": {"name": "test", "os": "x", "machine": "x", "processor": "x"},
@@ -1070,3 +1071,168 @@ def test_dong58_dry_run_khong_khoi_tao_mo_hinh_nao(monkeypatch, tmp_path):
 
     assert ma == 0
     assert len(bo_dem) == 0
+
+
+# ============================================================================
+# P2-06c §6 — `git_dirty` giới hạn theo phạm vi đường dẫn (dòng 59-67)
+# ============================================================================
+
+
+def _gia_lap_git_status(
+    monkeypatch,
+    dau_ra_pham_vi: str = "",
+    dau_ra_toan_cay: str = "",
+    loi: type[Exception] | None = None,
+) -> list[list[str]]:
+    """Chèn `subprocess.run` giả cho `benchmark_detect`, trả đầu ra khác nhau theo phạm vi.
+
+    Lệnh `git status` CÓ pathspec nhận `dau_ra_pham_vi`, lệnh KHÔNG pathspec nhận
+    `dau_ra_toan_cay`. Nhờ tách hai đầu ra, phép đột biến bỏ pathspec làm ca đỏ thật: hàm sẽ
+    đọc đầu ra của lệnh toàn cây thay vì đầu ra của lệnh giới hạn phạm vi. Các lệnh git khác
+    (`rev-parse`) trả về chuỗi rỗng — chúng không thuộc phạm vi mã việc này.
+
+    Args:
+        monkeypatch: Fixture pytest.
+        dau_ra_pham_vi: stdout giả cho lệnh có pathspec.
+        dau_ra_toan_cay: stdout giả cho lệnh không có pathspec.
+        loi: Nếu khác None, lệnh giả ném đúng ngoại lệ này thay vì trả kết quả.
+
+    Returns:
+        Danh sách lệnh đã bị gọi — mỗi phần tử là danh sách tham số của một lệnh.
+    """
+    cac_lenh: list[list[str]] = []
+
+    def _run_gia(lenh, *args, **kwargs):
+        lenh = list(lenh)
+        cac_lenh.append(lenh)
+        if loi is not None:
+            raise loi("git gia lap khong chay duoc")
+        if "status" not in lenh:
+            dau_ra = ""
+        else:
+            dau_ra = dau_ra_pham_vi if "--" in lenh else dau_ra_toan_cay
+        return subprocess.CompletedProcess(args=lenh, returncode=0, stdout=dau_ra, stderr="")
+
+    monkeypatch.setattr(bd.subprocess, "run", _run_gia)
+    return cac_lenh
+
+
+def test_dong59_chi_tep_moi_trong_results_thi_co_khong_bat(monkeypatch):
+    """Dòng 01: tệp kết quả của lượt đo trước không được làm cờ của lượt sau bật."""
+    _gia_lap_git_status(
+        monkeypatch,
+        dau_ra_pham_vi="",
+        dau_ra_toan_cay=(
+            "?? results/bench_detect_20260903_2022.csv\n"
+            "?? results/bench_detect_20260903_2022.meta.json\n"
+        ),
+    )
+
+    assert bd._kiem_tra_git_dirty() is False
+
+
+def test_dong60_lenh_git_co_kem_pham_vi_duong_dan(monkeypatch):
+    """Dòng 02: lệnh phải mang pathspec, không hỏi toàn cây."""
+    cac_lenh = _gia_lap_git_status(monkeypatch)
+
+    bd._kiem_tra_git_dirty()
+
+    assert len(cac_lenh) == 1
+    lenh = cac_lenh[0]
+    assert "--" in lenh
+    for duong_dan in ("src", "scripts", "configs"):
+        assert duong_dan in lenh
+    # Pathspec phải nằm SAU dấu `--`, nếu không git hiểu "src" là tên nhánh.
+    assert lenh.index("--") < lenh.index("src")
+
+
+def test_dong61_sua_doi_trong_src_lam_co_bat(monkeypatch):
+    """Dòng 03: mã nguồn đã theo dõi bị sửa -> cờ bật."""
+    _gia_lap_git_status(monkeypatch, dau_ra_pham_vi=" M src/detector/yolo_face.py\n")
+
+    assert bd._kiem_tra_git_dirty() is True
+
+
+def test_dong62_tep_moi_chua_theo_doi_trong_src_lam_co_bat(monkeypatch):
+    """Dòng 04 — ca canh P2-06c §5.1.
+
+    Tệp .py mới chưa `git add` trong `src/` CÓ ảnh hưởng số đo nhưng không nằm trong lịch sử,
+    đúng thứ `git_dirty` sinh ra để bắt. Vì vậy ca này khẳng định cả hai điều: đầu ra `??` làm
+    cờ bật, VÀ lệnh git không được mang cờ bỏ tệp chưa theo dõi — cách sửa ngắn hơn mà §5.1
+    cảnh báo, cũng chính là phép đột biến ĐB2.
+    """
+    cac_lenh = _gia_lap_git_status(monkeypatch, dau_ra_pham_vi="?? src/detector/backend_moi.py\n")
+
+    assert bd._kiem_tra_git_dirty() is True
+
+    lenh = cac_lenh[0]
+    assert not any(
+        tham_so.startswith("--untracked-files") or tham_so in {"-u", "-uno", "-unormal"}
+        for tham_so in lenh
+    )
+    assert "--" in lenh and "src" in lenh
+
+
+def test_dong63_sua_doi_requirements_lam_co_bat(monkeypatch):
+    """Dòng 05: đổi phiên bản thư viện cũng đổi số đo, phải nằm trong phạm vi."""
+    _gia_lap_git_status(monkeypatch, dau_ra_pham_vi=" M requirements.txt\n")
+
+    assert bd._kiem_tra_git_dirty() is True
+
+
+def test_dong64_khong_chay_duoc_git_thi_gia_dinh_xau_nhat(monkeypatch):
+    """Dòng 06: không chạy được git -> True (P2-06c §5.2, giữ nguyên hành vi cũ)."""
+    _gia_lap_git_status(monkeypatch, loi=OSError)
+
+    assert bd._kiem_tra_git_dirty() is True
+
+
+def test_dong65_toan_cay_goi_lenh_khong_kem_pham_vi(monkeypatch):
+    """Dòng 07: hàm kiểm toàn cây hỏi cả thư mục, không giới hạn đường dẫn."""
+    cac_lenh = _gia_lap_git_status(monkeypatch, dau_ra_toan_cay="?? results/x.csv\n")
+
+    assert bd._kiem_tra_git_dirty_toan_cay() is True
+
+    assert len(cac_lenh) == 1
+    lenh = cac_lenh[0]
+    assert "src" not in lenh
+    assert "--" not in lenh
+
+
+def test_dong66_meta_co_ca_hai_khoa(monkeypatch, tmp_path, thu_muc_anh_that):
+    """Dòng 08: .meta.json phải mang cả `git_dirty` lẫn `git_dirty_toan_cay`."""
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
+    thu_muc_kq = tmp_path / "ket_qua"
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", thu_muc_kq)
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+
+    ma = bd.main(_tham_so_main(mo_hinh, thu_muc_anh_that))
+
+    assert ma == 0
+    meta = _doc_meta_duy_nhat(thu_muc_kq)
+    assert {"git_dirty", "git_dirty_toan_cay"} <= set(meta)
+    assert {"git_dirty", "git_dirty_toan_cay"} <= set(bd._KHOA_META_BAT_BUOC)
+
+
+def test_dong67_hai_khoa_doc_lap_nhau(monkeypatch, tmp_path, thu_muc_anh_that):
+    """Dòng 09 — ca chốt của mã việc.
+
+    Tái dựng đúng tình huống ba lượt đo ngày 03/09/2026: phạm vi mã nguồn sạch nhưng thư mục
+    đã có tệp kết quả của lượt trước. Hai khoá phải mang hai giá trị khác nhau.
+    """
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
+    thu_muc_kq = tmp_path / "ket_qua"
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", thu_muc_kq)
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+    _gia_lap_git_status(
+        monkeypatch,
+        dau_ra_pham_vi="",
+        dau_ra_toan_cay="?? results/bench_detect_20260903_2022.csv\n",
+    )
+
+    ma = bd.main(_tham_so_main(mo_hinh, thu_muc_anh_that))
+
+    assert ma == 0
+    meta = _doc_meta_duy_nhat(thu_muc_kq)
+    assert meta["git_dirty"] is False
+    assert meta["git_dirty_toan_cay"] is True
