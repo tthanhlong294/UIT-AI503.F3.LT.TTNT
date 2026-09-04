@@ -60,6 +60,17 @@ _DUONG_DAN_DOCKERENV = Path("/.dockerenv")
 # không ghi vào results/ thật khi chạy pytest.
 _THU_MUC_KET_QUA_MAC_DINH = Path("results")
 
+# Đường dẫn ảnh hưởng tới kết quả đo — thay đổi ở đây làm số đo khác đi.
+# `results/` KHÔNG nằm trong danh sách: tệp kết quả là sản phẩm của phép đo,
+# không phải đầu vào của nó (P2-06c §2).
+_DUONG_DAN_ANH_HUONG_PHEP_DO = (
+    "src",
+    "scripts",
+    "configs",
+    "requirements.txt",
+    "requirements-dev.txt",
+)
+
 # Mã môi trường của phần cứng đích (xem experiment-protocol.instructions.md §2). Chỉ số đo sinh
 # ra ở môi trường này mới dùng để kết luận chỉ tiêu FPS của Cổng C Phase 2.
 _MOI_TRUONG_PHAN_CUNG_DICH = "pi5"
@@ -91,6 +102,7 @@ _KHOA_META_BAT_BUOC = (
     "timestamp",
     "git_commit",
     "git_dirty",
+    "git_dirty_toan_cay",
     "script",
     "command",
     "device",
@@ -344,11 +356,25 @@ def _lay_git_commit_hash() -> str:
         return "khong-xac-dinh"
 
 
-def _kiem_tra_git_dirty() -> bool:
-    """Kiểm tra cây làm việc có thay đổi chưa commit hay không, dùng cho .meta.json (R17)."""
+def _chay_git_status(pham_vi: tuple[str, ...]) -> bool:
+    """Chạy `git status --porcelain` giới hạn theo pathspec, trả về cây có bẩn hay không.
+
+    Phạm vi được giới hạn bằng pathspec chứ KHÔNG bằng cách bỏ tệp chưa được git theo dõi:
+    một tệp .py mới chưa `git add` trong `src/` vẫn phải làm cờ bật, vì mã đó có ảnh hưởng
+    kết quả đo (P2-06c §5.1).
+
+    Args:
+        pham_vi: Danh sách đường dẫn giới hạn phép kiểm. Rỗng nghĩa là toàn bộ cây.
+
+    Returns:
+        True nếu git in ra bất kỳ dòng nào, hoặc nếu không chạy được git (P2-06c §5.2).
+    """
+    lenh = ["git", "status", "--porcelain"]
+    if pham_vi:
+        lenh = lenh + ["--", *pham_vi]
     try:
         ket_qua = subprocess.run(
-            ["git", "status", "--porcelain"],
+            lenh,
             capture_output=True,
             text=True,
             check=True,
@@ -358,6 +384,34 @@ def _kiem_tra_git_dirty() -> bool:
     except (subprocess.CalledProcessError, OSError) as e:
         logger.warning("Không kiểm tra được trạng thái git: %s", e)
         return True
+
+
+def _kiem_tra_git_dirty() -> bool:
+    """Kiểm mã nguồn sinh ra số đo có thay đổi nào chưa commit hay không (R17).
+
+    Chỉ xét các đường dẫn ở `_DUONG_DAN_ANH_HUONG_PHEP_DO`. Tệp mới trong `results/`,
+    `notebooks/` hay `docs/` không làm cờ này bật, vì chúng không đổi kết quả của
+    phép đo đang chạy.
+
+    Returns:
+        True nếu có thay đổi chưa commit trong phạm vi trên, hoặc nếu không chạy
+        được git (giả định xấu nhất, giữ nguyên hành vi cũ).
+    """
+    return _chay_git_status(_DUONG_DAN_ANH_HUONG_PHEP_DO)
+
+
+def _kiem_tra_git_dirty_toan_cay() -> bool:
+    """Kiểm toàn bộ thư mục dự án, kể cả tệp chưa được theo dõi.
+
+    Giá trị này ghi vào meta dưới khoá `git_dirty_toan_cay` để không mất thông tin:
+    người đọc sau này vẫn biết lúc đo thư mục có gì khác thường hay không, nhưng
+    điều kiện của checklist §9 thì căn theo `git_dirty` ở trên.
+
+    Returns:
+        True nếu cây làm việc có bất kỳ thay đổi chưa commit nào, hoặc nếu không
+        chạy được git.
+    """
+    return _chay_git_status(())
 
 
 def _xay_dung_parser() -> argparse.ArgumentParser:
@@ -570,6 +624,7 @@ def main(argv: list[str] | None = None) -> int:
         "timestamp": thoi_diem.isoformat(),
         "git_commit": _lay_git_commit_hash(),
         "git_dirty": _kiem_tra_git_dirty(),
+        "git_dirty_toan_cay": _kiem_tra_git_dirty_toan_cay(),
         "script": "scripts/benchmark_detect.py",
         "command": "python scripts/benchmark_detect.py " + " ".join(argv_hien_thi),
         "device": {
