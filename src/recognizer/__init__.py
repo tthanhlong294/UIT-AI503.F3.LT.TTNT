@@ -2,3 +2,7 @@
 
 Biến ảnh khuôn mặt đã căn chỉnh thành vectơ đặc trưng và so khớp với danh sách đã đăng ký.
 """
+
+from .dlib_backend import DlibFaceRecognizer
+
+__all__ = ["DlibFaceRecognizer"]
