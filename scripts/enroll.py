@@ -25,7 +25,9 @@ import csv
 import datetime
 import importlib.metadata
 import json
+import os
 import platform
+import shutil
 import subprocess
 
 import cv2
@@ -61,6 +63,14 @@ _DUONG_DAN_ANH_HUONG_PHEP_CHAY = (
     "requirements.txt",
     "requirements-dev.txt",
 )
+
+# Quy ước ghi gallery NGUYÊN KHỐI (§4.2, §4.4 đặc tả P3-04): mọi thư mục con của thư mục ra bắt
+# đầu bằng dấu chấm KHÔNG PHẢI gallery — đó là trạng thái trung gian của một lượt ghi (đang ghi
+# dở, hoặc gallery cũ đang chờ xoá sau khi đổi tên thành công). Nếu tiến trình bị giết cứng
+# (Ctrl+C, mất điện) thư mục này có thể còn sót lại; bước 3.5 (quét ngưỡng, ngoài phạm vi mã việc
+# này) PHẢI bỏ qua mọi thư mục con có tên bắt đầu bằng "." khi liệt kê gallery.
+_HAU_TO_THU_MUC_DANG_GHI = ".dang-ghi"
+_HAU_TO_THU_MUC_CU = ".cu"
 
 
 def liet_ke_nguoi(vao_dir: Path) -> list[Path]:
@@ -351,6 +361,72 @@ def _lay_phien_ban_goi(ten: str) -> str:
         return "khong-xac-dinh"
 
 
+def _duong_dan_thu_muc_tam(ra_dir_goc: Path, ten_backend: str) -> Path:
+    """Đường dẫn thư mục tạm dùng để ghi gallery trước khi đổi tên nguyên khối (§4.2, §4.4).
+
+    Args:
+        ra_dir_goc: Thư mục ra gốc (chứa các thư mục con theo backend).
+        ten_backend: Tên backend, ví dụ `dlib` hoặc `arcface`.
+
+    Returns:
+        `<ra_dir_goc>/.<ten_backend>.dang-ghi` — tên bắt đầu bằng dấu chấm để không bị nhầm là
+        gallery thật.
+    """
+    return ra_dir_goc / f".{ten_backend}{_HAU_TO_THU_MUC_DANG_GHI}"
+
+
+def _duong_dan_thu_muc_cu(ra_dir_goc: Path, ten_backend: str) -> Path:
+    """Đường dẫn thư mục trung gian giữ gallery CŨ trong lúc đổi tên nguyên khối (§4.2).
+
+    Args:
+        ra_dir_goc: Thư mục ra gốc (chứa các thư mục con theo backend).
+        ten_backend: Tên backend, ví dụ `dlib` hoặc `arcface`.
+
+    Returns:
+        `<ra_dir_goc>/.<ten_backend>.cu`.
+    """
+    return ra_dir_goc / f".{ten_backend}{_HAU_TO_THU_MUC_CU}"
+
+
+def _doi_ten_nguyen_khoi(thu_muc_tam: Path, ra_dir: Path, thu_muc_cu: Path) -> None:
+    """Đổi tên thư mục tạm đã ghi xong thành thư mục gallery thật, NGUYÊN KHỐI (§4.2 đặc tả).
+
+    Không đụng tới `ra_dir` (gallery cũ, nếu có) trước khi gọi hàm này — người gọi phải đảm bảo
+    `thu_muc_tam` đã chứa đủ cả ba loại tệp (`.npy`, `manifest.csv`, `gallery.meta.json`) hoặc
+    đúng ngoại lệ ở §4.1. Không dùng `os.replace`/`os.rename` thẳng lên `ra_dir` đang tồn tại và
+    không rỗng — hành vi khác nhau giữa Windows (ném lỗi) và Linux (chỉ đổi tên được khi đích
+    rỗng). Thay vào đó, `ra_dir` cũ được dời sang `thu_muc_cu` trước, để đích của phép đổi tên
+    thứ hai luôn là một vị trí KHÔNG tồn tại trên cả hai hệ điều hành.
+
+    Args:
+        thu_muc_tam: Thư mục tạm đã ghi xong toàn bộ nội dung.
+        ra_dir: Vị trí gallery thật — có thể đã tồn tại từ lượt chạy trước.
+        thu_muc_cu: Thư mục trung gian dùng để giữ gallery cũ trong lúc đổi tên.
+
+    Raises:
+        OSError: một trong hai phép đổi tên thất bại. Nếu `ra_dir` cũ đã kịp dời sang
+            `thu_muc_cu` thì được phục hồi lại trước khi ngoại lệ được ném tiếp, để không bao
+            giờ để lại trạng thái thiếu cả gallery cũ lẫn gallery mới.
+    """
+    if thu_muc_cu.exists():
+        shutil.rmtree(thu_muc_cu)
+
+    gallery_cu_da_doi_ten = False
+    if ra_dir.exists():
+        os.rename(ra_dir, thu_muc_cu)
+        gallery_cu_da_doi_ten = True
+
+    try:
+        os.rename(thu_muc_tam, ra_dir)
+    except OSError:
+        if gallery_cu_da_doi_ten:
+            os.rename(thu_muc_cu, ra_dir)
+        raise
+
+    if gallery_cu_da_doi_ten:
+        shutil.rmtree(thu_muc_cu)
+
+
 def _xay_dung_parser() -> argparse.ArgumentParser:
     """Dựng argparse cho script, theo đúng giao diện dòng lệnh ở §5.2 đặc tả."""
     parser = argparse.ArgumentParser(
@@ -469,7 +545,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Không dựng được backend nhận diện: {e}")
         return 1
 
-    ra_dir.mkdir(parents=True, exist_ok=True)
+    # Ghi qua thư mục tạm rồi đổi tên nguyên khối (§4.1-4.4 đặc tả P3-04): `ra_dir` chỉ tồn tại
+    # ở hai trạng thái — chưa có, hoặc có đủ cả ba loại tệp. Không có trạng thái dở dang.
+    thu_muc_tam = _duong_dan_thu_muc_tam(ra_dir_goc, ten_backend)
+    thu_muc_cu = _duong_dan_thu_muc_cu(ra_dir_goc, ten_backend)
+    if thu_muc_tam.exists():
+        shutil.rmtree(thu_muc_tam)  # tàn dư của lượt hỏng trước đó (§4.2 điều 1)
+    thu_muc_tam.mkdir(parents=True)
+
     cfg_enroll = {"min_images_per_user": toi_thieu_da_dung}
 
     ban_ghi_manifest: list[dict] = []
@@ -489,48 +572,59 @@ def main(argv: list[str] | None = None) -> int:
             dem_theo_trang_thai[ket_qua["trang_thai"]] += 1
 
             if ket_qua["vec"] is not None:
-                duong_dan_npy = ra_dir / f"{ket_qua['user_id']}.npy"
+                duong_dan_npy = thu_muc_tam / f"{ket_qua['user_id']}.npy"
                 np.save(duong_dan_npy, ket_qua["vec"])
                 ket_qua["tep_ra"] = duong_dan_npy.name
 
             ban_ghi_manifest.append({cot: ket_qua[cot] for cot in _COT_MANIFEST})
+
+        ghi_manifest(thu_muc_tam / "manifest.csv", ban_ghi_manifest)
+
+        so_nguoi_da_dang_ky = dem_theo_trang_thai[_TRANG_THAI_DA_DANG_KY]
+        so_nguoi_bo_qua = len(ban_ghi_manifest) - so_nguoi_da_dang_ky
+
+        thoi_diem = datetime.datetime.now().astimezone()
+        meta = {
+            "backend": ten_backend,
+            "so_chieu": backend.so_chieu,
+            "duong_dan_vao": str(vao_dir),
+            "so_nguoi_da_dang_ky": so_nguoi_da_dang_ky,
+            "so_nguoi_bo_qua": so_nguoi_bo_qua,
+            "min_images_per_user_da_dung": toi_thieu_da_dung,
+            "min_images_per_user_trong_cau_hinh": toi_thieu_trong_cau_hinh,
+            "seed": args.seed,
+            "thoi_gian": thoi_diem.isoformat(),
+            "commit": _lay_git_commit_hash(),
+            "git_dirty": _kiem_tra_git_dirty(),
+            "moi_truong": xac_dinh_moi_truong(),
+            "software": {
+                "python": platform.python_version(),
+                "opencv-python": cv2.__version__,
+                "numpy": np.__version__,
+                "onnxruntime": ort.__version__,
+                "dlib-bin": _lay_phien_ban_goi("dlib-bin"),
+            },
+        }
+        duong_dan_meta_tam = thu_muc_tam / "gallery.meta.json"
+        with open(duong_dan_meta_tam, "w", encoding="utf-8") as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+
+        # Chỉ khi cả ba loại tệp đã ghi xong mới đổi tên nguyên khối vào vị trí thật (§4.2
+        # điều 3). Trước bước này, `ra_dir` (gallery cũ, nếu có) chưa hề bị đụng tới.
+        _doi_ten_nguyen_khoi(thu_muc_tam, ra_dir, thu_muc_cu)
     except (LoiCauHinh, LoiMoHinh) as e:
         logger.error("Đăng ký thất bại, dừng ngay: %s", e)
         print(f"Đăng ký thất bại: {e}")
+        shutil.rmtree(thu_muc_tam, ignore_errors=True)
+        return 1
+    except OSError as e:
+        logger.error("Đăng ký thất bại khi ghi gallery ra đĩa: %s", e)
+        print(f"Đăng ký thất bại khi ghi gallery ra đĩa: {e}")
+        shutil.rmtree(thu_muc_tam, ignore_errors=True)
         return 1
 
     duong_dan_manifest = ra_dir / "manifest.csv"
-    ghi_manifest(duong_dan_manifest, ban_ghi_manifest)
-
-    so_nguoi_da_dang_ky = dem_theo_trang_thai[_TRANG_THAI_DA_DANG_KY]
-    so_nguoi_bo_qua = len(ban_ghi_manifest) - so_nguoi_da_dang_ky
-
-    thoi_diem = datetime.datetime.now().astimezone()
-    meta = {
-        "backend": ten_backend,
-        "so_chieu": backend.so_chieu,
-        "duong_dan_vao": str(vao_dir),
-        "so_nguoi_da_dang_ky": so_nguoi_da_dang_ky,
-        "so_nguoi_bo_qua": so_nguoi_bo_qua,
-        "min_images_per_user_da_dung": toi_thieu_da_dung,
-        "min_images_per_user_trong_cau_hinh": toi_thieu_trong_cau_hinh,
-        "seed": args.seed,
-        "thoi_gian": thoi_diem.isoformat(),
-        "commit": _lay_git_commit_hash(),
-        "git_dirty": _kiem_tra_git_dirty(),
-        "moi_truong": xac_dinh_moi_truong(),
-        "software": {
-            "python": platform.python_version(),
-            "opencv-python": cv2.__version__,
-            "numpy": np.__version__,
-            "onnxruntime": ort.__version__,
-            "dlib-bin": _lay_phien_ban_goi("dlib-bin"),
-        },
-    }
     duong_dan_meta = ra_dir / "gallery.meta.json"
-    with open(duong_dan_meta, "w", encoding="utf-8") as f:
-        json.dump(meta, f, ensure_ascii=False, indent=2)
-    logger.info("Đã ghi gallery.meta.json: %s", duong_dan_meta)
 
     print("\n### BẢNG TỔNG KẾT ĐĂNG KÝ")
     print("| Trạng thái | Số người |")
