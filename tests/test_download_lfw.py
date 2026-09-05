@@ -587,3 +587,166 @@ def test_28_main_chay_lai_cung_seed_thanh_cong(tmp_path):
 
     so_thu_muc_sau = len([p for p in out_dir.iterdir() if p.is_dir()])
     assert so_thu_muc_sau == so_thu_muc_truoc
+
+
+# ---------- Dòng 29-36: giai_nen — nhánh dự phòng cho Python < 3.11.4 (P0-04 §5, §8.1) ----------
+#
+# Mọi ca dựng tệp .tgz tại chỗ bằng tarfile, không chạm mạng. Ép chạy nhánh dự phòng bằng
+# monkeypatch.delattr(tarfile, "data_filter", raising=False) — đây là lý do giai_nen() phải
+# chọn nhánh BẰNG hasattr() ngay trong thân hàm, không phải bằng một hằng số tính sẵn lúc
+# import (§5.3 đặc tả): chỉ như vậy phép ép này mới có tác dụng trên máy Python >= 3.11.4.
+
+
+def _tao_tgz_voi_lien_ket(duong_dan: Path, ten_lien_ket: str, muc_tieu: str) -> Path:
+    """Dựng tệp .tgz chứa một liên kết mềm (SYMTYPE) trỏ tới `muc_tieu`.
+
+    Không dùng os.symlink: trên Windows lời gọi đó cần quyền quản trị (§8.1 đặc tả P0-04).
+    """
+    with tarfile.open(duong_dan, "w:gz") as tf:
+        info = tarfile.TarInfo(name=ten_lien_ket)
+        info.type = tarfile.SYMTYPE
+        info.linkname = muc_tieu
+        tf.addfile(info)
+    return duong_dan
+
+
+def test_29_giai_nen_nhanh_b_thanh_cong(tmp_path, monkeypatch):
+    """Nhánh B (không có tarfile.data_filter) giải nén tệp hợp lệ đúng cây thư mục và trả về
+    đúng thư mục gốc duy nhất bên trong tệp nén — đường thành công song song ca 03."""
+    monkeypatch.delattr(tarfile, "data_filter", raising=False)
+    archive = _tao_tgz(tmp_path / "a.tgz", {"lfw/A/a_0001.jpg": b"noi dung anh"})
+    dich = tmp_path / "dest"
+
+    ket_qua = giai_nen(archive, dich)
+
+    assert (dich / "lfw" / "A" / "a_0001.jpg").exists()
+    assert ket_qua == dich / "lfw"
+
+
+def test_30_giai_nen_nhanh_b_chan_duong_dan_vuot_ra_ngoai(tmp_path, monkeypatch):
+    """Nhánh B chặn thành viên '../../thoat.txt' (tệp nén hợp lệ, chỉ tên thành viên độc hại):
+    thông báo đúng 'vượt ra ngoài', không lẫn 'hỏng', và không ghi tệp độc hại ra đĩa."""
+    monkeypatch.delattr(tarfile, "data_filter", raising=False)
+    archive = _tao_tgz(tmp_path / "doc_hai.tgz", {"../../thoat.txt": b"du lieu gian lan"})
+    dich = tmp_path / "trong" / "long" / "dest"
+
+    with pytest.raises(LoiCauHinh) as exc_info:
+        giai_nen(archive, dich)
+
+    thong_bao = str(exc_info.value)
+    assert "vượt ra ngoài" in thong_bao
+    assert "hỏng" not in thong_bao
+    assert not any(tmp_path.rglob("thoat.txt"))
+
+
+def test_31_giai_nen_nhanh_b_tep_hong(tmp_path, monkeypatch):
+    """Nhánh B: tệp không phải tar hợp lệ (byte ngẫu nhiên) báo đúng 'hỏng', không lẫn
+    'vượt ra ngoài' của nhánh an ninh."""
+    monkeypatch.delattr(tarfile, "data_filter", raising=False)
+    archive = tmp_path / "hong.tgz"
+    archive.write_bytes(bytes(range(256)) * 20)
+
+    with pytest.raises(LoiCauHinh) as exc_info:
+        giai_nen(archive, tmp_path / "dest")
+
+    thong_bao = str(exc_info.value)
+    assert "hỏng" in thong_bao
+    assert "vượt ra ngoài" not in thong_bao
+
+
+def test_32_giai_nen_nhanh_b_chan_duong_dan_tuyet_doi(tmp_path, monkeypatch):
+    """Nhánh B chặn thành viên có tên đường dẫn tuyệt đối '/tmp/thoat.txt'.
+
+    Đây là ca canh đúng cái bẫy nêu ở §5.6 đặc tả P0-04: trên Windows,
+    ``PurePath("/tmp/x").is_absolute()`` trả về ``False`` vì thiếu ký tự ổ đĩa, nên phép kiểm
+    chính không được dùng ``is_absolute()`` mà phải hợp đường dẫn rồi ``resolve()`` +
+    ``is_relative_to()`` — phép đó bắt được cả hai nền tảng.
+    """
+    monkeypatch.delattr(tarfile, "data_filter", raising=False)
+    archive = _tao_tgz(tmp_path / "doc_hai.tgz", {"/tmp/thoat.txt": b"du lieu gian lan"})
+    dich = tmp_path / "dest"
+
+    with pytest.raises(LoiCauHinh) as exc_info:
+        giai_nen(archive, dich)
+
+    assert "vượt ra ngoài" in str(exc_info.value)
+
+
+def test_33_giai_nen_nhanh_b_lien_ket_mem_ra_ngoai(tmp_path, monkeypatch):
+    """Nhánh B chặn thành viên là liên kết mềm trỏ ra ngoài thư mục đích."""
+    monkeypatch.delattr(tarfile, "data_filter", raising=False)
+    archive = _tao_tgz_voi_lien_ket(tmp_path / "lien_ket.tgz", "an_toan.txt", "../../ngoai.txt")
+    dich = tmp_path / "dest"
+
+    with pytest.raises(LoiCauHinh) as exc_info:
+        giai_nen(archive, dich)
+
+    assert "không an toàn" in str(exc_info.value)
+
+
+def test_34_giai_nen_nhanh_a_lien_ket_mem_ra_ngoai(tmp_path):
+    """Nhánh A (thư viện chuẩn) chặn CÙNG tệp nén của ca 33, với CÙNG thông báo.
+
+    Cặp then chốt cùng ca 33: chứng minh phép quét liên kết/thiết bị (§5.4 đặc tả) áp dụng
+    cho cả hai nhánh — không phải riêng nhánh B — nên hai nhánh xử lý liên kết y hệt nhau.
+    Bỏ qua trên Python < 3.11.4 (không có tarfile.data_filter, không có nhánh A để kiểm).
+    """
+    if not hasattr(tarfile, "data_filter"):
+        pytest.skip("Python hiện tại không có tarfile.data_filter (< 3.11.4)")
+    archive = _tao_tgz_voi_lien_ket(tmp_path / "lien_ket.tgz", "an_toan.txt", "../../ngoai.txt")
+    dich = tmp_path / "dest"
+
+    with pytest.raises(LoiCauHinh) as exc_info:
+        giai_nen(archive, dich)
+
+    assert "không an toàn" in str(exc_info.value)
+
+
+def test_35_giai_nen_hai_nhanh_cung_thong_bao_vuot_ra_ngoai(tmp_path, monkeypatch):
+    """Hai nhánh xử lý CÙNG tệp nén '../../thoat.txt' phải cho CÙNG một thông báo lỗi.
+
+    Không dựng bản sao byte-for-byte của tệp nén ở đường dẫn khác: giai_nen() chỉ MỞ ĐỌC
+    archive, không ghi/sửa gì lên nó, nên gọi lại với đúng cùng đường dẫn archive ở nhánh B là
+    đủ để cô lập biến duy nhất đang đổi giữa hai lượt gọi — có/không có tarfile.data_filter.
+    Thông báo lỗi chứa nguyên văn đường dẫn archive (§5.2); nếu dùng hai tệp khác đường dẫn,
+    phép so chuỗi ở đây sẽ luôn lệch vì một lý do vô can (đường dẫn khác nhau), không phải vì
+    hai nhánh xử lý khác nhau — nên phải giữ nguyên cùng một archive cho cả hai lượt gọi.
+    Bỏ qua trên Python < 3.11.4 (không có nhánh A để so sánh).
+    """
+    if not hasattr(tarfile, "data_filter"):
+        pytest.skip("Python hiện tại không có tarfile.data_filter (< 3.11.4)")
+    archive = _tao_tgz(tmp_path / "doc_hai.tgz", {"../../thoat.txt": b"du lieu gian lan"})
+
+    with pytest.raises(LoiCauHinh) as exc_A:
+        giai_nen(archive, tmp_path / "dest_a")
+
+    monkeypatch.delattr(tarfile, "data_filter", raising=False)
+    with pytest.raises(LoiCauHinh) as exc_B:
+        giai_nen(archive, tmp_path / "dest_b")
+
+    assert str(exc_A.value) == str(exc_B.value)
+
+
+def test_36_giai_nen_hai_nhanh_cung_ket_qua_thanh_cong(tmp_path, monkeypatch):
+    """Hai nhánh giải nén CÙNG tệp nén hợp lệ ra hai thư mục đích khác nhau: cùng cây tương đối.
+
+    Dòng cặp đường thành công của ca 35 — thiếu ca này, một cài đặt luôn ném lỗi ở cả hai
+    nhánh (bất kể tệp nén hợp lệ hay không) vẫn qua được ca 35.
+    Bỏ qua trên Python < 3.11.4 (không có nhánh A để so sánh).
+    """
+    if not hasattr(tarfile, "data_filter"):
+        pytest.skip("Python hiện tại không có tarfile.data_filter (< 3.11.4)")
+    archive = _tao_tgz(
+        tmp_path / "hop_le.tgz",
+        {"lfw/A/a_0001.jpg": b"anh 1", "lfw/B/b_0001.jpg": b"anh 2"},
+    )
+    dich_a = tmp_path / "dest_a"
+    dich_b = tmp_path / "dest_b"
+
+    giai_nen(archive, dich_a)
+    monkeypatch.delattr(tarfile, "data_filter", raising=False)
+    giai_nen(archive, dich_b)
+
+    tuong_doi_a = {p.relative_to(dich_a).as_posix() for p in dich_a.rglob("*") if p.is_file()}
+    tuong_doi_b = {p.relative_to(dich_b).as_posix() for p in dich_b.rglob("*") if p.is_file()}
+    assert tuong_doi_a == tuong_doi_b

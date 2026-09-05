@@ -86,8 +86,26 @@ def tinh_sha256(duong_dan: Path) -> str:
     return bam.hexdigest()
 
 
+# Ba thông báo lỗi của giai_nen(), đặt thành hằng số mức module: nhánh A (thư viện chuẩn,
+# Python >= 3.11.4) và nhánh B (dự phòng cho Python < 3.11.4, vd. Raspberry Pi OS Bookworm
+# đóng gói 3.11.2) đọc chung một hằng số nên luôn nói cùng một câu — xem §5.2 đặc tả P0-04.
+_MSG_VUOT_RA_NGOAI = (
+    "Tệp nén chứa đường dẫn vượt ra ngoài thư mục đích, đã chặn giải nén: {archive}"
+)
+_MSG_HONG = "Tệp nén hỏng, không mở được: {archive}"
+_MSG_KHONG_AN_TOAN = (
+    "Tệp nén chứa thành viên không an toàn (liên kết mềm/cứng hoặc tệp thiết bị), "
+    "đã chặn giải nén: {archive}"
+)
+
+
 def giai_nen(archive: Path, dich: Path) -> Path:
     """Giải nén tệp .tgz vào thư mục đích, trả về thư mục gốc vừa giải nén.
+
+    Chọn nhánh giải nén TẠI THỜI ĐIỂM GỌI, không tại thời điểm import module: thư viện chuẩn
+    có bộ lọc an toàn ``filter="data"`` (và lớp ``tarfile.FilterError``) kể từ Python 3.11.4
+    trở lên. Raspberry Pi OS Bookworm đóng gói Python 3.11.2 — chưa có bộ lọc này — nên cần
+    một nhánh dự phòng tự kiểm tra thủ công (§5 đặc tả P0-04).
 
     Args:
         archive: Đường dẫn tệp nén .tgz.
@@ -98,24 +116,45 @@ def giai_nen(archive: Path, dich: Path) -> Path:
         nằm chung một thư mục gốc; ngược lại trả về chính `dich`.
 
     Raises:
-        LoiCauHinh: Nếu tệp nén chứa đường dẫn vượt ra ngoài thư mục đích — dấu hiệu tệp
+        LoiCauHinh: Nếu tệp nén chứa đường dẫn vượt ra ngoài thư mục đích, hoặc chứa thành
+            viên không an toàn (liên kết mềm/cứng, tệp thiết bị) — cả hai là dấu hiệu tệp
             độc hại, phải dừng và điều tra nguồn tải (không tự tải lại); hoặc nếu tệp nén
-            hỏng, không mở được — lành tính, có thể tải lại. Hai nguyên nhân có thông báo
-            khác nhau, xem §3.1 đặc tả.
+            hỏng, không mở được — lành tính, có thể tải lại. Ba nguyên nhân có ba thông báo
+            khác nhau, xem §3.1/§5.2 đặc tả.
     """
     dich.mkdir(parents=True, exist_ok=True)
     try:
         with tarfile.open(archive, "r:*") as tf:
             thanh_vien = tf.getmembers()
-            tf.extractall(dich, filter="data")
-    except tarfile.FilterError as e:
-        # FilterError là lớp con của TarError (đường dẫn vượt ra ngoài thư mục đích —
-        # dấu hiệu tệp độc hại) nên phải bắt TRƯỚC TarError, không thì không bao giờ tới nhánh này.
-        raise LoiCauHinh(
-            f"Tệp nén chứa đường dẫn vượt ra ngoài thư mục đích, đã chặn giải nén: {archive}"
-        ) from e
+
+            # Quét CHO CẢ HAI nhánh (cố ý đặt ngoài if/else bên dưới): bộ lọc "data" của
+            # thư viện chuẩn cho phép liên kết trỏ vào bên trong thư mục đích, còn nhánh dự
+            # phòng không có cách nào kiểm điều đó cho rẻ. Đặt phép quét ở đây làm hai nhánh
+            # xử lý liên kết/thiết bị y hệt nhau, đổi lại giai_nen chặt hơn bộ lọc "data" một
+            # bậc (từ chối luôn liên kết mềm/cứng, kể cả loại trỏ vào bên trong) — xem §5.4.
+            for tv in thanh_vien:
+                if not (tv.isfile() or tv.isdir()):
+                    raise LoiCauHinh(_MSG_KHONG_AN_TOAN.format(archive=archive))
+
+            if hasattr(tarfile, "data_filter"):
+                # Nhánh A — thư viện chuẩn có bộ lọc "data" (Python >= 3.11.4).
+                try:
+                    tf.extractall(dich, filter="data")
+                except tarfile.FilterError as e:
+                    # FilterError là lớp con của TarError (đường dẫn vượt ra ngoài thư mục
+                    # đích) nên phải bắt TRƯỚC TarError, không thì không bao giờ tới nhánh này.
+                    raise LoiCauHinh(_MSG_VUOT_RA_NGOAI.format(archive=archive)) from e
+            else:
+                # Nhánh B — dự phòng cho Python < 3.11.4. Tự kiểm từng thành viên nằm trong
+                # thư mục đích trước khi giải nén thủ công (không có tham số filter=).
+                dich_that = dich.resolve()
+                for tv in thanh_vien:
+                    duong_dan_tv = (dich / tv.name).resolve()
+                    if not duong_dan_tv.is_relative_to(dich_that):
+                        raise LoiCauHinh(_MSG_VUOT_RA_NGOAI.format(archive=archive))
+                tf.extractall(dich)  # không có filter= — tham số này chưa tồn tại ở 3.11.2
     except tarfile.TarError as e:
-        raise LoiCauHinh(f"Tệp nén hỏng, không mở được: {archive}") from e
+        raise LoiCauHinh(_MSG_HONG.format(archive=archive)) from e
     except OSError as e:
         raise LoiCauHinh(f"Không thể giải nén tệp: {archive}") from e
 

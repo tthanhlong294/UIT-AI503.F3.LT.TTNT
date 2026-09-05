@@ -33,6 +33,27 @@ from src.common.exceptions import LoiCauHinh, LoiMoHinh
 _DUONG_DAN_WEIGHTS_THAT = Path("models/yolov8n-face.pt")
 _DUONG_DAN_LFW_THAT = Path("data/impostor/lfw_original")
 
+# Ngưỡng của CA KIỂM THỬ (không phải của mã sản phẩm — xem §4 đặc tả P0-04): _chon_mau_anh trả
+# nguyên danh sách khi số ảnh có sẵn <= so_anh yêu cầu, nên phải có NHIỀU HƠN 20 tệp để phép lấy
+# mẫu thực sự diễn ra. Với 100 tệp, xác suất hai seed khác nhau trùng cùng 20 tệp là ~1/C(100,20).
+_TOI_THIEU_ANH_LAY_MAU = 100
+
+
+def _bo_qua_neu_thieu(duong_dan: Path) -> None:
+    """Bỏ qua ca kiểm thử (có thông báo) nếu đường dẫn dữ liệu/model thật chưa có trên máy."""
+    if not duong_dan.exists():
+        pytest.skip(f"chưa có {duong_dan}, chạy scripts/export_detector.py trước")
+
+
+def _bo_qua_neu_lfw_thieu_anh() -> None:
+    """Bỏ qua ca kiểm thử nếu _DUONG_DAN_LFW_THAT có ít hơn _TOI_THIEU_ANH_LAY_MAU ảnh."""
+    so_anh = len(list(_DUONG_DAN_LFW_THAT.rglob("*.jpg"))) if _DUONG_DAN_LFW_THAT.exists() else 0
+    if so_anh < _TOI_THIEU_ANH_LAY_MAU:
+        pytest.skip(
+            f"'{_DUONG_DAN_LFW_THAT}' chỉ có {so_anh} ảnh, cần ít nhất "
+            f"{_TOI_THIEU_ANH_LAY_MAU}. Chạy scripts/download_lfw.py trước."
+        )
+
 
 def _cfg_co_ban() -> dict:
     """Cấu hình hợp lệ tối giản dùng làm nền cho các ca kiểm thử biến thể lỗi."""
@@ -54,6 +75,7 @@ def _cfg_co_ban() -> dict:
 
 def _sao_chep_weights_tam(thu_muc: Path) -> Path:
     """Sao chép trọng số .pt thật vào thư mục tạm — export không ghi vào models/ thật."""
+    _bo_qua_neu_thieu(_DUONG_DAN_WEIGHTS_THAT)
     dich = thu_muc / "yolov8n-face.pt"
     shutil.copy2(_DUONG_DAN_WEIGHTS_THAT, dich)
     return dich
@@ -61,7 +83,13 @@ def _sao_chep_weights_tam(thu_muc: Path) -> Path:
 
 def _vai_anh_lfw_that(so_luong: int) -> list[Path]:
     """Vài ảnh LFW thật đầu tiên tìm thấy, dùng cho ca kiểm thử kiem_chung_tuong_duong."""
-    return sorted(_DUONG_DAN_LFW_THAT.rglob("*.jpg"))[:so_luong]
+    anh = sorted(_DUONG_DAN_LFW_THAT.rglob("*.jpg"))
+    if len(anh) < so_luong:
+        pytest.skip(
+            f"'{_DUONG_DAN_LFW_THAT}' chỉ có {len(anh)} ảnh, cần ít nhất {so_luong}. "
+            "Chạy scripts/download_lfw.py trước."
+        )
+    return anh[:so_luong]
 
 
 def _ban_ghi_hop_le() -> dict:
@@ -492,16 +520,32 @@ def test_dong38_main_anh_dir_rong(tmp_path, capsys):
     assert "download_lfw" not in ra
 
 
-def test_dong39_chon_mau_anh_cung_seed_tai_lap():
-    a = _chon_mau_anh(_DUONG_DAN_LFW_THAT, 20, 42)
-    b = _chon_mau_anh(_DUONG_DAN_LFW_THAT, 20, 42)
+def test_dong39_chon_mau_anh_cung_seed_tai_lap(tmp_path):
+    """Cùng seed hai lần trả về đúng cùng kết quả (R15) — dùng ảnh .jpg RỖNG tự sinh trong
+    tmp_path, không chạm dữ liệu LFW thật: _chon_mau_anh lọc theo đuôi tệp, không mở ảnh, nên
+    ca này chưa bao giờ cần ảnh thật (§7.3 đặc tả P0-04; xác nhận không chạm _DUONG_DAN_LFW_THAT
+    bằng grep ở §10 đặc tả, không bằng pytest)."""
+    for i in range(_TOI_THIEU_ANH_LAY_MAU):
+        (tmp_path / f"anh_{i:04d}.jpg").write_bytes(b"")
+
+    a = _chon_mau_anh(tmp_path, 20, 42)
+    b = _chon_mau_anh(tmp_path, 20, 42)
     assert a == b
 
 
-def test_dong40_chon_mau_anh_khac_seed_khac_ket_qua():
-    a = _chon_mau_anh(_DUONG_DAN_LFW_THAT, 20, 42)
-    b = _chon_mau_anh(_DUONG_DAN_LFW_THAT, 20, 7)
+def test_dong40_chon_mau_anh_khac_seed_khac_ket_qua(tmp_path):
+    """Seed khác nhau cho kết quả khác nhau, và kết quả trả về luôn được sắp xếp.
+
+    Cần NHIỀU HƠN 20 tệp để phép lấy mẫu thực sự diễn ra (xem _TOI_THIEU_ANH_LAY_MAU) — với
+    đúng 21 tệp, xác suất hai seed trùng cùng 20 tệp là 1/21, ca này sẽ đỏ ngẫu nhiên.
+    """
+    for i in range(_TOI_THIEU_ANH_LAY_MAU):
+        (tmp_path / f"anh_{i:04d}.jpg").write_bytes(b"")
+
+    a = _chon_mau_anh(tmp_path, 20, 42)
+    b = _chon_mau_anh(tmp_path, 20, 7)
     assert a != b
+    assert a == sorted(a)
 
 
 def test_dong41_main_cau_hinh_hong_tra_ve_1(tmp_path):
@@ -514,3 +558,23 @@ def test_dong41_main_cau_hinh_hong_tra_ve_1(tmp_path):
 
 def test_dong42_main_khong_tim_thay_config(tmp_path):
     assert main(["--config", str(tmp_path / "khong_ton_tai.yaml")]) == 1
+
+
+def test_dong43_chon_mau_anh_du_lieu_that_cung_seed_tai_lap():
+    """Trên dữ liệu LFW thật, cùng seed cho cùng kết quả — và lấy đủ 20 ảnh (không xanh giả
+    như khuyết tật cũ khi thư mục vắng mặt/rỗng trả về danh sách rỗng, xem ca 44)."""
+    _bo_qua_neu_lfw_thieu_anh()
+
+    a = _chon_mau_anh(_DUONG_DAN_LFW_THAT, 20, 42)
+    b = _chon_mau_anh(_DUONG_DAN_LFW_THAT, 20, 42)
+    assert a == b
+    assert len(a) == 20
+
+
+def test_dong44_chon_mau_anh_thu_muc_rong(tmp_path):
+    """Thư mục rỗng: _chon_mau_anh trả về danh sách rỗng, không ném lỗi.
+
+    Chốt tường minh chính hành vi đã sinh ra khuyết tật cũ ở ca 39/40 (thư mục LFW vắng mặt
+    trả về [] khiến ca 39 xanh giả và ca 40 đỏ) — để lần sau không ai phải suy đoán lại.
+    """
+    assert _chon_mau_anh(tmp_path, 20, 42) == []
