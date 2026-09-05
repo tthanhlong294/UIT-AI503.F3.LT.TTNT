@@ -7,6 +7,11 @@
 | **Phụ thuộc** | `P3-03` đã gộp `dev` (commit gộp `7065c98`) |
 | **Chặn** | bước 3.5 — script quét ngưỡng sẽ nạp thẳng `data/embeddings/` |
 
+> ⚠️ **Bản đặc tả này đã được sửa ngày 05/09/2026, sau lượt kiểm định.** Hai chỗ khác với bản mà
+> người cài đặt từng cầm: **số ca kỳ vọng** ở §3 và §6, và **mô tả ca 36** ở §4.6 và §5. Cả hai là
+> khuyết tật của khâu đặc tả, không của mã — xem `docs/review/P3-04-enroll-ghi-nguyen-khoi.review.md`
+> §3.1 và §3.2. Mã đã gộp `dev` khớp với bản đặc tả **sau** khi sửa.
+
 ---
 
 ## 1. Mục tiêu
@@ -55,7 +60,13 @@ Không tệp nào khác. Không đụng `src/`, không đụng `configs/`.
 | Ghi `gallery.meta.json` | `:530`, ngoài khối `try` |
 | Nhánh thoát sớm | `:497-500`, `except (LoiCauHinh, LoiMoHinh)` → `return 1` |
 | Gallery hiện có | `data/embeddings/{dlib,arcface}/`, mỗi thư mục 8 tệp `.npy` + `manifest.csv` + `gallery.meta.json` |
-| Số test `tests/test_enroll.py` hiện tại | 19 ca |
+| Số test `tests/test_enroll.py` hiện tại | **24 ca thu thập** = 22 hàm `test_`, trong đó `test_dong16` mang `@pytest.mark.parametrize` ba giá trị. Chia ra: 19 ca không `slow` + 5 ca `slow` |
+
+> ⚠️ **Số ca phụ thuộc môi trường — luôn nói rõ đang đếm ở đâu.** Năm ca `slow` cần trọng số trong
+> `models/`; nơi không có thư mục đó (container `faceid:arm64`, máy chưa tải weights) chúng tự
+> `skip`, nên phép đếm ra 19 thay vì 24. Con số 19 ghi ở bản đặc tả trước là số **không `slow`** bị
+> chép nhầm thành số ca hiện tại. Mọi đặc tả sau phải ghi số ca kèm điều kiện — *có `models/`* hay
+> *không* — và ghi cả marker dùng để lọc, thay vì một con số trần.
 
 ---
 
@@ -135,8 +146,23 @@ và `arcface_backend.py:305`. Nhưng không có người gác, nên một lần 
 lọt — và hậu quả là người có **đúng** số ảnh tối thiểu bị ghi `thieu_anh` thay vì được đăng ký, tức
 mất người khỏi gallery một cách im lặng. Đúng loại lỗi mà CHẶN-B-1 của `P3-03` tồn tại để chặn.
 
-Thêm một ca đặt `so_anh == min_images_per_user`, dùng backend giả trả vectơ hợp lệ → mã trả về `0`,
-`trang_thai == da_dang_ky`.
+Thêm một ca đặt `so_anh == min_images_per_user`, dùng backend giả **luôn ném `ValueError`** →
+mã trả về `1`, thư mục `<ra>/<backend>/` **không tồn tại**.
+
+**Vì sao phải là vế phủ định.** Phép so sánh cần canh nằm **bên trong** khối `except ValueError` của
+`xu_ly_mot_nguoi`: nó chỉ chạy khi backend đã ném `ValueError`, để phân biệt *thiếu ảnh* với *mô
+hình hỏng*. Một backend trả vectơ hợp lệ không bao giờ đi tới đó, nên ca theo mô tả cũ — kỳ vọng
+`ma == 0`, `trang_thai == da_dang_ky` — **xanh cả khi `<` bị đổi thành `<=`**, tức tái lập đúng chỗ
+mù mà mục này sinh ra để bịt. Chốt chỉ có lực khi nó **chạm được vào nhánh chứa phép so sánh**.
+
+Chiều dương (*người có đúng số ảnh tối thiểu vẫn được đăng ký*) đã có người gác sẵn ở ba ca dùng
+cấu hình 3 ảnh / ngưỡng 3: `test_dong11` (`trang_thai == da_dang_ky`), `test_dong29` (có tệp `.npy`),
+`test_dong33` (`ma == 0`). Đổi toán tử theo chiều ngược lại thì ba ca này đỏ. Nên ca 36 không cần
+gánh thêm chiều đó.
+
+> Sửa ngày 05/09/2026 theo §3.2 biên bản review. Bản trước mô tả một ca không thể bắt được ĐB6, và
+> tự mâu thuẫn với chính §6.2 vốn đòi ĐB6 phải đỏ. Người cài đặt đã chọn đúng vế chịu lực và ghi lý
+> do trong docstring ca test; đo được: ĐB6 làm **bốn** ca đỏ, trong đó có ca 36.
 
 ### 4.7. Không đổi hành vi nào khác
 
@@ -162,7 +188,7 @@ Ca mới, đặt tên `test_dongNN_<mô tả>` tiếp số từ 26.
 | 33 | Thư mục tạm còn sót từ lượt trước (tạo sẵn, có một tệp rác) | lượt mới chạy trót lọt, tệp rác biến mất, mã trả về `0` |
 | 34 | `--dry-run` | không thư mục nào được tạo, kể cả thư mục tạm |
 | 35 | Gọi **thẳng** `xu_ly_mot_nguoi`, đủ ảnh, backend giả ném `ValueError` | `pytest.raises(LoiMoHinh)` — đúng lớp, không phải `LoiCauHinh` |
-| 36 | `so_anh` **bằng đúng** `min_images_per_user`, backend giả trả vectơ hợp lệ | mã trả về `0`, `trang_thai == da_dang_ky`, có tệp `.npy` |
+| 36 | `so_anh` **bằng đúng** `min_images_per_user`, backend giả **luôn ném `ValueError`** | mã trả về `1`; `<ra>/<backend>/` không tồn tại — xem §4.6 về việc vì sao phải là vế phủ định |
 
 Ngoài ra sửa **trong** ca `test_dong09b` hiện có: `if manifest.exists():` → `assert not
 manifest.exists()` (§4.5 điều 2). Đây là sửa ca cũ, không phải thêm ca mới.
@@ -189,7 +215,15 @@ python -m ruff check src tests scripts
 python -m pytest tests/test_enroll.py -v
 ```
 
-Kết quả mong đợi: **29 passed** (19 ca cũ + 10 ca mới, số 27–36), 0 failed.
+Kết quả mong đợi, **tuỳ môi trường** vì lệnh này không lọc marker:
+
+- máy **có** `models/` (máy phát triển, Pi 5 đã tải trọng số): **34 passed**, 0 failed
+  — 24 ca cũ + 10 ca mới;
+- máy **không có** `models/`: **29 passed, 5 skipped** — năm ca `slow` tự bỏ qua.
+
+Lượt kiểm định ngày 05/09/2026 cho **34 passed** ở cả ba nơi: host Python 3.12.5, container
+`faceid:arm64`, và Raspberry Pi 5 Python 3.11.2. Thấy con số khác hai giá trị trên thì kiểm
+`models/` trước khi nghi bộ test thừa hay thiếu ca.
 
 ```bash
 python -m pytest -q
