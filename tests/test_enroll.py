@@ -31,6 +31,7 @@ import numpy as np
 import pytest
 
 from scripts import enroll as se
+from src.common.exceptions import LoiMoHinh
 from src.recognizer.base import BoNhanDien
 
 _MODEL_DLIB = Path("models/dlib/dlib_face_recognition_resnet_model_v1.dat")
@@ -110,6 +111,38 @@ def _dung_backend_gia(monkeypatch, so_chieu: int = 4, seed: int = 0) -> _Backend
     backend = _BackendDemGoi(so_chieu=so_chieu, seed=seed)
     monkeypatch.setattr(se, "tao_bo_nhan_dien", lambda cfg, ten: backend)
     return backend
+
+
+class _BackendHongLanThu(BoNhanDien):
+    """`BoNhanDien` GIẢ: `enroll()` thành công `so_lan_thanh_cong` lần đầu, sau đó LUÔN ném
+    `ValueError` — mô phỏng lỗi mô hình xảy ra GIỮA một lượt đăng ký nhiều người, bất kể số ảnh
+    của người gặp lỗi có đủ hay không (dùng cho các ca canh §4.1-4.4 đặc tả P3-04, ghi gallery
+    nguyên khối)."""
+
+    def __init__(self, so_chieu: int = 4, seed: int = 0, so_lan_thanh_cong: int = 1) -> None:
+        self._so_chieu = so_chieu
+        self._rng = np.random.default_rng(seed)
+        self._so_lan_thanh_cong = so_lan_thanh_cong
+        self.so_lan_goi = 0
+
+    @property
+    def so_chieu(self) -> int:
+        return self._so_chieu
+
+    def trich_dac_trung(self, anh: np.ndarray) -> np.ndarray:
+        raise AssertionError("trich_dac_trung() không được scripts/enroll.py gọi trực tiếp")
+
+    def enroll(self, danh_sach_anh: list[np.ndarray], cfg: dict) -> np.ndarray:
+        self.so_lan_goi += 1
+        if self.so_lan_goi > self._so_lan_thanh_cong:
+            raise ValueError(f"Lỗi mô hình giả lập ở lần gọi thứ {self.so_lan_goi}")
+        vec = self._rng.standard_normal(self._so_chieu).astype(np.float32)
+        return (vec / np.linalg.norm(vec)).astype(np.float32)
+
+    def identify(
+        self, anh: np.ndarray, gallery: dict[str, np.ndarray], nguong: float
+    ) -> tuple[str | None, float]:
+        raise AssertionError("identify() không được scripts/enroll.py dùng tới")
 
 
 def _ghi_cfg(
@@ -278,9 +311,11 @@ def test_dong09b_loi_mo_hinh_du_anh_khong_bi_ghi_thieu_anh(tmp_path, monkeypatch
     assert not (ra / "dlib" / "nguoi_a.npy").exists()
 
     manifest = ra / "dlib" / "manifest.csv"
-    if manifest.exists():
-        rows = _doc_manifest(manifest)
-        assert not any(r["user_id"] == "nguoi_a" and r["trang_thai"] == "thieu_anh" for r in rows)
+    # Sau §4.2 (ghi gallery nguyên khối), thư mục đích không hề được tạo khi lượt chạy dừng giữa
+    # chừng vì LoiMoHinh — manifest chưa từng được ghi vào đó. Trước bản vá này, khối `if` bên
+    # dưới không bao giờ chạy (nhánh chết) vì lý do tương tự nhưng không có gì khẳng định điều
+    # đó — review vòng 2 chỉ ra đây là một chốt tưởng có mà không có (§4.5 điều 2 đặc tả P3-04).
+    assert not manifest.exists()
 
 
 def test_dong09c_loi_mo_hinh_nhung_thieu_anh_that_van_la_thieu_anh(tmp_path, monkeypatch):
@@ -630,3 +665,211 @@ def test_dong26_enroll_duoc_goi_dung_mot_lan_moi_nguoi(tmp_path, monkeypatch):
     ma = se.main(["--vao", str(vao), "--ra", str(ra), "--config", str(cfg)])
     assert ma == 0
     assert backend.so_lan_goi == 2
+
+
+# ============================================================================
+# §5 docs/dac-ta/P3-04-enroll-ghi-nguyen-khoi.md — scripts/enroll.py (dòng 27-36)
+# ============================================================================
+
+
+def test_dong27_hong_giua_chung_khong_de_lai_thu_muc_dich(tmp_path, monkeypatch):
+    """Ca canh §4.1-4.2: lượt chạy dừng giữa chừng (người thứ hai làm backend ném lỗi mô hình,
+    người thứ nhất đã đủ ảnh và đã đăng ký thành công) không được để lại `<ra>/<backend>/`.
+    Xem ĐB1, ĐB3 của đặc tả — hai phép đó phải làm ca này đỏ.
+    """
+    backend = _BackendHongLanThu(so_lan_thanh_cong=1)
+    monkeypatch.setattr(se, "tao_bo_nhan_dien", lambda cfg, ten: backend)
+    vao = tmp_path / "vao"
+    _ghi_nguoi(vao, "nguoi_a", so_anh=3)
+    _ghi_nguoi(vao, "nguoi_b", so_anh=3)
+    cfg = _ghi_cfg(tmp_path, min_images=3)
+    ra = tmp_path / "ra"
+
+    ma = se.main(["--vao", str(vao), "--ra", str(ra), "--config", str(cfg)])
+    assert ma == 1
+    assert not (ra / "dlib").exists()
+
+
+def test_dong28_hong_giua_chung_khong_sot_thu_muc_tam(tmp_path, monkeypatch):
+    """Cùng tình huống ca 27: không thư mục tạm nào (`.dlib.dang-ghi`, `.dlib.cu`) sót lại
+    trong thư mục ra. Xem ĐB2 của đặc tả."""
+    backend = _BackendHongLanThu(so_lan_thanh_cong=1)
+    monkeypatch.setattr(se, "tao_bo_nhan_dien", lambda cfg, ten: backend)
+    vao = tmp_path / "vao"
+    _ghi_nguoi(vao, "nguoi_a", so_anh=3)
+    _ghi_nguoi(vao, "nguoi_b", so_anh=3)
+    cfg = _ghi_cfg(tmp_path, min_images=3)
+    ra = tmp_path / "ra"
+
+    ma = se.main(["--vao", str(vao), "--ra", str(ra), "--config", str(cfg)])
+    assert ma == 1
+    if ra.exists():
+        ten_con = [p.name for p in ra.iterdir()]
+        assert not any(ten.startswith(".") for ten in ten_con)
+
+
+def test_dong29_thanh_cong_ghi_du_ba_loai_tep_khong_sot_thu_muc_tam(tmp_path, monkeypatch):
+    """Lượt chạy thành công: thư mục đích có đủ `.npy` + `manifest.csv` + `gallery.meta.json`,
+    và không thư mục tạm nào sót lại cạnh nó."""
+    _dung_backend_gia(monkeypatch)
+    vao = tmp_path / "vao"
+    _ghi_nguoi(vao, "nguoi_a", so_anh=3)
+    cfg = _ghi_cfg(tmp_path, min_images=3)
+    ra = tmp_path / "ra"
+
+    ma = se.main(["--vao", str(vao), "--ra", str(ra), "--config", str(cfg)])
+    assert ma == 0
+    assert (ra / "dlib" / "nguoi_a.npy").exists()
+    assert (ra / "dlib" / "manifest.csv").exists()
+    assert (ra / "dlib" / "gallery.meta.json").exists()
+    ten_con = [p.name for p in ra.iterdir()]
+    assert not any(ten.startswith(".") for ten in ten_con)
+
+
+def test_dong30_khong_ai_du_anh_van_ghi_manifest_va_meta(tmp_path, monkeypatch):
+    """Lượt chạy hợp lệ nhưng không ai đủ ảnh: đây là ngoại lệ nêu ở §4.1 — thư mục đích vẫn
+    phải có `manifest.csv` và `gallery.meta.json` (bằng chứng vì sao không có ai), chỉ là
+    không có `.npy` nào."""
+    _dung_backend_gia(monkeypatch)
+    vao = tmp_path / "vao"
+    _ghi_nguoi(vao, "nguoi_it", so_anh=1)
+    cfg = _ghi_cfg(tmp_path, min_images=3)
+    ra = tmp_path / "ra"
+
+    ma = se.main(["--vao", str(vao), "--ra", str(ra), "--config", str(cfg)])
+    assert ma == 0
+    assert (ra / "dlib" / "manifest.csv").exists()
+    assert (ra / "dlib" / "gallery.meta.json").exists()
+    assert not list((ra / "dlib").glob("*.npy"))
+
+
+def test_dong31_gallery_cu_con_nguyen_ven_khi_lot_moi_hong(tmp_path, monkeypatch):
+    """Ca quan trọng nhất của §4.1-4.4 (xem §5 đặc tả): đã có gallery cũ, lượt mới hỏng giữa
+    chừng — gallery cũ phải còn NGUYÊN VẸN, so `sha256` từng tệp trước và sau. Xem ĐB4 của đặc
+    tả — phép đó phải làm ca này đỏ."""
+    vao1 = tmp_path / "vao1"
+    _ghi_nguoi(vao1, "nguoi_cu", so_anh=3)
+    cfg1 = _ghi_cfg(tmp_path, min_images=3)
+    ra = tmp_path / "ra"
+
+    _dung_backend_gia(monkeypatch)
+    ma = se.main(["--vao", str(vao1), "--ra", str(ra), "--config", str(cfg1)])
+    assert ma == 0
+
+    sha_truoc = {p.name: _sha256(p) for p in (ra / "dlib").iterdir() if p.is_file()}
+
+    backend_hong = _BackendHongLanThu(so_lan_thanh_cong=1)
+    monkeypatch.setattr(se, "tao_bo_nhan_dien", lambda cfg, ten: backend_hong)
+    vao2 = tmp_path / "vao2"
+    _ghi_nguoi(vao2, "nguoi_moi_1", so_anh=3)
+    _ghi_nguoi(vao2, "nguoi_moi_2", so_anh=3)
+    cfg2 = _ghi_cfg(tmp_path, min_images=3)
+
+    ma2 = se.main(["--vao", str(vao2), "--ra", str(ra), "--config", str(cfg2)])
+    assert ma2 == 1
+
+    sha_sau = {p.name: _sha256(p) for p in (ra / "dlib").iterdir() if p.is_file()}
+    assert sha_sau == sha_truoc
+
+
+def test_dong32_gallery_moi_thay_the_hoan_toan_gallery_cu(tmp_path, monkeypatch):
+    """Đã có gallery cũ, lượt mới THÀNH CÔNG với danh sách người khác: thư mục đích chỉ chứa
+    người của lượt mới, không sót `.npy` của lượt cũ."""
+    vao1 = tmp_path / "vao1"
+    _ghi_nguoi(vao1, "nguoi_cu", so_anh=3)
+    cfg1 = _ghi_cfg(tmp_path, min_images=3)
+    ra = tmp_path / "ra"
+
+    _dung_backend_gia(monkeypatch)
+    ma = se.main(["--vao", str(vao1), "--ra", str(ra), "--config", str(cfg1)])
+    assert ma == 0
+    assert (ra / "dlib" / "nguoi_cu.npy").exists()
+
+    _dung_backend_gia(monkeypatch)
+    vao2 = tmp_path / "vao2"
+    _ghi_nguoi(vao2, "nguoi_moi", so_anh=3)
+    cfg2 = _ghi_cfg(tmp_path, min_images=3)
+
+    ma2 = se.main(["--vao", str(vao2), "--ra", str(ra), "--config", str(cfg2)])
+    assert ma2 == 0
+
+    tep_npy = sorted(p.name for p in (ra / "dlib").glob("*.npy"))
+    assert tep_npy == ["nguoi_moi.npy"]
+    assert not (ra / "dlib" / "nguoi_cu.npy").exists()
+
+
+def test_dong33_thu_muc_tam_sot_lai_bi_don_truoc_khi_ghi(tmp_path, monkeypatch):
+    """Thư mục tạm còn sót từ lượt trước (tạo sẵn, có một tệp rác): lượt mới vẫn chạy trót lọt,
+    tệp rác biến mất, mã trả về 0 (§4.2 điều 1: xoá sạch thư mục tạm cũ rồi tạo lại)."""
+    _dung_backend_gia(monkeypatch)
+    vao = tmp_path / "vao"
+    _ghi_nguoi(vao, "nguoi_a", so_anh=3)
+    cfg = _ghi_cfg(tmp_path, min_images=3)
+    ra = tmp_path / "ra"
+
+    thu_muc_tam = ra / ".dlib.dang-ghi"
+    thu_muc_tam.mkdir(parents=True)
+    (thu_muc_tam / "rac.txt").write_text("rac", encoding="utf-8")
+
+    ma = se.main(["--vao", str(vao), "--ra", str(ra), "--config", str(cfg)])
+    assert ma == 0
+    assert not (ra / "dlib" / "rac.txt").exists()
+    assert not thu_muc_tam.exists()
+    assert (ra / "dlib" / "nguoi_a.npy").exists()
+
+
+def test_dong34_dry_run_khong_tao_thu_muc_tam(tmp_path, monkeypatch):
+    """`--dry-run` không được tạo thư mục nào, kể cả thư mục tạm `.dlib.dang-ghi`."""
+    _dung_backend_gia(monkeypatch)
+    vao = tmp_path / "vao"
+    _ghi_nguoi(vao, "nguoi_a", so_anh=3)
+    cfg = _ghi_cfg(tmp_path, min_images=3)
+    ra = tmp_path / "ra"
+
+    ma = se.main(["--vao", str(vao), "--ra", str(ra), "--config", str(cfg), "--dry-run"])
+    assert ma == 0
+    assert not ra.exists()
+    assert not (ra / ".dlib.dang-ghi").exists()
+
+
+def test_dong35_xu_ly_mot_nguoi_du_anh_loi_mo_hinh_nem_dung_lop(tmp_path):
+    """Ca canh §4.5 điều 1 (§12.2 biên bản review vòng 2): gọi THẲNG `xu_ly_mot_nguoi`, đủ ảnh,
+    backend giả LUÔN ném `ValueError` — phải nổi lên thành đúng `LoiMoHinh`, không phải
+    `LoiCauHinh`. Đây là chốt DUY NHẤT phân biệt được hai lớp ngoại lệ đó khi gọi trực tiếp,
+    không đi qua `main()`. Xem ĐB5 của đặc tả — phép đó phải làm ca này đỏ."""
+    backend = _BackendLoiMoHinhGia()
+    thu_muc_nguoi = tmp_path / "nguoi_a"
+    danh_sach_anh = []
+    for i in range(5):  # đủ ảnh so với ngưỡng 3 — không phải thiếu ảnh
+        duong_dan = thu_muc_nguoi / f"anh_{i:02d}.png"
+        _anh_gia(duong_dan, seed=i)
+        danh_sach_anh.append(duong_dan)
+    cfg_enroll = {"min_images_per_user": 3}
+
+    with pytest.raises(LoiMoHinh):
+        se.xu_ly_mot_nguoi(thu_muc_nguoi, danh_sach_anh, backend, cfg_enroll)
+
+
+def test_dong36_so_anh_bang_dung_nguong_van_la_loi_mo_hinh(tmp_path, monkeypatch):
+    """Ca canh §4.6 (§12.3 biên bản review vòng 2): biên `so_anh_tim_thay == min_images_per_user`
+    phải có người gác trong đúng phép so sánh `so_anh_tim_thay < cfg_enroll["min_images_per_user"]`
+    (`scripts/enroll.py`, khối `except ValueError` của `xu_ly_mot_nguoi`) — không phải `<=`.
+
+    Dùng `_BackendLoiMoHinhGia` (cùng backend của ca 09b/09c) để `enroll()` LUÔN ném `ValueError`
+    bất kể số ảnh, và đặt `so_anh` ĐÚNG BẰNG ngưỡng (không lớn hơn, khác ca 09b dùng 5/3). Với mã
+    đúng, `3 < 3` là `False` nên KHÔNG bị coi là thiếu ảnh — lỗi phải nổi lên thành `LoiMoHinh`,
+    dừng cả lượt chạy, không ghi gallery nào (§4.1). Nếu toán tử bị đổi thành `<=` (ĐB6), `3 <=
+    3` thành `True`, lỗi bị nuốt thành `thieu_anh` một cách im lặng và lượt chạy vẫn ghi gallery
+    thành công — đúng chế độ hỏng mà §4.6 mô tả: người đủ ảnh bị mất khỏi gallery không một
+    tiếng động. Xem ĐB6 của đặc tả — phép đó phải làm ca này đỏ.
+    """
+    backend = _BackendLoiMoHinhGia()
+    monkeypatch.setattr(se, "tao_bo_nhan_dien", lambda cfg, ten: backend)
+    vao = tmp_path / "vao"
+    _ghi_nguoi(vao, "nguoi_a", so_anh=3)  # đúng bằng ngưỡng, không phải lớn hơn (khác ca 09b)
+    cfg = _ghi_cfg(tmp_path, min_images=3)
+    ra = tmp_path / "ra"
+
+    ma = se.main(["--vao", str(vao), "--ra", str(ra), "--config", str(cfg)])
+    assert ma == 1
+    assert not (ra / "dlib").exists()
