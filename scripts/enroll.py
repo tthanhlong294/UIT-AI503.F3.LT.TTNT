@@ -169,9 +169,11 @@ def xu_ly_mot_nguoi(
         `None` khi người này bị bỏ qua).
 
     Raises:
-        LoiMoHinh: vectơ `backend.enroll()` trả về lệch số chiều đã khai báo (§6.3) — lỗi mô
-            hình, không phải lỗi dữ liệu của người này, nên KHÔNG bị bắt ở đây mà lan lên trên
-            để dừng cả lượt chạy.
+        LoiMoHinh: `backend.enroll()` ném `ValueError` dù người này có đủ ảnh so với
+            `min_images_per_user` (lỗi mô hình hoặc dữ liệu vào chưa qua tiền xử lý, không phải
+            thiếu ảnh — xem CHẶN-B-1, biên bản review vòng 1), hoặc vectơ trả về lệch số chiều
+            đã khai báo (§6.3). Cả hai đều là lỗi mô hình, không phải lỗi dữ liệu của riêng
+            người này, nên KHÔNG bị bắt ở đây mà lan lên trên để dừng cả lượt chạy.
     """
     user_id = thu_muc_nguoi.name
     so_anh_tim_thay = len(danh_sach_anh)
@@ -199,9 +201,14 @@ def xu_ly_mot_nguoi(
     try:
         vec = backend.enroll(anh_da_doc, cfg_enroll)
     except ValueError as e:
-        logger.info("Bỏ qua '%s': %s", user_id, e)
-        ket_qua["trang_thai"] = _TRANG_THAI_THIEU_ANH
-        return ket_qua
+        if so_anh_tim_thay < cfg_enroll["min_images_per_user"]:
+            logger.info("Bỏ qua '%s' vì thiếu ảnh: %s", user_id, e)
+            ket_qua["trang_thai"] = _TRANG_THAI_THIEU_ANH
+            return ket_qua
+        raise LoiMoHinh(
+            f"backend.enroll() thất bại với '{user_id}' dù có {so_anh_tim_thay} ảnh "
+            f"(ngưỡng {cfg_enroll['min_images_per_user']}): {e}"
+        ) from e
 
     if vec.shape != (backend.so_chieu,):
         raise LoiMoHinh(

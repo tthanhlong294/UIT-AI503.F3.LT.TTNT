@@ -13,6 +13,12 @@ docs/dac-ta/P3-03-enroll.md.
 ⚠️ Dòng 26 là ca canh §6.1 và là ca quan trọng nhất tệp này (xem đặc tả ĐB1): `_BackendDemGoi`
 đếm số lần `enroll()` được gọi. Nếu script tự tính trung bình thay vì gọi `backend.enroll()`,
 bộ đếm này không tăng, và dòng 26 phải đỏ.
+
+⚠️ `test_dong09b_...` và `test_dong09c_...` canh CHẶN-B-1 (biên bản review vòng 1): dùng
+`_BackendLoiMoHinhGia`, có `enroll()` LUÔN ném `ValueError` bất kể số ảnh. Ca 09b đủ ảnh — phải
+thành `LoiMoHinh`, mã trả về 1, không ghi `.npy`. Ca 09c thiếu ảnh thật — vẫn phải là `thieu_anh`,
+mã trả về 0. Hai ca này chứng minh bản vá phân biệt bằng SỐ ẢNH THẬT SỰ, không bằng nội dung
+`ValueError`.
 """
 
 import csv
@@ -33,6 +39,34 @@ _MODEL_ARCFACE = Path("models/mobilefacenet.onnx")
 _CONFIG_THAT = Path("configs/recognize.yaml")
 
 _TEN_BA_NGUOI = ("nguoi_a", "nguoi_b", "nguoi_c")
+
+
+class _BackendLoiMoHinhGia(BoNhanDien):
+    """`BoNhanDien` GIẢ: `enroll()` LUÔN ném `ValueError`, bất kể số ảnh nhận được.
+
+    Dùng để canh CHẶN-B-1 (biên bản review vòng 1 P3-03-enroll): `ValueError` không phải lúc
+    nào cũng là "thiếu ảnh" — nó còn là lỗi mô hình (vd: vectơ đặc trưng có độ dài 0) hoặc dữ
+    liệu vào chưa qua tiền xử lý. Backend này mô phỏng đúng nhóm lỗi đó: nó không hề xét số
+    lượng ảnh trước khi ném lỗi, khác hẳn `_BackendDemGoi` ở trên.
+    """
+
+    def __init__(self, so_chieu: int = 4) -> None:
+        self._so_chieu = so_chieu
+
+    @property
+    def so_chieu(self) -> int:
+        return self._so_chieu
+
+    def trich_dac_trung(self, anh: np.ndarray) -> np.ndarray:
+        raise AssertionError("trich_dac_trung() không được scripts/enroll.py gọi trực tiếp")
+
+    def enroll(self, danh_sach_anh: list[np.ndarray], cfg: dict) -> np.ndarray:
+        raise ValueError("Vectơ đặc trưng có độ dài 0")
+
+    def identify(
+        self, anh: np.ndarray, gallery: dict[str, np.ndarray], nguong: float
+    ) -> tuple[str | None, float]:
+        raise AssertionError("identify() không được scripts/enroll.py dùng tới")
 
 
 class _BackendDemGoi(BoNhanDien):
@@ -214,6 +248,52 @@ def test_dong09_it_anh_hon_nguong_khong_ghi_npy(tmp_path, monkeypatch):
     _dung_backend_gia(monkeypatch)
     vao = tmp_path / "vao"
     _ghi_nguoi(vao, "nguoi_it", so_anh=2)
+    cfg = _ghi_cfg(tmp_path, min_images=3)
+    ra = tmp_path / "ra"
+
+    ma = se.main(["--vao", str(vao), "--ra", str(ra), "--config", str(cfg)])
+    assert ma == 0
+    assert not (ra / "dlib" / "nguoi_it.npy").exists()
+
+    rows = _doc_manifest(ra / "dlib" / "manifest.csv")
+    assert rows[0]["trang_thai"] == "thieu_anh"
+
+
+def test_dong09b_loi_mo_hinh_du_anh_khong_bi_ghi_thieu_anh(tmp_path, monkeypatch):
+    """Ca canh CHẶN-B-1 (biên bản review vòng 1): đủ ảnh mà `enroll()` vẫn ném `ValueError` là
+    lỗi mô hình, KHÔNG phải thiếu ảnh — phải nổi lên thành `LoiMoHinh`, dừng cả lượt chạy.
+
+    Trước bản vá, khối `except ValueError` bắt mọi trường hợp và ghi nhầm `thieu_anh` dù người
+    này có tới 5 ảnh với ngưỡng 3.
+    """
+    backend = _BackendLoiMoHinhGia()
+    monkeypatch.setattr(se, "tao_bo_nhan_dien", lambda cfg, ten: backend)
+    vao = tmp_path / "vao"
+    _ghi_nguoi(vao, "nguoi_a", so_anh=5)  # đủ ảnh so với ngưỡng 3 — không phải thiếu ảnh
+    cfg = _ghi_cfg(tmp_path, min_images=3)
+    ra = tmp_path / "ra"
+
+    ma = se.main(["--vao", str(vao), "--ra", str(ra), "--config", str(cfg)])
+    assert ma == 1
+    assert not (ra / "dlib" / "nguoi_a.npy").exists()
+
+    manifest = ra / "dlib" / "manifest.csv"
+    if manifest.exists():
+        rows = _doc_manifest(manifest)
+        assert not any(r["user_id"] == "nguoi_a" and r["trang_thai"] == "thieu_anh" for r in rows)
+
+
+def test_dong09c_loi_mo_hinh_nhung_thieu_anh_that_van_la_thieu_anh(tmp_path, monkeypatch):
+    """Ca đối chứng của test_dong09b: cùng backend LUÔN ném `ValueError`, nhưng lần này người
+    thật sự thiếu ảnh — phải vẫn được phân loại `thieu_anh`, mã trả về 0 (giữ nguyên §6.2).
+
+    Chứng minh bản vá phân biệt bằng SỐ ẢNH THẬT SỰ (`so_anh_tim_thay` so với
+    `min_images_per_user`), không phải bằng nội dung thông điệp `ValueError`.
+    """
+    backend = _BackendLoiMoHinhGia()
+    monkeypatch.setattr(se, "tao_bo_nhan_dien", lambda cfg, ten: backend)
+    vao = tmp_path / "vao"
+    _ghi_nguoi(vao, "nguoi_it", so_anh=2)  # thiếu ảnh thật so với ngưỡng 3
     cfg = _ghi_cfg(tmp_path, min_images=3)
     ra = tmp_path / "ra"
 
