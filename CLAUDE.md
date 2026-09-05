@@ -758,34 +758,46 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
 
 ## 8. Ghi chú vận hành
 
-- **Vị trí hiện tại (25/08/2026 — Tuần 6)**: Phase 0 đã đóng (tag `phase-0-done`, 5/6 bước; bước 0.4
+- **Vị trí hiện tại (05/09/2026 — Tuần 8)**: Phase 0 đã đóng (tag `phase-0-done`, 5/6 bước; bước 0.4
   hoãn vì chưa có phần cứng, ghi ở `docs/dieu-chinh-pham-vi.md`).
   **Phase 1, 2 và 3 đang mở song song** — mọi thứ chặn đều chặn ở cùng một chỗ là phần cứng, nên
   không thể chờ cổng D theo đúng §5.0. Lý do đã ghi ở `docs/dieu-chinh-pham-vi.md`.
-  Chín mã việc đã qua đủ các nhịp và gộp vào `dev` (làm theo quy trình 5 nhịp cũ):
+  Mười sáu mã việc đã qua đủ 5 nhịp và gộp vào `dev`:
   `P1-01` (`src/capture/`, khối thu hình) · `P1-02` (`collect_faces.py`, bước 1.2) ·
   `P1-03` (tải LFW, bước 1.5) · `P1-04` (`align.py`) · `P1-05` (`preprocess.py`, bước 1.9) ·
   `P2-01` (export ONNX, bước 2.2) · `P2-02` (`src/detector/`, bước 2.3) ·
-  `P2-03` (`benchmark_detect.py`, bước 2.6) · `P3-01` (`src/recognizer/`, bước 3.1 và 3.3).
-  Tổng **379 test xanh** trên host, và 28 xanh / 10 skip trong container ARM64.
-  `P3-01b` (vá ba lỗ hổng cấu hình khối nhận diện) đã gộp ngày 27/08/2026.
-  **Việc tiếp theo**: `P2-04` export NCNN — đặc tả đã viết, chờ chạy
-  `notebooks/03_xac_minh_export_ncnn.ipynb` để chốt bảng dữ kiện §3. Sau đó `P2-05` (backend NCNN
-  trong `src/detector/`), `P3-02` (backend dlib) và `P3-03` (`scripts/enroll.py`) — tất cả chạy
-  được trên LFW, không cần camera.
+  `P2-03` (`benchmark_detect.py`, bước 2.6) · `P2-04` (export NCNN) · `P2-05` (backend NCNN) ·
+  `P2-06` + `P2-06b` + `P2-06c` (đo hai backend phát hiện, đối kháng backend, `git_dirty` đúng
+  phạm vi) · `P3-01` + `P3-01b` (`src/recognizer/`, bước 3.1 và 3.3) · `P3-02` (backend dlib,
+  bước 3.2) · `P3-03` (`scripts/enroll.py` + `src/recognizer/factory.py`, bước 3.4).
+  Trên 530 test xanh trên host — số chính xác ở `docs/review/P3-03-enroll.review.md` §8.
+  `P2-06d` **đã bỏ** theo quyết định ngày 04/09/2026: khối phát hiện đã qua ba vòng kiểm, thêm
+  vòng thứ tư không đổi kết luận nào.
+  **Việc tiếp theo**: mã việc dọn dẹp theo §12.1 biên bản `P3-03` (lượt `enroll.py` dừng giữa
+  chừng để lại `data/embeddings/` dở dang không có manifest) — nên đóng **trước** bước 3.5 vì
+  bước đó nạp thẳng thư mục ấy. Sau đó bước 3.5: `scripts/benchmark_recognize.py` quét ngưỡng và
+  vẽ ROC/DET, chạy được trên LFW với gallery 8 người và 143 danh tính còn lại làm impostor.
 - **Notebook còn thiếu**: `01_eda_khuon_mat.ipynb` (bước 1.13, chặn vì chưa có gallery) ·
-  `04_so_sanh_moi_truong.ipynb` (chặn vì chưa có Pi 5) · `06_nguong_va_roc.ipynb` (chặn vì chưa có
-  `scripts/enroll.py` ở bước 3.4). `05_khoi_nhan_dien.ipynb` viết ngày 04/09/2026 sau khi `P3-02`
-  đóng — minh hoạ hai backend trên LFW, không sinh số cho báo cáo.
+  `04_so_sanh_moi_truong.ipynb` (chặn vì chưa có Pi 5) · `06_nguong_va_roc.ipynb` (bước 3.5 —
+  **hết chặn** từ 05/09/2026 khi `P3-03` đóng, chờ script đo).
+  `05_khoi_nhan_dien.ipynb` viết ngày 04/09/2026 sau khi `P3-02` đóng — minh hoạ hai backend trên
+  LFW, không sinh số cho báo cáo.
   Notebook là phương tiện trình bày chính khi bảo vệ, không phải bản nháp — xem §2.9.
+- **Gallery hiện có**: `data/embeddings/{dlib,arcface}/`, 8 người từ LFW, sinh ngày 05/09/2026 từ
+  commit gộp `P3-03` với `git_dirty: false`. ⚠️ Dựng bằng cờ `--toi-thieu 3` thay cho ngưỡng 10
+  trong cấu hình, vì không danh tính LFW nào đủ 10 ảnh. Đây là gallery **kiểm chức năng**, không
+  dùng cho bất kỳ con số nào trong báo cáo; `gallery.meta.json` ghi cả hai ngưỡng để không lẫn.
 - ⚠️ **Rủi ro tiến độ lớn nhất: chưa có Raspberry Pi 5 và camera.** Camera — không phải bo mạch — mới
   là thứ định nghĩa miền dữ liệu, nên nó chặn cả Phase 1, 3 và 4. Bốn trên sáu chỉ tiêu cam kết ở §1
-  không đo được nếu thiếu. Vướng mắc này đã sang tuần thứ ba. **Cổng C của Phase 2 vẫn mở**: số đo
-  duy nhất đang có (`results/bench_detect_20260819_1453.csv`) là của máy phát triển x86-64, không
-  dùng để kết luận chỉ tiêu ≥ 10 FPS được.
-- Báo cáo: Chương 1 §1.1–1.3 xong · Chương 2 xong 6/7 mục (§2.7 chặn vì chưa có thiết bị) ·
-  Chương 3 §3.2 và §3.3 xong · Chương 5 khung. Chương 4 chưa mở — chưa có số liệu thật.
-  Nhật ký tuần 1–6 đã ghi đủ. Trọng số mô hình đã tải đủ, `models/README.md` bảng A đầy đủ,
-  §3.3 đã chốt cách chuẩn hoá của mô hình nhận diện bằng thực nghiệm.
+  không đo được nếu thiếu. Vướng mắc này đã sang tuần thứ năm. **Cổng C của Phase 2 vẫn mở**: mọi
+  số đo đang có đều của máy phát triển x86-64, không dùng để kết luận chỉ tiêu ≥ 10 FPS được.
+- Báo cáo: Chương 1 §1.1–1.3 xong · Chương 2 xong 6/7 mục (§2.7 chặn vì chưa có thiết bị), đã bổ
+  sung §2.6.4–2.6.6 về NCNN và PNNX · Chương 3 §3.2 và §3.3 xong · Chương 5 khung.
+  **Chương 4 đã mở** (`report/chapters/ch4-trien-khai-thuc-nghiem.md`): §4.1 ba môi trường, §4.3.1
+  kiểm chứng chuyển đổi NCNN, §4.3.2 và §4.3.3 kết quả khối phát hiện trên `pc_x86`; các mục còn
+  lại để `[CHƯA ĐO]` vì chưa có phần cứng đích.
+  Nhật ký tuần 1–6 đã ghi đủ, **tuần 7–8 còn nợ**. Trọng số mô hình đã tải đủ,
+  `models/README.md` bảng A đầy đủ, §3.3 đã chốt cách chuẩn hoá của mô hình nhận diện bằng
+  thực nghiệm.
 - Cập nhật mục này mỗi khi qua Phase mới.
 - Nhật ký tuần lưu ở `docs/nhat-ky/tuan-XX.md`, viết vào **cuối mỗi tuần**, không dồn.
