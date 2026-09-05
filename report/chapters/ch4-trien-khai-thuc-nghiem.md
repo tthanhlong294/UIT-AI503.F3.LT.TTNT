@@ -162,11 +162,129 @@ xác nhận quy trình đo chạy đúng và hai bộ suy luận cho cùng kết
 
 ### 4.3.4. Kết quả trên Raspberry Pi 5
 
-`[CHƯA ĐO]` — chặn vì chưa có phần cứng.
+Ba lượt đo độc lập được thực hiện trên phần cứng đích ngày 05/09/2026, cách nhau vài phút, mỗi lượt
+lặp lại đầy đủ ma trận 12 cấu hình như ở §4.3.2 (hai bộ suy luận × hai độ phân giải × ba mức số
+luồng), mỗi ô 100 khung hình sau 10 khung làm nóng, cùng `seed=42` và cùng 110 ảnh chọn ra từ 9 164
+ảnh của `data/impostor/lfw_original`. Thiết bị: Raspberry Pi 5 8 GB,
+`Linux-6.12.93+rpt-rpi-2712-aarch64-with-glibc2.36`, Python 3.11.2, ONNX Runtime 1.20.1, ncnn
+1.0.20260526, chạy không màn hình qua SSH, không bật cửa sổ xem trước. Cả ba lượt cùng commit
+`57b874c`, cây làm việc sạch (`git_dirty: false`).
 
-Dàn ý: ma trận 12 cấu hình lặp ba lượt trên thiết bị thật · bảng đối chiếu ba môi trường chứng minh
-tính khả chuyển · nhiệt độ bộ xử lý và hiện tượng giảm xung trong 10 phút chạy liên tục · kết luận
-chọn bộ suy luận và độ phân giải chính thức, ghi vào `configs/detect.yaml`.
+**Bảng 4.4 — Tốc độ khung hình trên Raspberry Pi 5, trung bình và độ lệch chuẩn của ba lượt đo**
+
+| Bộ suy luận | Kích thước | Số luồng | FPS trung bình | Độ lệch chuẩn | Latency p50 (ms) | Latency p95 (ms) | Tỉ lệ phát hiện | Đạt ≥ 10 FPS |
+|---|---|---|---|---|---|---|---|---|
+| ONNX Runtime | 320 | 1 | 10,58 | 0,02 | 94,4 | 95,3 | 100 % | Đạt |
+| ONNX Runtime | 320 | 2 | 18,9 | 0,05 | 52,8 | 54,1 | 100 % | Đạt |
+| ONNX Runtime | 320 | 4 | 27,5 | 0,34 | 35,3 | 42,9 | 100 % | Đạt |
+| ONNX Runtime | 640 | 1 | 2,60 | 0,00 | 383,8 | 385,3 | 100 % | Không đạt |
+| ONNX Runtime | 640 | 2 | 4,83 | 0,00 | 206,5 | 209,2 | 100 % | Không đạt |
+| ONNX Runtime | 640 | 4 | 6,61 | 0,02 | 149,0 | 158,1 | 100 % | Không đạt |
+| NCNN | 320 | 1 | 35,5 | 0,12 | 28,1 | 28,7 | 100 % | Đạt |
+| NCNN | 320 | 2 | 53,8 | 0,34 | 18,5 | 18,7 | 100 % | Đạt |
+| NCNN | 320 | 4 | 60,6 | 0,29 | 16,4 | 17,0 | 100 % | Đạt |
+| NCNN | 640 | 1 | 8,62 | 0,03 | 115,7 | 117,5 | 100 % | Không đạt |
+| NCNN | 640 | 2 | 12,4 | 0,05 | 80,3 | 83,0 | 100 % | Đạt |
+| NCNN | 640 | 4 | 13,7 | 0,08 | 72,3 | 78,7 | 100 % | Đạt |
+
+*Nguồn: `results/bench_detect_20260905_1911.csv`, `results/bench_detect_20260905_1914.csv`,
+`results/bench_detect_20260905_1916.csv` và ba tệp `.meta.json` tương ứng — trường `tom_tat` của mỗi
+tệp. Điều kiện: Raspberry Pi 5 8 GB có tản nhiệt chủ động, ảnh vào từ đĩa (không qua camera), 100
+khung hình mỗi ô mỗi lượt, 3 lượt, `seed=42`, không bật cửa sổ xem trước, chạy qua SSH.*
+
+**Kết luận chỉ tiêu: chỉ tiêu FPS riêng module phát hiện ≥ 10 FPS ĐẠT.** Tám trên mười hai cấu hình đã
+kiểm vượt ngưỡng, trải từ 10,58 FPS (ONNX Runtime, 320 px, 1 luồng — vượt ngưỡng khoảng 5,8 %) đến
+60,6 FPS (NCNN, 320 px, 4 luồng — vượt ngưỡng hơn 6 lần). Tỉ lệ phát hiện đạt 100 % ở toàn bộ 12 cấu
+hình qua cả ba lượt, tức không cấu hình nào bỏ sót khuôn mặt trên tập ảnh kiểm thử.
+
+**So sánh NCNN với ONNX Runtime.** Bảng 4.5 quy đổi Bảng 4.4 thành tỉ lệ tăng tốc của NCNN so với ONNX
+Runtime, ở cùng độ phân giải và cùng số luồng.
+
+**Bảng 4.5 — Tỉ lệ tăng tốc của NCNN so với ONNX Runtime, tính từ Bảng 4.4**
+
+| Kích thước | Số luồng | ONNX Runtime (FPS) | NCNN (FPS) | Tỉ lệ tăng tốc |
+|---|---|---|---|---|
+| 320 | 1 | 10,58 | 35,5 | 3,35 lần |
+| 320 | 2 | 18,9 | 53,8 | 2,85 lần |
+| 320 | 4 | 27,5 | 60,6 | 2,20 lần |
+| 640 | 1 | 2,60 | 8,62 | 3,32 lần |
+| 640 | 2 | 4,83 | 12,4 | 2,57 lần |
+| 640 | 4 | 6,61 | 13,7 | 2,07 lần |
+
+NCNN nhanh hơn ONNX Runtime từ 2,07 đến 3,35 lần trên cùng một mô hình và cùng đầu vào — không có
+cấu hình nào ONNX Runtime nhanh hơn. Chênh lệch lớn nhất xuất hiện ở một luồng (khoảng 3,3 lần) và
+thu hẹp dần khi tăng số luồng (còn khoảng 2,1–2,2 lần ở bốn luồng). Cách đọc này khớp với §2.6.4: NCNN
+là bộ suy luận được viết và tối ưu riêng cho tập lệnh vectơ NEON của kiến trúc ARM, còn ONNX Runtime
+là bộ chạy đa nền tảng, phải đánh đổi bớt phần tối ưu chuyên biệt để giữ khả năng chạy trên nhiều kiến
+trúc khác nhau. Khi số luồng tăng, phần thời gian xử lý song song hoá chiếm tỉ trọng lớn hơn trong
+tổng thời gian suy luận, nên phần chênh lệch do tối ưu tập lệnh mang lại bị pha loãng bớt.
+
+**Cấu hình 640 px.** ONNX Runtime không đạt ngưỡng 10 FPS ở bất kỳ mức số luồng nào tại độ phân giải
+640 px (cao nhất 6,61 FPS ở 4 luồng). NCNN đạt ngưỡng ở 2 và 4 luồng (12,4 FPS và 13,7 FPS) nhưng
+không đạt ở 1 luồng (8,62 FPS). Kết quả này có ý nghĩa cho bước 7.1: kịch bản kiểm thử tổng hợp có mốc
+khoảng cách 2 m, và ở khoảng cách đó khuôn mặt chiếm ít điểm ảnh hơn hẳn so với khoảng cách 0,5 m —
+đầu vào 640 px giữ được nhiều chi tiết hơn cho những khuôn mặt nhỏ. Vì vậy độ phân giải 640 px được
+giữ lại như một **phương án mở** cho khoảng cách xa, chưa loại bỏ dù chậm hơn 320 px; quyết định chốt
+giữa hai độ phân giải đặt sau khi có số liệu tỉ lệ nhận đúng theo khoảng cách ở bước 7.2.
+
+**So sánh với máy phát triển.** Ở cấu hình ONNX Runtime, 320 px, 4 luồng — cấu hình xuất hiện ở cả hai
+môi trường — máy phát triển Windows x86-64 cho 40,2 FPS (Bảng 4.2), còn Raspberry Pi 5 cho 27,5 FPS
+(Bảng 4.4), tức máy phát triển nhanh hơn khoảng 1,5 lần. Đây là kết quả bình thường và không mâu thuẫn
+với luận điểm của đề tài: mục tiêu đặt ra là chứng minh hệ thống **chạy được và đạt chỉ tiêu** trên một
+thiết bị biên giá rẻ, tiêu thụ ít điện, không phải chứng minh thiết bị đó nhanh hơn máy tính cá nhân.
+
+Điều đáng chú ý hơn tốc độ tuyệt đối là **độ ổn định**. Ở cùng cấu hình, mức dao động lớn nhất giữa ba
+lượt đo trên Raspberry Pi 5 là 2,5 % (Bảng 4.4: ba lượt 27,11 · 27,49 · 27,79 FPS), trong khi trên máy
+phát triển là 25,9 % (Bảng 4.2) — chênh nhau khoảng mười lần. Nguyên nhân hợp lý là Raspberry Pi 5
+chạy không màn hình, qua SSH, không có tiến trình nền của môi trường làm việc thông thường (trình
+duyệt, trình soạn thảo, phần mềm nền) tranh chấp CPU trong lúc đo, trong khi máy phát triển là máy
+đang dùng cho nhiều việc khác song song. Quan sát này củng cố thêm cho lập luận đã nêu ở §4.3.3.
+
+Hai máy khác hệ điều hành và khác bản dựng thư viện suy luận, nên khác biệt tốc độ quan sát được ở
+trên **không** tách bạch được thành phần do kiến trúc phần cứng với thành phần do bản dựng phần mềm —
+đây là giới hạn phương pháp đã nêu ở §4.1.1 và §4.3.3, áp dụng cho mọi so sánh trực tiếp giữa hai
+môi trường trong chương này.
+
+**Bảng 4.6 — Đối chiếu tốc độ và độ ổn định giữa hai môi trường, cùng cấu hình ONNX Runtime 320 px 4 luồng**
+
+| Môi trường | FPS trung bình | Dao động lớn nhất giữa các lượt | Số lượt đo |
+|---|---|---|---|
+| `pc_x86` | 40,2 | 25,9 % | 3 |
+| `pi5` | 27,5 | 2,5 % | 3 |
+
+*Nguồn: cột `pc_x86` lấy từ Bảng 4.2 (§4.3.2), tính từ ba tệp
+`results/bench_detect_20260903_{2022,2040,2044}.csv`; cột `pi5` lấy từ Bảng 4.4 (§4.3.4), tính từ ba
+tệp `results/bench_detect_20260905_{1911,1914,1916}.csv` (ba giá trị FPS 27,11 · 27,49 · 27,79).*
+
+Một mẻ đo trước đó trên `pc_x86` (19/08/2026, `results/bench_detect_20260819_1453.csv`) từng cho
+21,7 FPS ở cấu hình này. Mẻ đo đó đã lỗi thời: nó được thực hiện trước khi `scripts/benchmark_detect.py`
+được sửa lại ở các mã việc `P2-06`, `P2-06b` và `P2-06c` (bổ sung bộ suy luận NCNN vào cùng một ma
+trận đo và giới hạn lại phạm vi cờ `git_dirty`), nên không dùng làm mốc đối chiếu cho `pc_x86` nữa —
+Bảng 4.6 chỉ dùng số liệu từ Bảng 4.2, sinh ra bởi bản script hiện hành.
+
+**Nhiệt độ bộ xử lý và giảm xung.** Nhiệt độ khởi động và đỉnh của ba lượt lần lượt là 43,0 → 57,85 °C
+(lượt A), 46,3 → 60,6 °C (lượt B), 49,6 → 62,8 °C (lượt C) — tăng khoảng 2,5 °C mỗi lượt qua ba lượt
+liên tiếp, tương ứng khoảng 7 phút tải liên tục (ba lượt × ~139 giây). Lệnh `vcgencmd get_throttled`
+chạy sau mỗi lượt đều trả `0x0`, tức không phát hiện giảm xung hay hạ áp trong suốt quá trình đo.
+Thiết bị có tản nhiệt chủ động. *Nguồn: `cpu_temp_start_c`, `cpu_temp_max_c`, `duration_s` trong ba
+tệp `.meta.json` nêu trên.*
+
+⚠️ Số liệu nhiệt độ trên **chưa phải** kết quả của bước 2.7. Bước đó yêu cầu 10 phút chạy liên tục ở
+một cấu hình cố định để quan sát xu hướng nhiệt dài hạn, trong khi ba lượt ở đây là ba lần chạy trọn
+ma trận 12 cấu hình, tổng cộng khoảng 7 phút. Bước 2.7 giữ nguyên `[CHƯA ĐO]`.
+
+**Giới hạn của số liệu mục này.** Toàn bộ số đo trong Bảng 4.4 lấy ảnh đầu vào từ đĩa
+(`data/impostor/lfw_original`), không qua camera thật. Bước 2.5 — đo FPS thời gian thực từ camera —
+**chưa được thực hiện**. Số liệu ở đây phản ánh năng lực suy luận thuần của mô hình và bộ suy luận,
+chưa gồm chi phí thu khung hình, giải mã và tiền xử lý từ luồng camera; FPS đo được khi ghép với
+camera thật nhiều khả năng thấp hơn các con số trong Bảng 4.4. Mục này giữ `[CHƯA ĐO]` riêng cho phần
+đo từ camera thật.
+
+**Kết luận chọn bộ suy luận.** Dựa trên Bảng 4.4 và Bảng 4.5, NCNN vượt trội ONNX Runtime ở mọi cấu
+hình đã đo trên Pi 5, không đánh đổi độ chính xác phát hiện (§4.3.1). Độ phân giải 320 px đáp ứng chỉ
+tiêu FPS thoải mái ở cả hai bộ suy luận; độ phân giải 640 px giữ làm phương án dự phòng cho khoảng
+cách xa, quyết định chốt sau bước 7.2. Việc cập nhật giá trị chính thức vào `configs/detect.yaml`
+thuộc phạm vi của đặc tả, không thuộc phạm vi ghi tệp của chương này.
 
 ---
 
@@ -190,7 +308,18 @@ tốc độ khi bật khối chống giả mạo.
 
 ## 4.6. Bảng đối chiếu chỉ tiêu cam kết
 
-`[CHƯA ĐO]` — cần số liệu từ §4.3.4, §4.4, §4.5 và Phase 7.
+**Bảng 4.7 — Đối chiếu chỉ tiêu cam kết với số liệu thực nghiệm hiện có**
+
+| Chỉ tiêu cam kết | Ngưỡng | Đạt được | Kết luận |
+|---|---|---|---|
+| Độ chính xác nhận diện người đã đăng ký | ≥ 95 % | `[CHƯA ĐO]` | `[CHƯA ĐO]` |
+| FPS toàn pipeline | ≥ 5 FPS | `[CHƯA ĐO]` | `[CHƯA ĐO]` |
+| FPS riêng module phát hiện | ≥ 10 FPS | 10,58–60,6 FPS tuỳ cấu hình, đạt ở 8/12 cấu hình đã đo (xem Bảng 4.4) | ✅ Đạt |
+| Độ trễ điều khiển thiết bị | < 2 s | `[CHƯA ĐO]` | `[CHƯA ĐO]` |
+| Tỉ lệ phát hiện tấn công giả mạo | ≥ 90 % | `[CHƯA ĐO]` | `[CHƯA ĐO]` |
+
+*Nguồn dòng FPS phát hiện: Bảng 4.4, mục §4.3.4 — `results/bench_detect_20260905_{1911,1914,1916}.csv`
+và `.meta.json` tương ứng. Bốn dòng còn lại chờ số liệu từ §4.2, §4.4, §4.5 và Phase 7.*
 
 ---
 
