@@ -69,6 +69,16 @@ threshold: TBD
 #   trong khi người lạ vào được nhà nghiêm trọng hơn chủ nhà phải thử lại (xem báo cáo §2.4.4).
 tieu_chi_chot_nguong: "FAR_adapt <= 0.01"
 
+# --- Tham số quét ngưỡng (bước 3.5) ---
+benchmark:
+  # Số bước quét ngưỡng — experiment-protocol.instructions.md §5 điểm 2.
+  so_buoc_nguong: 200
+
+  # Chỉ tiêu FAR để chốt ngưỡng, dạng số để máy đọc được.
+  # Đây là bản máy-đọc-được của khoá tieu_chi_chot_nguong ở trên ("FAR_adapt <= 0.01").
+  # ⚠️ Hai khoá phải nhất quán: sửa một thì sửa cả hai.
+  far_muc_tieu: 0.01
+
 # --- Đăng ký (enrollment) ---
 enroll:
   # Thư mục chứa vectơ đặc trưng đã đăng ký

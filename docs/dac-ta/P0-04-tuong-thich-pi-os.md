@@ -9,6 +9,12 @@
 | **Chặn** | Mọi lượt đo trên `pi5` — Cổng C của Phase 2, 3, 4 |
 | **Ước lượng** | 7 tệp, ~250 dòng mã sản phẩm + kiểm thử |
 
+> ⚠️ **Bản đặc tả này đã được sửa ngày 06/09/2026, sau lượt kiểm định.** Hai chỗ khác với bản mà
+> người cài đặt từng cầm: **câu mô tả mức chặn của hai nhánh** ở §5.4, và **ca canh của ĐB1/ĐB5**
+> ở §11. Cả hai là khuyết tật của khâu đặc tả, không của mã — xem
+> `docs/review/P0-04-tuong-thich-pi-os.review.md` §5.3 và 🔵-2. Mã đã gộp `dev` khớp với bản đặc tả
+> **sau** khi sửa.
+
 ---
 
 ## 1. Mục tiêu
@@ -248,7 +254,19 @@ if not (tv.isfile() or tv.isdir()):
 Phép quét này **cố ý đặt ngoài** nhánh `if/else`. Bộ lọc `data` của thư viện chuẩn cho phép liên
 kết trỏ vào bên trong thư mục đích, còn nhánh dự phòng thì không có cách nào kiểm điều đó cho rẻ.
 Nếu để mỗi nhánh tự xử lý, hai nhánh sẽ **khác nhau ở đúng chỗ khó thấy nhất**. Đặt phép quét ra
-ngoài làm hai nhánh xử lý liên kết y hệt nhau, đổi lại `giai_nen` chặt hơn bộ lọc `data` một bậc.
+ngoài làm hai nhánh xử lý **liên kết và tệp thiết bị** y hệt nhau, đổi lại `giai_nen` chặt hơn bộ
+lọc `data` một bậc ở đúng nhóm thành viên này.
+
+⚠️ Phạm vi của câu trên **chỉ gồm liên kết và tệp thiết bị**, không phải mọi loại thành viên. Ở
+thành viên mang **tên tuyệt đối** kiểu `/tmp/thoat.txt`, hai nhánh **khác nhau**: bộ lọc `data` của
+thư viện chuẩn **không ném lỗi** mà cắt ký tự `/` rồi giải nén vào **trong** thư mục đích, còn nhánh
+dự phòng **ném** `LoiCauHinh` vì phép kiểm chứa-trong-đích ở §5.6 bắt được. Nhánh dự phòng vì thế
+chặt hơn nhánh A một bậc nữa ở nhóm này — chệch theo **chiều an toàn**, là chủ ý, không phải khuyết
+tật. Ở tên **tương đối** vượt ra ngoài (`../../x`) thì hai nhánh chặn như nhau.
+
+> Sửa ngày 06/09/2026 theo §5.3 biên bản review. Bản trước viết "hai nhánh xử lý liên kết y hệt
+> nhau" mà không giới hạn phạm vi, dễ đọc thành "hai nhánh cho cùng mức chặn ở mọi loại thành viên"
+> — sai với dữ kiện đo ở §1.6 biên bản. Ca 37 của `P0-05` chốt tường minh vế nhánh A.
 
 Cái giá của việc chặt hơn: nếu một ngày nào đó tệp nén nguồn có liên kết mềm hợp lệ, `giai_nen` sẽ
 từ chối. Chấp nhận được — LFW chỉ gồm thư mục và tệp `.jpg` thường, và một thông báo lỗi rõ ràng
@@ -578,11 +596,11 @@ Mong đợi: nếu có xuất hiện thì phải nằm trong câu cảnh báo **
 
 | # | Phép sửa | Ca **phải đỏ** |
 |---|---|---|
-| ĐB1 | Xoá nhánh B, luôn gọi `extractall(filter="data")` | 29 |
+| ĐB1 | Xoá nhánh B, luôn gọi `extractall(filter="data")` | 32 |
 | ĐB2 | Trong nhánh B, bỏ phép kiểm chứa-trong-thư-mục-đích | 30c |
 | ĐB3 | Trong nhánh B, dùng `_MSG_HONG` thay cho `_MSG_VUOT_RA_NGOAI` | 30, 35 |
 | ĐB4 | Bỏ phép quét liên kết/thiết bị ở §5.4 | 33, 34 |
-| ĐB5 | Chuyển `hasattr(tarfile, "data_filter")` lên mức module thành `_CO_DATA_FILTER` | 29 |
+| ĐB5 | Chuyển `hasattr(tarfile, "data_filter")` lên mức module thành `_CO_DATA_FILTER` | 32 |
 | ĐB6 | Trong nhánh B, đổi `is_relative_to` thành phép kiểm `Path(tv.name).is_absolute()` | 30c (trên POSIX), 32 (trên Windows) |
 | ĐB7 | Xoá `--strict-markers` khỏi `addopts` | 46, 47 |
 | ĐB8 | Xoá khoá `markers` khỏi `pyproject.toml` | 45, 48 |
@@ -591,6 +609,12 @@ Mong đợi: nếu có xuất hiện thì phải nằm trong câu cảnh báo **
 
 ĐB5 là phép quan trọng nhất của Việc 1: nó dựng lại đúng tình huống "nhánh dự phòng không được
 kiểm ở đâu cả".
+
+> Sửa ngày 06/09/2026 theo §5.3 biên bản review: ca canh của ĐB1 và ĐB5 là **32**, không phải 29.
+> Cả hai phép đều ép mọi lượt gọi rơi vào nhánh A, mà ca 29 chỉ kiểm *giải nén thành công* — nhánh A
+> cũng giải nén thành công nên ca 29 **vẫn xanh**. Ca 32 là ca duy nhất mà hai nhánh cho **kết quả
+> khác nhau** (thành viên tên tuyệt đối, §5.4), nên chỉ nó canh được việc chọn nhánh. Đo được ở R3
+> biên bản: ĐB5 làm đúng ca 32 đỏ, ca 29 xanh.
 
 ĐB10 là phép quan trọng nhất của Việc 3, và nó là phép **duy nhất mong đợi không có ca nào đỏ** —
 đó chính là định nghĩa của "khuyết tật đã hết". Dán nguyên văn dòng tổng kết để thấy số `skipped`
