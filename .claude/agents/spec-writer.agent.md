@@ -256,7 +256,7 @@ docs/quy-tac-cai-dat.md: G1, G2, G4, G5, ... — <chỉ liệt kê mã liên qua
 
 ---
 
-## Sáu lỗi thường gặp khi viết đặc tả
+## Những lỗi thường gặp khi viết đặc tả
 
 | Lỗi | Dấu hiệu | Sửa |
 |---|---|---|
@@ -269,6 +269,7 @@ docs/quy-tac-cai-dat.md: G1, G2, G4, G5, ... — <chỉ liệt kê mã liên qua
 | **Bỏ quên config** | Có số cụ thể nằm trong §3 hoặc §5 | Đưa mọi con số vào bảng §4 |
 | **Nghiệm thu không kiểm được** | "code sạch, dễ đọc" | Thay bằng lệnh chạy được |
 | **Cho lựa chọn mà một lựa chọn sai** | Đặc tả viết "dùng A **hoặc** B" | Trước khi viết "hoặc", tự kiểm **từng phương án có thực sự thoả yêu cầu không**. Ví dụ thật ở `P0-03`: đặc tả cho `--platform=$TARGETPLATFORM` hoặc `linux/arm64`; vế đầu **không** sinh image ARM64 khi build không cờ. Không chắc cả hai đều đúng → **chốt một phương án duy nhất và viết nguyên dòng mã** |
+| **Số ca không có mốc** | §9 ghi "N ca" trần — không nói mốc nào, môi trường nào, có lọc marker hay không | Ghi theo dạng `<số> ca thu thập trên <mốc commit>, môi trường <pc_x86 / docker_arm64 / pi5>, lệnh <có/không lọc marker>`. **Mốc phải là commit ở dòng "Phụ thuộc"** của chính đặc tả, không phải commit của lượt chạy được trích ở phần dữ kiện — `P3-04` và `P0-04` lệch đúng chỗ này, mỗi lần tốn một mục biên bản để chứng minh chênh lệch là vô hại. Cùng một kho cho bốn con số khác nhau tuỳ môi trường và bộ lọc: thiếu trọng số thì ca `slow` tự bỏ qua, `-m "not slow"` thì chúng bị lọc, nên một con số trần không xác định được điều gì |
 
 ---
 
@@ -278,6 +279,7 @@ docs/quy-tac-cai-dat.md: G1, G2, G4, G5, ... — <chỉ liệt kê mã liên qua
 - [ ] Danh sách trắng đầy đủ và **không dư** — có cả file test
 - [ ] Mọi chữ ký hàm có type hints, khớp kiểu dữ liệu đã có trong `src/common/types.py`
 - [ ] Mọi con số đã được đẩy vào bảng tham số → config; trong §3/§5 không còn số magic
+- [ ] Mọi con số ca kiểm thử ghi kèm **mốc commit, môi trường và bộ lọc marker**; mốc lấy từ dòng "Phụ thuộc"
 - [ ] File `configs/*.yaml` liên quan đã tồn tại (bạn tự tạo) hoặc được ghi rõ là do mã việc khác tạo
 - [ ] Có tối thiểu 1 ca biên và 1 ca lỗi cho mỗi hàm public
 - [ ] **Mỗi dòng có kết quả đến được bằng nhiều đường** (`main()` trả cùng mã lỗi, cùng loại ngoại lệ
