@@ -1,13 +1,18 @@
-# File này dùng cho Python >= 3.11
-# Phiên bản được pin từ môi trường phát triển (Windows x86-64)
-# Cảnh báo: máy phát triển là Windows x86-64, còn đích triển khai là ARM64 Linux. Một số gói
-# có tập phiên bản wheel khác nhau giữa hai nền tảng. Các phiên bản ở đây là bản nháp đầu tiên,
-# sẽ được kiểm chứng lại khi dựng container ARM64 ở mã việc P0-03; nếu có xung đột thì điều chỉnh
-# ở mã việc đó.
-# Lệnh cài: pip install -r requirements.txt (và -r requirements-dev.txt cho máy phát triển)
+# File này CHỈ dùng trên máy phát triển (Windows x86-64 hiện tại) — KHÔNG cài lên Raspberry Pi 5.
+#
+# `ultralytics` (xem scripts/export_detector.py:175, scripts/export_detector_ncnn.py:71) chỉ
+# cần cho việc EXPORT mô hình, và kéo theo `torch` bản đầy đủ cùng khoảng 2,5 GB thư viện CUDA
+# của NVIDIA (nvidia-cudnn-cu13, nvidia-cublas, triton, ...) — vô dụng trên thiết bị không có
+# GPU NVIDIA như Raspberry Pi 5.
+#
+# `ncnn` đã có sẵn trong requirements.txt (phụ thuộc CHẠY, cần trên cả Pi lẫn máy dev) — dòng
+# `-r requirements.txt` bên dưới đã kéo nó vào, không ghim lại lần hai ở đây để tránh hai chỗ
+# lệch phiên bản.
+#
+# Raspberry Pi 5 chỉ CHẠY hệ thống, không export mô hình. Xem mục "Cài đặt trên Raspberry Pi 5"
+# trong README.md để biết lệnh cài đúng cho thiết bị đích.
 -r requirements.txt
 ultralytics==8.4.39
-ncnn==1.0.20260526
 pytest==9.1.1
 black==24.4.2
 ruff==0.16.1
