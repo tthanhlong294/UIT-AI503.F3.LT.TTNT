@@ -406,26 +406,6 @@ def _bang_nguong_mau() -> list[dict]:
     ]
 
 
-def _main_voi_so_buoc(tmp_path: Path, gia_tri: str) -> int:
-    cfg_text = f"benchmark:\n  so_buoc_nguong: {gia_tri}\n  far_muc_tieu: 0.5\n"
-    p = tmp_path / "cfg.yaml"
-    p.write_text(cfg_text, encoding="utf-8")
-    return br.main(
-        [
-            "--vao",
-            str(tmp_path),
-            "--backend",
-            "dlib",
-            "--tap",
-            "kiem-chuc-nang",
-            "--device-name",
-            "test",
-            "--config",
-            str(p),
-        ]
-    )
-
-
 # ============================================================================
 # §8.1 — mã băm và dấu vết tập ảnh (dòng 01-05)
 # ============================================================================
@@ -1375,7 +1355,23 @@ def test_dong87_csv_tho_dung_14_cot(tmp_path):
     )
     with open(p_tho, newline="", encoding="utf-8") as f:
         header = next(csv.reader(f))
-    assert header == br._COT_CSV_THO
+    # Danh sách nguyên văn chép từ §7.4 đặc tả — không tham chiếu hằng số của module đang bị kiểm.
+    assert header == [
+        "run_id",
+        "backend",
+        "tap",
+        "user_id_that",
+        "nhan",
+        "anh_bam",
+        "top1_user",
+        "top1_score",
+        "diem_dung_nguoi",
+        "so_chieu",
+        "latency_trich_ms",
+        "latency_so_khop_ms",
+        "latency_identify_ms",
+        "cpu_temp_c",
+    ]
 
 
 def test_dong88_csv_nguong_dung_17_cot(tmp_path):
@@ -1384,7 +1380,26 @@ def test_dong88_csv_nguong_dung_17_cot(tmp_path):
     )
     with open(p_ng, newline="", encoding="utf-8") as f:
         header = next(csv.reader(f))
-    assert header == br._COT_CSV_NGUONG
+    # Danh sách nguyên văn chép từ §7.4 đặc tả — không tham chiếu hằng số của module đang bị kiểm.
+    assert header == [
+        "run_id",
+        "backend",
+        "tap",
+        "nguong",
+        "so_genuine",
+        "so_impostor",
+        "tp",
+        "fp_impostor",
+        "fp_nham_nguoi",
+        "fn",
+        "tn",
+        "far",
+        "frr",
+        "ti_le_gan_nham",
+        "accuracy",
+        "precision",
+        "recall",
+    ]
 
 
 def test_dong89_so_dong_bang_so_anh_probe(tmp_path, monkeypatch):
@@ -1403,7 +1418,32 @@ def test_dong90_so_dong_nguong_bang_so_buoc(tmp_path, monkeypatch):
 def test_dong91_meta_du_23_khoa(tmp_path, monkeypatch):
     kq = _dung_va_chay_co_ban(tmp_path, monkeypatch)
     meta = _doc_meta(kq["thu_muc_kq"])
-    assert set(meta) >= set(br._KHOA_META_BAT_BUOC)
+    # Tập khoá nguyên văn chép từ §7.4 đặc tả — không tham chiếu hằng số của module đang bị kiểm.
+    assert set(meta) >= {
+        "run_id",
+        "timestamp",
+        "git_commit",
+        "git_dirty",
+        "git_dirty_toan_cay",
+        "script",
+        "command",
+        "device",
+        "moi_truong",
+        "software",
+        "config_file",
+        "config_snapshot",
+        "backend",
+        "tap",
+        "dataset",
+        "seed",
+        "warmup_probes",
+        "cpu_temp_start_c",
+        "cpu_temp_max_c",
+        "duration_s",
+        "notes",
+        "tep_ket_qua",
+        "tom_tat",
+    }
 
 
 def test_dong92_device_du_bon_truong(tmp_path, monkeypatch):
@@ -1649,24 +1689,39 @@ def test_dong110b_thong_bao_neu_dich_danh(tmp_path, capsys):
     assert "far_muc_tieu" in out
 
 
-def test_dong111_so_buoc_nguong_1(tmp_path):
-    assert _main_voi_so_buoc(tmp_path, "1") == 1
+def test_dong111_so_buoc_nguong_1(tmp_path, monkeypatch, capsys):
+    kq = _dung_va_chay_co_ban(tmp_path, monkeypatch, so_buoc_nguong=1)
+    assert kq["ma"] == 1
+    out = capsys.readouterr().out
+    assert "so_buoc_nguong" in out
 
 
-def test_dong112_so_buoc_nguong_2_5(tmp_path):
-    assert _main_voi_so_buoc(tmp_path, "2.5") == 1
+def test_dong112_so_buoc_nguong_2_5(tmp_path, monkeypatch, capsys):
+    kq = _dung_va_chay_co_ban(tmp_path, monkeypatch, so_buoc_nguong=2.5)
+    assert kq["ma"] == 1
+    out = capsys.readouterr().out
+    assert "so_buoc_nguong" in out
 
 
-def test_dong113_so_buoc_nguong_abc(tmp_path):
-    assert _main_voi_so_buoc(tmp_path, "abc") == 1
+def test_dong113_so_buoc_nguong_abc(tmp_path, monkeypatch, capsys):
+    kq = _dung_va_chay_co_ban(tmp_path, monkeypatch, so_buoc_nguong="abc")
+    assert kq["ma"] == 1
+    out = capsys.readouterr().out
+    assert "so_buoc_nguong" in out
 
 
-def test_dong114_so_buoc_nguong_inf(tmp_path):
-    assert _main_voi_so_buoc(tmp_path, ".inf") == 1
+def test_dong114_so_buoc_nguong_inf(tmp_path, monkeypatch, capsys):
+    kq = _dung_va_chay_co_ban(tmp_path, monkeypatch, so_buoc_nguong=float("inf"))
+    assert kq["ma"] == 1
+    out = capsys.readouterr().out
+    assert "so_buoc_nguong" in out
 
 
-def test_dong115_so_buoc_nguong_nan(tmp_path):
-    assert _main_voi_so_buoc(tmp_path, ".nan") == 1
+def test_dong115_so_buoc_nguong_nan(tmp_path, monkeypatch, capsys):
+    kq = _dung_va_chay_co_ban(tmp_path, monkeypatch, so_buoc_nguong=float("nan"))
+    assert kq["ma"] == 1
+    out = capsys.readouterr().out
+    assert "so_buoc_nguong" in out
 
 
 def test_dong116_so_buoc_nguong_20_hop_le(tmp_path, monkeypatch):
