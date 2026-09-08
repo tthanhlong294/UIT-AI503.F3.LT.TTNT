@@ -24,6 +24,46 @@ Viết "xử lý lỗi cho tốt" là đặc tả hỏng. Viết "frame là `Non
 
 ---
 
+## Đặc tả đi MỘT LƯỢT — nghĩ trước, đừng để vòng review nghĩ hộ
+
+Bạn chỉ soạn đặc tả **một lần**. Mọi lỗ hổng lọt xuống đều biến thành một vòng
+`coder` → `code-reviewer` → sửa, mà theo CLAUDE.md §2.9 mỗi vòng phải **chờ người dùng chạy lệnh
+và dán kết quả về**. Sửa đặc tả giữa chừng còn tệ hơn: công cài đặt đã bỏ ra thành lãng phí, và
+trần TRẢ LẠI chỉ có **2 vòng**.
+
+Cụ thể, trước khi bàn giao hãy dành công cho §5 (ca biên) và §6 (nghiệm thu) — rà các chế độ hỏng
+**im lặng**, tự hỏi "phiên bản sai nào vẫn làm mọi ca test xanh", và nêu rõ *vì sao* mỗi ràng buộc
+tồn tại. Toàn bộ checklist cuối file này là danh mục những lỗ hổng **đã thật sự lọt** ở các mã việc
+trước; đọc nó **trước khi viết**, không phải sau.
+
+### Phân bổ mô hình — vì sao đặc tả phải chặt
+
+| Vai | Mô hình |
+|---|---|
+| Phiên chính (thiết kế, review, viết báo cáo) và `spec-writer` | **Opus 5** |
+| `coder` | **Sonnet 5** |
+
+Người cài đặt chạy mô hình nhỏ hơn người viết đặc tả. Nên **mọi suy luận phải nằm sẵn trong đặc tả**:
+chốt đúng một phương án thay vì "A hoặc B", viết thẳng dòng mã khi có ràng buộc bắt buộc, liệt kê
+**đích danh** từng mục phải phủ thay vì "≥ N trường hợp". Chỗ nào bạn để `coder` tự suy ra, chỗ đó
+là nơi vòng lặp sinh ra.
+
+---
+
+## Phạm vi đọc — đọc ít, đọc đúng
+
+Khi soạn một đặc tả, **chỉ đọc ba nhóm** rồi dừng:
+
+1. **File mà chính đặc tả động tới** — mã nguồn trong danh sách trắng, `configs/*.yaml` liên quan,
+   interface trong `src/common/types.py`, và đặc tả + biên bản review của mã việc **liền trước**.
+2. **`CLAUDE.md`** — phạm vi, chỉ tiêu, quy tắc R1–R43.
+3. **`docs/DE-CUONG-CHI-TIET.md`** — nguồn sự thật về phạm vi.
+
+Không quét lại toàn repo, không mở file chỉ vì "có vẻ liên quan". Đọc thừa thì đốt ngữ cảnh và
+làm loãng đặc tả bằng chi tiết không dùng đến — mà ngữ cảnh chính là thứ bạn cần để nghĩ kỹ ở mục trên.
+
+---
+
 ## ⛔ Bốn điều cấm
 
 1. **Không viết thân hàm.** Đặc tả cho **chữ ký + hành vi + ca biên + test**, không cho lời giải.
@@ -58,14 +98,15 @@ Ví dụ: `P0-01-nen-tang`, `P2-03-detector`, `P3-02-dlib-backend`.
 
 1. **Đọc nguồn**: mục tương ứng trong `CLAUDE.md` §5 và `docs/DE-CUONG-CHI-TIET.md`.
    Đọc `.claude/instructions/python-embedded.instructions.md` để lấy đúng chuẩn kiến trúc.
-2. **Đọc code đã có**: `Glob`/`Grep` trong `src/` để biết interface nào đã tồn tại — đặc tả mới
-   phải khớp với cái đang có, **không được định nghĩa lại** `FaceBox`, `Identity`, `Command`.
+2. **Đọc code đã có** — trong phạm vi §"Phạm vi đọc" ở trên: `Grep` **có mục tiêu** để biết
+   interface nào đã tồn tại, đặc tả mới phải khớp với cái đang có, **không được định nghĩa lại**
+   `FaceBox`, `Identity`, `Command`. Không duyệt hết `src/`.
 3. **Chốt tham số**: quyết định tham số nào vào `configs/*.yaml`, key tên gì. Nếu file config
    chưa có, **bạn tự tạo nó** (đây là vùng ghi của bạn) rồi trỏ đặc tả tới đúng key.
 4. **Viết đặc tả** theo mẫu §"Khung đặc tả" bên dưới.
 5. **Tự kiểm** theo checklist cuối file.
-6. **Báo cáo người dùng**: mã việc, phạm vi, số file dự kiến, câu lệnh `gemini` để chạy tiếp
-   (lấy mẫu từ `.claude/prompts/gemini-handoff.prompt.md`).
+6. **Báo cáo người dùng**: mã việc, phạm vi, số file dự kiến, lệnh bàn giao cho `coder`
+   (lấy mẫu từ `.claude/prompts/coder-handoff.prompt.md`).
 
 ---
 
