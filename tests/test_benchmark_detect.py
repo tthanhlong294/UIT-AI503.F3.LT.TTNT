@@ -23,6 +23,7 @@ import json
 import re
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import cv2
@@ -30,7 +31,8 @@ import numpy as np
 import pytest
 
 from scripts import benchmark_detect as bd
-from src.common.exceptions import LoiCauHinh
+from src.capture.base import BoThuHinh
+from src.common.exceptions import LoiCamera, LoiCauHinh
 from src.common.types import FaceBox
 
 # ============================================================================
@@ -1236,3 +1238,1120 @@ def test_dong67_hai_khoa_doc_lap_nhau(monkeypatch, tmp_path, thu_muc_anh_that):
     meta = _doc_meta_duy_nhat(thu_muc_kq)
     assert meta["git_dirty"] is False
     assert meta["git_dirty_toan_cay"] is True
+
+
+# ============================================================================
+# P2-07 — đường vào từ camera cho benchmark_detect (test_camera_dong01-100)
+# ============================================================================
+#
+# Mọi ca dưới đây: KHÔNG mô hình thật, KHÔNG camera thật, KHÔNG mạng, KHÔNG @slow.
+# Bộ thu hình giả kế thừa BoThuHinh và trả mảng numpy (P2-07 §5.7); bộ phát hiện giả
+# monkeypatch bd.tao_bo_phat_hien; camera giả monkeypatch bd.tao_bo_thu_hinh.
+
+
+class _CameraGia(BoThuHinh):
+    """Bộ thu hình giả — đếm số lần mo/dong/doc, cấu hình được hình dạng khung, độ trễ
+    đọc, và tuỳ chọn ném LoiCamera ở khung thứ k (P2-07 §5.7)."""
+
+    def __init__(
+        self,
+        hinh_dang: tuple[int, int, int] = (480, 640, 3),
+        sleep_doc_s: float = 0.0,
+        loi_o_khung: int | None = None,
+        lop_loi: type[Exception] = LoiCamera,
+    ) -> None:
+        self._hinh_dang = hinh_dang
+        self._sleep_doc_s = sleep_doc_s
+        self._loi_o_khung = loi_o_khung
+        self._lop_loi = lop_loi
+        self.so_lan_mo = 0
+        self.so_lan_dong = 0
+        self.so_lan_doc = 0
+        self._dang_mo = False
+
+    def mo(self) -> None:
+        self.so_lan_mo += 1
+        self._dang_mo = True
+
+    def doc_frame(self) -> np.ndarray:
+        self.so_lan_doc += 1
+        if self._loi_o_khung is not None and self.so_lan_doc == self._loi_o_khung:
+            raise self._lop_loi(f"camera giả lỗi ở khung {self.so_lan_doc}")
+        if self._sleep_doc_s:
+            time.sleep(self._sleep_doc_s)
+        return np.zeros(self._hinh_dang, dtype=np.uint8)
+
+    def dong(self) -> None:
+        self.so_lan_dong += 1
+        self._dang_mo = False
+
+    @property
+    def dang_mo(self) -> bool:
+        return self._dang_mo
+
+
+def _factory_thu_hinh(cam: _CameraGia):
+    """Hàm thay thế bd.tao_bo_thu_hinh — luôn trả về `cam` đã dựng sẵn."""
+
+    def _factory(cfg):
+        return cam
+
+    return _factory
+
+
+def _lam_factory_detector_camera(
+    kich_thuoc_vao: int = 320,
+    sleep_detect_s: float = 0.0,
+    so_lan_co_mat: int | None = None,
+    ten_backend: str = "onnx",
+    bo_dem: list | None = None,
+):
+    """Sinh hàm thay thế tao_bo_phat_hien cho chế độ camera, giữ chữ ký (đường_dẫn, cfg)."""
+
+    class _DetectorGiaCamera:
+        def __init__(self, duong_dan, cfg) -> None:
+            self.duong_dan = Path(duong_dan)
+            self.cfg = cfg
+            self._so_lan_goi = 0
+
+        @property
+        def kich_thuoc_vao(self) -> int:
+            return kich_thuoc_vao
+
+        @property
+        def ten_backend(self) -> str:
+            return ten_backend
+
+        def detect(self, khung_hinh):
+            self._so_lan_goi += 1
+            # Đọc toàn mảng để latency_ms > 0 luôn đúng trên mọi máy (tránh chia cho 0).
+            _ = int(khung_hinh.sum())
+            if sleep_detect_s:
+                time.sleep(sleep_detect_s)
+            if so_lan_co_mat is not None and self._so_lan_goi > so_lan_co_mat:
+                return []
+            return [FaceBox(x1=0, y1=0, x2=10, y2=10, confidence=0.9)]
+
+    def _factory(duong_dan, cfg):
+        if bo_dem is not None:
+            bo_dem.append(Path(duong_dan))
+        return _DetectorGiaCamera(duong_dan, cfg)
+
+    return _factory
+
+
+def _tao_capture_yaml(
+    tmp_path: Path,
+    backend: str = "auto",
+    mock_w: int = 640,
+    mock_h: int = 480,
+    ocv_w: int = 640,
+    ocv_h: int = 480,
+    fps: int = 30,
+    warmup: int = 5,
+) -> Path:
+    """Tạo tệp cấu hình thu hình tối giản, hợp lệ, với giá trị biết trước."""
+    p = tmp_path / "capture_gia.yaml"
+    p.write_text(
+        (
+            f"backend: {backend}\n"
+            "opencv:\n"
+            "  device_index: 0\n"
+            f"  width: {ocv_w}\n"
+            f"  height: {ocv_h}\n"
+            f"  fps: {fps}\n"
+            f"  warmup_frames: {warmup}\n"
+            "  max_retry: 3\n"
+            "mock:\n"
+            f"  width: {mock_w}\n"
+            f"  height: {mock_h}\n"
+            "  source: synthetic\n"
+            "  seed: 42\n"
+            "  loop: true\n"
+            "  max_frames: 0\n"
+        ),
+        encoding="utf-8",
+    )
+    return p
+
+
+def _args_camera(
+    mo_hinh=None,
+    *extra,
+    models: list | None = None,
+    threads: tuple[str, ...] = ("1",),
+    backend: str = "mock",
+    khoang_cach: str = "1.0",
+    noi_dung: str = "khong-nguoi",
+):
+    """Dựng danh sách tham số main() cho chế độ camera, đủ mọi cờ bắt buộc."""
+    ms = models if models is not None else [str(mo_hinh)]
+    return [
+        "--nguon",
+        "camera",
+        "--capture-backend",
+        backend,
+        "--anh-sang",
+        "trong nhà",
+        # Dạng --opt=value để argparse không hiểu "-inf" là một cờ (P2-07 §5.2 kiểm inf/-inf/nan).
+        f"--khoang-cach-m={khoang_cach}",
+        "--noi-dung-khung",
+        noi_dung,
+        "--device-name",
+        "PC test",
+        "--models",
+        *ms,
+        "--threads",
+        *threads,
+        *extra,
+    ]
+
+
+def _setup_camera_ok(
+    monkeypatch,
+    tmp_path: Path,
+    cam: _CameraGia | None = None,
+    det=None,
+    capture_yaml: Path | None = None,
+    moi_truong: str = "pc_x86",
+):
+    """Chèn đủ bộ giả cho một lượt chạy main() chế độ camera thành công."""
+    cam = cam if cam is not None else _CameraGia()
+    monkeypatch.setattr(bd, "tao_bo_thu_hinh", _factory_thu_hinh(cam))
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", det or _lam_factory_detector_camera())
+    monkeypatch.setattr(bd, "doc_nhiet_do_cpu", lambda: None)
+    monkeypatch.setattr(bd, "xac_dinh_moi_truong", lambda: moi_truong)
+    kq = tmp_path / "kq"
+    kq.mkdir(exist_ok=True)
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", kq)
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+    cap = capture_yaml if capture_yaml is not None else _tao_capture_yaml(tmp_path)
+    return mo_hinh, cap, kq, cam
+
+
+def _bg_camera(
+    lay_list: list[float], detect_list: list[float], n_faces: list[int] | None = None
+) -> list[dict]:
+    """Dựng danh sách bản ghi camera bằng tay, cho ca test tổng hợp/bảng in."""
+    if n_faces is None:
+        n_faces = [1] * len(lay_list)
+    out = []
+    for i, (lay, det, nf) in enumerate(zip(lay_list, detect_list, n_faces)):
+        tong = lay + det
+        out.append(
+            {
+                "backend": "onnx",
+                "imgsz": 320,
+                "threads": 1,
+                "sample_idx": i,
+                "latency_lay_khung_ms": lay,
+                "latency_ms": det,
+                "latency_tong_ms": tong,
+                "fps_instant": 1000.0 / det,
+                "fps_tong_instant": 1000.0 / tong,
+                "n_faces": nf,
+                "conf_top": 0.9 if nf else None,
+                "cpu_temp_c": None,
+            }
+        )
+    return out
+
+
+def _meta_camera_hop_le() -> dict:
+    """Meta hợp lệ đủ 24 khoá bắt buộc của chế độ camera."""
+    m = _meta_hop_le()
+    m["seed"] = None
+    m["nguon"] = "camera"
+    m["conditions"] = {
+        "anh_sang": "trong nhà",
+        "khoang_cach_m": 1.0,
+        "noi_dung_khung": "khong-nguoi",
+    }
+    m["config_file_capture"] = "configs/capture.yaml"
+    m["config_snapshot_capture"] = {"backend": "mock"}
+    return m
+
+
+_COT_CSV_CAMERA_MONG_DOI = [
+    "run_id",
+    "backend",
+    "imgsz",
+    "threads",
+    "sample_idx",
+    "latency_lay_khung_ms",
+    "latency_ms",
+    "latency_tong_ms",
+    "fps_instant",
+    "fps_tong_instant",
+    "n_faces",
+    "conf_top",
+    "cpu_temp_c",
+]
+
+_KHOA_DATASET_CAMERA = {
+    "backend_thu_hinh",
+    "do_phan_giai_yeu_cau",
+    "do_phan_giai_that",
+    "khop_do_phan_giai",
+    "fps_khai_bao_trong_cau_hinh",
+    "warmup_frames_thu_hinh",
+    "n_frame_do",
+    "n_frame_lam_nong",
+}
+
+
+# ---------------------------------------------------------------------------
+# §8.1 — Cờ, chế độ và ranh giới giữa hai chế độ (dòng 01-24)
+# ---------------------------------------------------------------------------
+
+
+def test_camera_dong01_khong_nguon_la_dia(monkeypatch, tmp_path, thu_muc_anh_that):
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+    ma = bd.main(_tham_so_main(mo_hinh, thu_muc_anh_that))
+    assert ma == 0
+    meta = _doc_meta_duy_nhat(tmp_path / "kq")
+    assert meta["nguon"] == "dia"
+
+
+def test_camera_dong02_nguon_la_argparse_thoat():
+    with pytest.raises(SystemExit):
+        bd.main(["--device-name", "PC test", "--nguon", "lung-tung"])
+
+
+def test_camera_dong03_camera_thieu_capture_backend_tra_1(monkeypatch, tmp_path):
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    ma = bd.main(
+        [
+            "--nguon",
+            "camera",
+            "--anh-sang",
+            "trong nhà",
+            "--khoang-cach-m",
+            "1.0",
+            "--noi-dung-khung",
+            "khong-nguoi",
+            "--device-name",
+            "PC test",
+        ]
+    )
+    assert ma == 1
+
+
+def test_camera_dong04_thong_bao_neu_ten_co_capture_backend(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    bd.main(
+        [
+            "--nguon",
+            "camera",
+            "--anh-sang",
+            "trong nhà",
+            "--khoang-cach-m",
+            "1.0",
+            "--noi-dung-khung",
+            "khong-nguoi",
+            "--device-name",
+            "PC test",
+        ]
+    )
+    assert "--capture-backend" in capsys.readouterr().out
+
+
+def test_camera_dong05_capture_backend_auto_argparse_thoat():
+    with pytest.raises(SystemExit):
+        bd.main(
+            [
+                "--nguon",
+                "camera",
+                "--capture-backend",
+                "auto",
+                "--anh-sang",
+                "trong nhà",
+                "--khoang-cach-m",
+                "1.0",
+                "--noi-dung-khung",
+                "khong-nguoi",
+                "--device-name",
+                "PC test",
+            ]
+        )
+
+
+def test_camera_dong06_camera_tu_choi_anh_dir(monkeypatch, tmp_path):
+    mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    # Đối chứng: không có --anh-dir thì chạy được (canh ĐB15 — nếu default là chuỗi thì
+    # camera luôn hỏng và dòng này đỏ).
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert (
+        bd.main(_args_camera(mo_hinh, "--capture-config", str(cap), "--anh-dir", str(tmp_path)))
+        == 1
+    )
+
+
+def test_camera_dong07_thong_bao_neu_ten_co_anh_dir(monkeypatch, tmp_path, capsys):
+    mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    bd.main(_args_camera(mo_hinh, "--capture-config", str(cap), "--anh-dir", str(tmp_path)))
+    assert "--anh-dir" in capsys.readouterr().out
+
+
+def test_camera_dong08_camera_tu_choi_seed(monkeypatch, tmp_path):
+    mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap), "--seed", "7")) == 1
+
+
+def test_camera_dong09_thong_bao_neu_ten_co_seed(monkeypatch, tmp_path, capsys):
+    mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    bd.main(_args_camera(mo_hinh, "--capture-config", str(cap), "--seed", "7"))
+    assert "--seed" in capsys.readouterr().out
+
+
+def test_camera_dong10_dia_tu_choi_anh_sang(monkeypatch, tmp_path):
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    ma = bd.main(["--device-name", "PC test", "--nguon", "dia", "--anh-sang", "sáng"])
+    assert ma == 1
+
+
+def test_camera_dong11_thong_bao_neu_ten_co_anh_sang(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    bd.main(["--device-name", "PC test", "--nguon", "dia", "--anh-sang", "sáng"])
+    assert "--anh-sang" in capsys.readouterr().out
+
+
+def test_camera_dong12_dia_tu_choi_capture_backend(monkeypatch, tmp_path):
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    ma = bd.main(["--device-name", "PC test", "--nguon", "dia", "--capture-backend", "mock"])
+    assert ma == 1
+
+
+def test_camera_dong13_camera_thieu_anh_sang_tra_1(monkeypatch, tmp_path):
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    ma = bd.main(
+        [
+            "--nguon",
+            "camera",
+            "--capture-backend",
+            "mock",
+            "--khoang-cach-m",
+            "1.0",
+            "--noi-dung-khung",
+            "khong-nguoi",
+            "--device-name",
+            "PC test",
+        ]
+    )
+    assert ma == 1
+
+
+def test_camera_dong14_camera_thieu_khoang_cach_tra_1(monkeypatch, tmp_path):
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    ma = bd.main(
+        [
+            "--nguon",
+            "camera",
+            "--capture-backend",
+            "mock",
+            "--anh-sang",
+            "trong nhà",
+            "--noi-dung-khung",
+            "khong-nguoi",
+            "--device-name",
+            "PC test",
+        ]
+    )
+    assert ma == 1
+
+
+def test_camera_dong15_camera_thieu_noi_dung_khung_tra_1(monkeypatch, tmp_path):
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    ma = bd.main(
+        [
+            "--nguon",
+            "camera",
+            "--capture-backend",
+            "mock",
+            "--anh-sang",
+            "trong nhà",
+            "--khoang-cach-m",
+            "1.0",
+            "--device-name",
+            "PC test",
+        ]
+    )
+    assert ma == 1
+
+
+def test_camera_dong16_noi_dung_khung_la_argparse_thoat():
+    with pytest.raises(SystemExit):
+        bd.main(
+            [
+                "--nguon",
+                "camera",
+                "--capture-backend",
+                "mock",
+                "--anh-sang",
+                "trong nhà",
+                "--khoang-cach-m",
+                "1.0",
+                "--noi-dung-khung",
+                "dung-dau",
+                "--device-name",
+                "PC test",
+            ]
+        )
+
+
+def test_camera_dong17_khoang_cach_0_tra_1(monkeypatch, tmp_path):
+    mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap), khoang_cach="0")) == 1
+
+
+def test_camera_dong18_khoang_cach_am_tra_1(monkeypatch, tmp_path):
+    mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap), khoang_cach="-1")) == 1
+
+
+def test_camera_dong19_khoang_cach_inf_tra_1(monkeypatch, tmp_path, capsys):
+    mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap), khoang_cach="inf")) == 1
+    assert "hữu hạn" in capsys.readouterr().out
+
+
+def test_camera_dong20_khoang_cach_am_inf_tra_1(monkeypatch, tmp_path, capsys):
+    mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap), khoang_cach="-inf")) == 1
+    assert "hữu hạn" in capsys.readouterr().out
+
+
+def test_camera_dong21_khoang_cach_nan_tra_1(monkeypatch, tmp_path, capsys):
+    mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap), khoang_cach="nan")) == 1
+    assert "hữu hạn" in capsys.readouterr().out
+
+
+def test_camera_dong22_khoang_cach_1_tra_0(monkeypatch, tmp_path):
+    mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap), khoang_cach="1.0")) == 0
+
+
+def test_camera_dong23_khoang_cach_vao_meta(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap), khoang_cach="1.0")) == 0
+    meta = _doc_meta_duy_nhat(kq)
+    assert meta["conditions"]["khoang_cach_m"] == pytest.approx(1.0)
+
+
+def test_camera_dong24_seed_la_null(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    meta = _doc_meta_duy_nhat(kq)
+    assert meta["seed"] is None
+
+
+# ---------------------------------------------------------------------------
+# §8.2 — Ranh giới bấm giờ (dòng 25-34)
+# ---------------------------------------------------------------------------
+
+
+def _do_camera_truc_tiep(
+    monkeypatch, tmp_path, sleep_doc_s, sleep_detect_s, so_luong=5, so_lam_nong=1
+):
+    monkeypatch.setattr(
+        bd, "tao_bo_phat_hien", _lam_factory_detector_camera(sleep_detect_s=sleep_detect_s)
+    )
+    cam = _CameraGia(sleep_doc_s=sleep_doc_s)
+    cam.mo()
+    bg = bd.do_mot_cau_hinh_camera(tmp_path / "gia.onnx", _cfg_co_ban(), cam, so_luong, so_lam_nong)
+    return bg, cam
+
+
+def test_camera_dong25_vung_lay_khung_do_dung_phan_lay_khung(monkeypatch, tmp_path):
+    bg, _cam = _do_camera_truc_tiep(monkeypatch, tmp_path, 0.040, 0.002)
+    assert all(r["latency_lay_khung_ms"] > 30 for r in bg)
+
+
+def test_camera_dong26_vung_suy_luan_do_dung_phan_suy_luan(monkeypatch, tmp_path):
+    bg, _cam = _do_camera_truc_tiep(monkeypatch, tmp_path, 0.040, 0.002)
+    assert all(r["latency_ms"] < 20 for r in bg)
+
+
+def test_camera_dong27_latency_tong_la_tong_so_hoc(monkeypatch, tmp_path):
+    bg, _cam = _do_camera_truc_tiep(monkeypatch, tmp_path, 0.040, 0.002)
+    assert all(
+        abs(r["latency_tong_ms"] - r["latency_lay_khung_ms"] - r["latency_ms"]) < 1e-9 for r in bg
+    )
+
+
+def test_camera_dong28_fps_instant_nghich_dao_latency_ms(monkeypatch, tmp_path):
+    bg, _cam = _do_camera_truc_tiep(monkeypatch, tmp_path, 0.040, 0.002)
+    assert all(r["fps_instant"] == pytest.approx(1000.0 / r["latency_ms"]) for r in bg)
+
+
+def test_camera_dong29_fps_tong_instant_nghich_dao_latency_tong(monkeypatch, tmp_path):
+    bg, _cam = _do_camera_truc_tiep(monkeypatch, tmp_path, 0.040, 0.002)
+    assert all(r["fps_tong_instant"] == pytest.approx(1000.0 / r["latency_tong_ms"]) for r in bg)
+
+
+def test_camera_dong30_so_ban_ghi_dung_so_luong(monkeypatch, tmp_path):
+    bg, _cam = _do_camera_truc_tiep(monkeypatch, tmp_path, 0.0, 0.0)
+    assert len(bg) == 5
+
+
+def test_camera_dong31_doc_du_lam_nong_cong_do(monkeypatch, tmp_path):
+    _bg, cam = _do_camera_truc_tiep(monkeypatch, tmp_path, 0.0, 0.0)
+    assert cam.so_lan_doc == 6
+
+
+def test_camera_dong32_sample_idx_lien_tuc_tu_0(monkeypatch, tmp_path):
+    bg, _cam = _do_camera_truc_tiep(monkeypatch, tmp_path, 0.0, 0.0)
+    assert [r["sample_idx"] for r in bg] == [0, 1, 2, 3, 4]
+
+
+def test_camera_dong33_imgsz_tu_doi_tuong_phat_hien(monkeypatch, tmp_path):
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_detector_camera(kich_thuoc_vao=320))
+    cam = _CameraGia()
+    cam.mo()
+    bg = bd.do_mot_cau_hinh_camera(tmp_path / "gia.onnx", _cfg_co_ban(), cam, 3, 1)
+    assert bg[0]["imgsz"] == 320
+
+
+def test_camera_dong34_so_luong_duoi_1_nem_loi(monkeypatch, tmp_path):
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_detector_camera())
+    cam = _CameraGia()
+    cam.mo()
+    with pytest.raises(LoiCauHinh):
+        bd.do_mot_cau_hinh_camera(tmp_path / "gia.onnx", _cfg_co_ban(), cam, 0, 1)
+
+
+# ---------------------------------------------------------------------------
+# §8.3 — Vòng đời camera và fail-safe (dòng 35-45)
+# ---------------------------------------------------------------------------
+
+
+def test_camera_dong35_main_mo_camera_dung_mot_lan(monkeypatch, tmp_path):
+    mo_hinh, cap, _kq, cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert cam.so_lan_mo == 1
+
+
+def test_camera_dong36_do_mot_cau_hinh_camera_khong_goi_mo_dong():
+    nguon = inspect.getsource(bd.do_mot_cau_hinh_camera)
+    cay = ast.parse(nguon)
+    cam_goi = {"mo", "dong"}
+    vi_pham = []
+    for node in ast.walk(cay):
+        if isinstance(node, ast.Call):
+            ten = None
+            if isinstance(node.func, ast.Attribute):
+                ten = node.func.attr
+            elif isinstance(node.func, ast.Name):
+                ten = node.func.id
+            if ten in cam_goi:
+                vi_pham.append(ten)
+    assert vi_pham == []
+
+
+def test_camera_dong37_main_dong_camera_duong_thanh_cong(monkeypatch, tmp_path):
+    mo_hinh, cap, _kq, cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert cam.so_lan_dong >= 1
+
+
+def test_camera_dong38_mat_camera_giua_chung_tra_1(monkeypatch, tmp_path):
+    cam = _CameraGia(loi_o_khung=12)
+    mo_hinh, cap, _kq, cam = _setup_camera_ok(monkeypatch, tmp_path, cam=cam)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 1
+
+
+def test_camera_dong39_mat_camera_van_dong_camera(monkeypatch, tmp_path):
+    cam = _CameraGia(loi_o_khung=12)
+    mo_hinh, cap, _kq, cam = _setup_camera_ok(monkeypatch, tmp_path, cam=cam)
+    bd.main(_args_camera(mo_hinh, "--capture-config", str(cap)))
+    assert cam.so_lan_dong >= 1
+
+
+def test_camera_dong40_mat_camera_khong_ghi_tep(monkeypatch, tmp_path):
+    cam = _CameraGia(loi_o_khung=12)
+    mo_hinh, cap, kq, cam = _setup_camera_ok(monkeypatch, tmp_path, cam=cam)
+    bd.main(_args_camera(mo_hinh, "--capture-config", str(cap)))
+    assert list(kq.rglob("*")) == []
+
+
+def test_camera_dong41_mat_camera_thong_bao_neu_nguyen_nhan(monkeypatch, tmp_path, capsys):
+    cam = _CameraGia(loi_o_khung=12)
+    mo_hinh, cap, _kq, cam = _setup_camera_ok(monkeypatch, tmp_path, cam=cam)
+    bd.main(_args_camera(mo_hinh, "--capture-config", str(cap)))
+    assert "camera" in capsys.readouterr().out
+
+
+def test_camera_dong42_camera_binh_thuong_tra_0(monkeypatch, tmp_path):
+    mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+
+
+def test_camera_dong43_dry_run_khong_mo_camera(monkeypatch, tmp_path):
+    def _no(cfg):
+        raise AssertionError("dry-run KHÔNG được mở camera")
+
+    monkeypatch.setattr(bd, "tao_bo_thu_hinh", _no)
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--dry-run")) == 0
+
+
+def test_camera_dong44_dry_run_khong_ghi_tep(monkeypatch, tmp_path):
+    monkeypatch.setattr(bd, "tao_bo_thu_hinh", _factory_thu_hinh(_CameraGia()))
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+    bd.main(_args_camera(mo_hinh, "--dry-run"))
+    assert not (tmp_path / "kq").exists()
+
+
+def test_camera_dong45_dry_run_bang_neu_backend_thu_hinh(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+    bd.main(_args_camera(mo_hinh, "--dry-run"))
+    assert "mock" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# §8.4 — Một cấu hình, không ma trận (dòng 46-51)
+# ---------------------------------------------------------------------------
+
+
+def test_camera_dong46_hai_mo_hinh_tra_1(monkeypatch, tmp_path):
+    _mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    m1 = _tao_mo_hinh_gia(tmp_path, "a.onnx")
+    m2 = _tao_mo_hinh_gia(tmp_path, "b.onnx")
+    ma = bd.main(
+        _args_camera(models=[str(m1), str(m2)], mo_hinh=None) + ["--capture-config", str(cap)]
+    )
+    assert ma == 1
+
+
+def test_camera_dong47_thong_bao_neu_models(monkeypatch, tmp_path, capsys):
+    _mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    m1 = _tao_mo_hinh_gia(tmp_path, "a.onnx")
+    m2 = _tao_mo_hinh_gia(tmp_path, "b.onnx")
+    bd.main(_args_camera(models=[str(m1), str(m2)]) + ["--capture-config", str(cap)])
+    assert "--models" in capsys.readouterr().out
+
+
+def test_camera_dong48_hai_muc_luong_tra_1(monkeypatch, tmp_path):
+    mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    ma = bd.main(_args_camera(mo_hinh, "--capture-config", str(cap), threads=("1", "2")))
+    assert ma == 1
+
+
+def test_camera_dong49_thong_bao_neu_threads(monkeypatch, tmp_path, capsys):
+    mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    bd.main(_args_camera(mo_hinh, "--capture-config", str(cap), threads=("1", "2")))
+    assert "--threads" in capsys.readouterr().out
+
+
+def test_camera_dong50_mot_mo_hinh_mot_muc_luong_tra_0(monkeypatch, tmp_path):
+    mo_hinh, cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+
+
+def test_camera_dong51_tom_tat_dung_mot_o(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    meta = _doc_meta_duy_nhat(kq)
+    assert len(meta["tom_tat"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# §8.5 — Không hồi quy chế độ dia (dòng 52-58)
+# ---------------------------------------------------------------------------
+
+
+def test_camera_dong52_cot_csv_van_muoi_cot():
+    assert bd._COT_CSV == [
+        "run_id",
+        "backend",
+        "imgsz",
+        "threads",
+        "sample_idx",
+        "latency_ms",
+        "fps_instant",
+        "n_faces",
+        "conf_top",
+        "cpu_temp_c",
+    ]
+
+
+def test_camera_dong53_khoa_meta_van_hai_muoi():
+    assert len(bd._KHOA_META_BAT_BUOC) == 20
+
+
+def test_camera_dong54_mac_dinh_anh_dir_phan_giai_dung(monkeypatch, tmp_path, thu_muc_anh_that):
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    ds = sorted(thu_muc_anh_that.glob("*.jpg"))
+
+    def _chon_anh_gia(thu_muc, so_luong, seed):
+        return ds[:so_luong]
+
+    monkeypatch.setattr(bd, "chon_anh", _chon_anh_gia)
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+    ma = bd.main(["--device-name", "PC test", "--models", str(mo_hinh), "--threads", "1"])
+    assert ma == 0
+    meta = _doc_meta_duy_nhat(tmp_path / "kq")
+    assert Path(meta["dataset"]["anh_dir"]) == Path("data/impostor/lfw_original")
+
+
+def test_camera_dong55_mac_dinh_seed_phan_giai_dung(monkeypatch, tmp_path, thu_muc_anh_that):
+    monkeypatch.setattr(bd, "tao_bo_phat_hien", _lam_factory_gia())
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    ds = sorted(thu_muc_anh_that.glob("*.jpg"))
+    ghi = {}
+
+    def _chon_anh_gia(thu_muc, so_luong, seed):
+        ghi["seed"] = seed
+        return ds[:so_luong]
+
+    monkeypatch.setattr(bd, "chon_anh", _chon_anh_gia)
+    mo_hinh = _tao_mo_hinh_gia(tmp_path)
+    ma = bd.main(["--device-name", "PC test", "--models", str(mo_hinh), "--threads", "1"])
+    assert ma == 0
+    meta = _doc_meta_duy_nhat(tmp_path / "kq")
+    assert meta["seed"] == 42
+    assert ghi["seed"] == 42
+
+
+def test_camera_dong56_dry_run_dia_in_thu_muc_mac_dinh(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(bd, "_THU_MUC_KET_QUA_MAC_DINH", tmp_path / "kq")
+    ma = bd.main(["--device-name", "PC test", "--dry-run"])
+    assert ma == 0
+    assert "lfw_original" in capsys.readouterr().out
+
+
+def test_camera_dong57_ghi_ket_qua_chu_ky_cu_van_muoi_cot(tmp_path):
+    csv_path, _ = bd.ghi_ket_qua(
+        tmp_path, "bench_detect_20260819_1200", _ban_ghi_csv_mau(), _meta_hop_le()
+    )
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        header = next(csv.reader(f))
+    assert header == list(bd._COT_CSV)
+
+
+def test_camera_dong58_tep_csv_cu_van_doc_duoc(tmp_path):
+    csv_path, _ = bd.ghi_ket_qua(
+        tmp_path, "bench_detect_20260819_1200", _ban_ghi_csv_mau(), _meta_hop_le()
+    )
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows[0]) == 10
+
+
+# ---------------------------------------------------------------------------
+# §8.6 — CSV và metadata chế độ camera (dòng 59-83)
+# ---------------------------------------------------------------------------
+
+
+def test_camera_dong59_ghi_dung_hai_tep(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert len(list(kq.iterdir())) == 2
+
+
+def test_camera_dong60_ten_csv_dung_khuon(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    p_csv = next(iter(kq.glob("*.csv")))
+    assert re.fullmatch(r"bench_detect_camera_\d{8}_\d{4}\.csv", p_csv.name)
+
+
+def test_camera_dong61_ten_meta_dung_khuon(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    p_meta = next(iter(kq.glob("*.meta.json")))
+    assert re.fullmatch(r"bench_detect_camera_\d{8}_\d{4}\.meta\.json", p_meta.name)
+
+
+def test_camera_dong62_csv_camera_dung_muoi_ba_cot(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    p_csv = next(iter(kq.glob("*.csv")))
+    with open(p_csv, newline="", encoding="utf-8") as f:
+        header = next(csv.reader(f))
+    assert header == _COT_CSV_CAMERA_MONG_DOI
+
+
+def test_camera_dong63_so_dong_csv_bang_n_frames(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap)) + ["--n-frames", "100"]) == 0
+    p_csv = next(iter(kq.glob("*.csv")))
+    with open(p_csv, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    assert len(rows) == 100
+
+
+def test_camera_dong64_nguon_la_camera(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert _doc_meta_duy_nhat(kq)["nguon"] == "camera"
+
+
+def test_camera_dong65_meta_du_hai_muoi_bon_khoa(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    meta = _doc_meta_duy_nhat(kq)
+    assert set(meta) >= set(bd._KHOA_META_BAT_BUOC_CAMERA)
+
+
+def test_camera_dong66_conditions_du_ba_khoa_con(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    meta = _doc_meta_duy_nhat(kq)
+    assert set(meta["conditions"]) == {"anh_sang", "khoang_cach_m", "noi_dung_khung"}
+
+
+def test_camera_dong67_dataset_du_tam_khoa_con(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    meta = _doc_meta_duy_nhat(kq)
+    assert set(meta["dataset"]) == _KHOA_DATASET_CAMERA
+
+
+def test_camera_dong68_dataset_khong_co_anh_dir(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert "anh_dir" not in _doc_meta_duy_nhat(kq)["dataset"]
+
+
+def test_camera_dong69_do_phan_giai_that_tu_khung(monkeypatch, tmp_path):
+    cap = _tao_capture_yaml(tmp_path, mock_w=1280, mock_h=720)
+    cam = _CameraGia(hinh_dang=(480, 640, 3))
+    mo_hinh, cap, kq, cam = _setup_camera_ok(monkeypatch, tmp_path, cam=cam, capture_yaml=cap)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    meta = _doc_meta_duy_nhat(kq)
+    assert meta["dataset"]["do_phan_giai_that"] == "640x480"
+
+
+def test_camera_dong70_do_phan_giai_yeu_cau_tu_cau_hinh(monkeypatch, tmp_path):
+    cap = _tao_capture_yaml(tmp_path, mock_w=1280, mock_h=720)
+    cam = _CameraGia(hinh_dang=(480, 640, 3))
+    mo_hinh, cap, kq, cam = _setup_camera_ok(monkeypatch, tmp_path, cam=cam, capture_yaml=cap)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    meta = _doc_meta_duy_nhat(kq)
+    assert meta["dataset"]["do_phan_giai_yeu_cau"] == "1280x720"
+
+
+def test_camera_dong71_khop_do_phan_giai_false(monkeypatch, tmp_path):
+    cap = _tao_capture_yaml(tmp_path, mock_w=1280, mock_h=720)
+    cam = _CameraGia(hinh_dang=(480, 640, 3))
+    mo_hinh, cap, kq, cam = _setup_camera_ok(monkeypatch, tmp_path, cam=cam, capture_yaml=cap)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert _doc_meta_duy_nhat(kq)["dataset"]["khop_do_phan_giai"] is False
+
+
+def test_camera_dong72_lech_do_phan_giai_co_canh_bao(monkeypatch, tmp_path):
+    cap = _tao_capture_yaml(tmp_path, mock_w=1280, mock_h=720)
+    cam = _CameraGia(hinh_dang=(480, 640, 3))
+    mo_hinh, cap, kq, cam = _setup_camera_ok(monkeypatch, tmp_path, cam=cam, capture_yaml=cap)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert _doc_meta_duy_nhat(kq)["canh_bao_do_phan_giai"] != ""
+
+
+def test_camera_dong73_khop_do_phan_giai_khong_co_canh_bao(monkeypatch, tmp_path):
+    cap = _tao_capture_yaml(tmp_path, mock_w=640, mock_h=480)
+    cam = _CameraGia(hinh_dang=(480, 640, 3))
+    mo_hinh, cap, kq, cam = _setup_camera_ok(monkeypatch, tmp_path, cam=cam, capture_yaml=cap)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert "canh_bao_do_phan_giai" not in _doc_meta_duy_nhat(kq)
+
+
+def test_camera_dong74_n_frame_do_la_so_dong_that(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    p_csv = next(iter(kq.glob("*.csv")))
+    with open(p_csv, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    meta = _doc_meta_duy_nhat(kq)
+    assert meta["dataset"]["n_frame_do"] == len(rows)
+
+
+def test_camera_dong75_fps_khai_bao_null_voi_mock(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert _doc_meta_duy_nhat(kq)["dataset"]["fps_khai_bao_trong_cau_hinh"] is None
+
+
+def test_camera_dong76_mock_sinh_canh_bao_nguon_gia_lap(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert _doc_meta_duy_nhat(kq)["canh_bao_nguon_gia_lap"] != ""
+
+
+def test_camera_dong77_canh_bao_nguon_gia_lap_vao_notes(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert "giả lập" in _doc_meta_duy_nhat(kq)["notes"]
+
+
+def test_camera_dong78_config_snapshot_capture_backend_da_ghi_de(monkeypatch, tmp_path):
+    cap = _tao_capture_yaml(tmp_path, backend="auto")
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path, capture_yaml=cap)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert _doc_meta_duy_nhat(kq)["config_snapshot_capture"]["backend"] == "mock"
+
+
+def test_camera_dong79_cau_hinh_thu_hinh_hong_tra_1(monkeypatch, tmp_path):
+    mo_hinh, _cap, _kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    ma = bd.main(_args_camera(mo_hinh, "--capture-config", str(tmp_path / "khong_ton_tai.yaml")))
+    assert ma == 1
+
+
+def test_camera_dong80_meta_thieu_conditions_nem_loi(tmp_path):
+    meta = _meta_camera_hop_le()
+    del meta["conditions"]
+    with pytest.raises(LoiCauHinh):
+        bd.ghi_ket_qua(
+            tmp_path,
+            "bench_detect_camera_20260907_1200",
+            _ban_ghi_csv_mau(),
+            meta,
+            khoa_bat_buoc=bd._KHOA_META_BAT_BUOC_CAMERA,
+        )
+
+
+def test_camera_dong81_meta_du_khoa_ghi_thanh_cong(tmp_path):
+    csv_path, meta_path = bd.ghi_ket_qua(
+        tmp_path,
+        "bench_detect_camera_20260907_1200",
+        _ban_ghi_csv_mau(),
+        _meta_camera_hop_le(),
+        cot=bd._COT_CSV_CAMERA,
+        khoa_bat_buoc=bd._KHOA_META_BAT_BUOC_CAMERA,
+    )
+    assert csv_path.exists() and meta_path.exists()
+
+
+def test_camera_dong82_mo_ta_nguon_camera_backend_la_nem_loi():
+    with pytest.raises(LoiCauHinh):
+        bd.mo_ta_nguon_camera(
+            {"mock": {"width": 1, "height": 1}},
+            "backend-la",
+            np.zeros((2, 2, 3), dtype=np.uint8),
+        )
+
+
+def test_camera_dong83_cpu_temp_rong_khong_phai_none(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    p_csv = next(iter(kq.glob("*.csv")))
+    with open(p_csv, newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+    for row in rows:
+        assert row["cpu_temp_c"] == ""
+        assert row["cpu_temp_c"] != "None"
+
+
+# ---------------------------------------------------------------------------
+# §8.7 — Tổng hợp và bảng in ra (dòng 84-100)
+# ---------------------------------------------------------------------------
+
+
+def test_camera_dong84_lay_khung_tb_khop_mean():
+    lay = list(range(1, 101))
+    bg = _bg_camera([float(x) for x in lay], [5.0] * 100)
+    assert bd.tong_hop_camera(bg)["lay_khung_tb"] == pytest.approx(np.mean(lay))
+
+
+def test_camera_dong85_lay_khung_do_lech_khop_std():
+    lay = list(range(1, 101))
+    bg = _bg_camera([float(x) for x in lay], [5.0] * 100)
+    assert bd.tong_hop_camera(bg)["lay_khung_do_lech"] == pytest.approx(np.std(lay))
+
+
+def test_camera_dong86_lay_khung_p50_khop_percentile():
+    lay = list(range(1, 101))
+    bg = _bg_camera([float(x) for x in lay], [5.0] * 100)
+    assert bd.tong_hop_camera(bg)["lay_khung_p50"] == pytest.approx(np.percentile(lay, 50))
+
+
+def test_camera_dong87_lay_khung_p95_khop_percentile():
+    lay = list(range(1, 101))
+    bg = _bg_camera([float(x) for x in lay], [5.0] * 100)
+    assert bd.tong_hop_camera(bg)["lay_khung_p95"] == pytest.approx(np.percentile(lay, 95))
+
+
+def test_camera_dong88_tong_p95_khop_percentile_tren_cot_tong():
+    lay = list(range(1, 101))
+    det = list(range(2, 202, 2))
+    bg = _bg_camera([float(x) for x in lay], [float(x) for x in det])
+    v_tong = [x + y for x, y in zip(lay, det)]
+    assert bd.tong_hop_camera(bg)["tong_p95"] == pytest.approx(np.percentile(v_tong, 95))
+
+
+def test_camera_dong89_fps_tong_tb_nghich_dao_tong_tb():
+    bg = _bg_camera([30.0] * 10, [20.0] * 10)
+    assert bd.tong_hop_camera(bg)["fps_tong_tb"] == pytest.approx(20.0)
+
+
+def test_camera_dong90_dat_chi_tieu_tong_true_tren_nguong():
+    bg = _bg_camera([30.0] * 10, [20.0] * 10)
+    assert bd.tong_hop_camera(bg)["dat_chi_tieu_tong"] is True
+
+
+def test_camera_dong91_dat_chi_tieu_tong_false_duoi_nguong():
+    bg = _bg_camera([100.0] * 10, [100.0] * 10)
+    assert bd.tong_hop_camera(bg)["dat_chi_tieu_tong"] is False
+
+
+def test_camera_dong92_tong_hop_cu_dung_lai_duoc_tren_ban_ghi_camera():
+    lat_detect = [10.0, 20.0, 30.0, 40.0, 50.0]
+    bg = _bg_camera([5.0] * 5, lat_detect)
+    assert bd.tong_hop(bg)["fps_tb"] == pytest.approx(1000.0 / np.mean(lat_detect))
+
+
+def test_camera_dong93_hai_tu_dien_tong_hop_khong_trung_khoa():
+    bg = _bg_camera([30.0] * 10, [20.0] * 10)
+    assert set(bd.tong_hop(bg)) & set(bd.tong_hop_camera(bg)) == set()
+
+
+def test_camera_dong94_ban_ghi_rong_nem_loi():
+    with pytest.raises(LoiCauHinh):
+        bd.tong_hop_camera([])
+
+
+def test_camera_dong95_bang_in_co_cot_fps_dau_cuoi(capsys):
+    bg = _bg_camera([30.0] * 10, [20.0] * 10)
+    bd._in_bang_camera({**bd.tong_hop(bg), **bd.tong_hop_camera(bg)}, bd.tong_hop(bg))
+    assert "đầu-cuối" in capsys.readouterr().out
+
+
+def test_camera_dong96_bang_in_neu_tran_toc_do_khung(capsys):
+    bg = _bg_camera([30.0] * 10, [20.0] * 10)
+    bd._in_bang_camera({**bd.tong_hop(bg), **bd.tong_hop_camera(bg)}, bd.tong_hop(bg))
+    assert "trần" in capsys.readouterr().out
+
+
+def test_camera_dong97_nghi_dem_khung_co_canh_bao(monkeypatch, tmp_path):
+    cam = _CameraGia(hinh_dang=(48, 64, 3), sleep_doc_s=0.0)
+    det = _lam_factory_detector_camera(sleep_detect_s=0.010)
+    mo_hinh, cap, kq, cam = _setup_camera_ok(monkeypatch, tmp_path, cam=cam, det=det)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert _doc_meta_duy_nhat(kq)["canh_bao_dem_khung"] != ""
+
+
+def test_camera_dong98_lay_khung_cham_hon_khong_co_canh_bao(monkeypatch, tmp_path):
+    cam = _CameraGia(hinh_dang=(48, 64, 3), sleep_doc_s=0.010)
+    det = _lam_factory_detector_camera(sleep_detect_s=0.0)
+    mo_hinh, cap, kq, cam = _setup_camera_ok(monkeypatch, tmp_path, cam=cam, det=det)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert "canh_bao_dem_khung" not in _doc_meta_duy_nhat(kq)
+
+
+def test_camera_dong99_ngoai_pi5_co_canh_bao_hieu_nang(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path, moi_truong="pc_x86")
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert _doc_meta_duy_nhat(kq)["canh_bao_hieu_nang"] != ""
+
+
+def test_camera_dong100_moi_truong_thuoc_ba_ma_hop_le(monkeypatch, tmp_path):
+    mo_hinh, cap, kq, _cam = _setup_camera_ok(monkeypatch, tmp_path)
+    assert bd.main(_args_camera(mo_hinh, "--capture-config", str(cap))) == 0
+    assert _doc_meta_duy_nhat(kq)["moi_truong"] in {"pc_x86", "docker_arm64", "pi5"}
