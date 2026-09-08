@@ -1,0 +1,117 @@
+{
+  "run_id": "bench_detect_camera_20260908_1449",
+  "timestamp": "2026-09-08T14:49:26.752455+07:00",
+  "git_commit": "7d83b4eef323dcd587b79a288d8e1b13d33a396b",
+  "git_dirty": false,
+  "git_dirty_toan_cay": false,
+  "script": "scripts/benchmark_detect.py",
+  "command": "python scripts/benchmark_detect.py --nguon camera --capture-backend mock --models models/yolov8n-face-320.onnx --threads 4 --n-frames 100 --anh-sang không áp dụng — khung tổng hợp --khoang-cach-m 1.0 --noi-dung-khung khong-nguoi --device-name PC phát triển --ghi-chu kiểm chức năng, không phải số báo cáo",
+  "device": {
+    "name": "PC phát triển",
+    "os": "Windows-11-10.0.26200-SP0",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 140 Stepping 1, GenuineIntel"
+  },
+  "moi_truong": "pc_x86",
+  "software": {
+    "python": "3.12.5",
+    "onnxruntime": "1.20.1",
+    "opencv-python": "4.13.0",
+    "numpy": "2.2.0",
+    "ncnn": "1.0.20260526"
+  },
+  "config_file": "configs/detect.yaml",
+  "config_snapshot": {
+    "export": {
+      "weights_pt": "models/yolov8n-face.pt",
+      "kich_thuoc": [
+        320,
+        640
+      ],
+      "opset": 12,
+      "batch": 1,
+      "simplify": true,
+      "out_dir": "models"
+    },
+    "inference": {
+      "conf_threshold": 0.5,
+      "iou_threshold": 0.45,
+      "max_faces": 10,
+      "num_threads": 0
+    },
+    "thu_tu_diem_moc": [
+      "mat_trai",
+      "mat_phai",
+      "mui",
+      "mieng_trai",
+      "mieng_phai"
+    ]
+  },
+  "dataset": {
+    "backend_thu_hinh": "mock",
+    "do_phan_giai_yeu_cau": "1280x720",
+    "do_phan_giai_that": "1280x720",
+    "khop_do_phan_giai": true,
+    "fps_khai_bao_trong_cau_hinh": null,
+    "warmup_frames_thu_hinh": null,
+    "n_frame_do": 100,
+    "n_frame_lam_nong": 10
+  },
+  "seed": null,
+  "warmup_frames": 10,
+  "cpu_temp_start_c": null,
+  "cpu_temp_max_c": null,
+  "duration_s": 3.9744793999998365,
+  "notes": "kiểm chức năng, không phải số báo cáo CẢNH BÁO: phép đo chạy ở môi trường 'pc_x86', KHÔNG phải Raspberry Pi 5 thật. Số liệu này chỉ dùng để kiểm quy trình đo và so sánh tương đối giữa các cấu hình, KHÔNG dùng kết luận chỉ tiêu >= 10 FPS của Cổng C Phase 2. CẢNH BÁO: nguồn khung hình là backend giả lập (mock), KHÔNG phải camera thật — số liệu chỉ để kiểm chức năng, không đưa vào kết luận Cổng C.",
+  "tom_tat": {
+    "00_yolov8n-face-320_t4": {
+      "n_frames": 100,
+      "latency_tb": 27.025327000155812,
+      "latency_do_lech": 8.859510306517205,
+      "latency_p50": 25.505450001219288,
+      "latency_p95": 35.81627999519696,
+      "fps_tb": 37.0023274831877,
+      "ti_le_phat_hien": 0.0,
+      "dat_chi_tieu": true,
+      "lay_khung_tb": 7.9905809997580945,
+      "lay_khung_do_lech": 1.8911140611030632,
+      "lay_khung_p50": 7.895000002463348,
+      "lay_khung_p95": 10.768580003787065,
+      "tong_tb": 35.01590799991391,
+      "tong_do_lech": 9.860269861973038,
+      "tong_p50": 33.38124999572756,
+      "tong_p95": 45.87668999956803,
+      "fps_tong_tb": 28.55844834874648,
+      "dat_chi_tieu_tong": true
+    }
+  },
+  "nguon": "camera",
+  "conditions": {
+    "anh_sang": "không áp dụng — khung tổng hợp",
+    "khoang_cach_m": 1.0,
+    "noi_dung_khung": "khong-nguoi"
+  },
+  "config_file_capture": "configs/capture.yaml",
+  "config_snapshot_capture": {
+    "backend": "mock",
+    "opencv": {
+      "device_index": 0,
+      "width": 1280,
+      "height": 720,
+      "fps": 30,
+      "warmup_frames": 5,
+      "max_retry": 3
+    },
+    "mock": {
+      "width": 1280,
+      "height": 720,
+      "source": "synthetic",
+      "source_dir": "",
+      "seed": 42,
+      "loop": true,
+      "max_frames": 0
+    }
+  },
+  "canh_bao_hieu_nang": "CẢNH BÁO: phép đo chạy ở môi trường 'pc_x86', KHÔNG phải Raspberry Pi 5 thật. Số liệu này chỉ dùng để kiểm quy trình đo và so sánh tương đối giữa các cấu hình, KHÔNG dùng kết luận chỉ tiêu >= 10 FPS của Cổng C Phase 2.",
+  "canh_bao_nguon_gia_lap": "CẢNH BÁO: nguồn khung hình là backend giả lập (mock), KHÔNG phải camera thật — số liệu chỉ để kiểm chức năng, không đưa vào kết luận Cổng C."
+}
