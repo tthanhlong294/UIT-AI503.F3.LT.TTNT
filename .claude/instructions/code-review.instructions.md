@@ -1,12 +1,19 @@
 ---
 applyTo: "src/**/*.py, tests/**/*.py, scripts/**/*.py, docs/review/**"
-description: Chuẩn review mã nguồn — lệnh kiểm bắt buộc, danh sách mẫu vi phạm quét được bằng grep, thang phân loại lỗi 4 mức và cách viết một mục lỗi. Áp dụng cho mọi lượt review code do Gemini sinh ra.
+description: Chuẩn review mã nguồn — lệnh kiểm bắt buộc, danh sách mẫu vi phạm quét được bằng grep, thang phân loại lỗi 4 mức và cách viết một mục lỗi. Áp dụng cho mọi lượt review code do người cài đặt sinh ra.
 ---
 
 # Instructions: Chuẩn review mã nguồn
 
 Áp dụng cho mọi lượt review trong quy trình 5 nhịp (xem `CLAUDE.md` §2.9).
 Nguyên tắc bao trùm: **máy kiểm trước, người đọc sau**. Con người chỉ nên tốn sức vào thứ máy không bắt được.
+
+⚠️ **Người review không tự chạy lệnh** (R42), dù `coder` thì có. Mọi lệnh trong tài liệu này phải
+được đưa cho **người dùng** chạy, mỗi khối đúng một lệnh kèm kết quả mong đợi; người review đọc kết
+quả họ dán về. Quy ước: `docs/kiem-may/README.md`.
+
+Hệ quả quan trọng: bảng kết quả mà `coder` dán về là **lời khai của bên bị chấm**, không phải bằng
+chứng. Không chép nó vào biên bản; dựng lại phép kiểm và lấy số từ lượt chạy của người dùng.
 
 ---
 
@@ -18,13 +25,20 @@ ruff check src tests
 pytest -q
 ```
 
-Không chạy đủ ba lệnh → **biên bản review không hợp lệ**. Không được suy đoán kết quả.
+Thiếu bất kỳ lệnh nào trong kịch bản, hoặc chưa nhận được kết quả chạy → **biên bản review không hợp
+lệ**. Không được suy đoán kết quả, không được điền ✅ vào ô chưa có bằng chứng.
 
 Kèm theo, luôn kiểm phạm vi thay đổi:
 
 ```bash
-git status --short
+git status --short --untracked-files=all
 git diff --stat
+```
+
+Và một lượt trong container — dùng đúng image `faceid:arm64`, **không dựng image mới** (R43):
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd)":/app -w /app faceid:arm64 python3 -m pytest -q
 ```
 
 ---
@@ -49,6 +63,38 @@ git diff --stat
 > `112` cho kích thước ảnh align, `0` `1` `2` cho chỉ số mảng là bình thường.
 > Vi phạm là khi **giá trị đó ảnh hưởng đến kết quả thực nghiệm** (ngưỡng, conf, IoU, số frame xác nhận,
 > cooldown) — những thứ sẽ phải đổi khi đo lại và phải ghi được vào báo cáo.
+
+---
+
+## 2b. Kiểm bằng đột biến — bắt buộc với mọi guard và nhánh an toàn
+
+Bộ kiểm thử xanh **không chứng minh** ca test nhắm đúng chỗ. Một ca test có thể xanh vì nó không hề
+chạy qua đoạn mã cần kiểm.
+
+Cách chứng minh: **phá đúng một chỗ, xem test có đỏ không.**
+
+```bash
+# 1. Ghi sha256 của file trước khi động vào
+sha256sum src/<file>.py
+# 2. Tạm bỏ một guard / đảo một điều kiện / xoá một dòng bảo vệ
+# 3. Chạy lại bộ test
+pytest -q
+# 4. KHÔI PHỤC nguyên trạng, đối chiếu sha256
+```
+
+Đọc kết quả:
+
+| Kết quả sau khi phá | Kết luận |
+|---|---|
+| Đỏ **đúng** những ca nhắm vào chỗ đó | ✅ Phép kiểm có hiệu lực |
+| **Vẫn xanh** | ❌ Chỗ đó **không ca test nào chạm tới** — ghi lỗi, dù bảng đối chiếu báo "có test" |
+| Đỏ lan man nhiều ca không liên quan | ⚠️ Ca test quá rộng, không định vị được lỗi |
+
+Hai lần dùng trong dự án đều cho kết quả quyết định: ở `P1-01` chứng minh bộ assert mới bắt được 4/4
+cài đặt sai; ở `P1-02` chứng minh khối dọn dẹp cuối hàm **chưa** được phủ dù 84 ca đều xanh và lint sạch.
+
+⛔ **Luôn khôi phục nguyên trạng và đối chiếu sha256** trước khi kết thúc. Không được để lại thay đổi
+nào trong mã sản phẩm — đây vẫn là quy tắc "người review không sửa code".
 
 ---
 
@@ -134,7 +180,7 @@ Quy tắc viết:
 | Khoảng trắng, xuống dòng, thứ tự import, độ dài dòng | `black` và `ruff` đã lo |
 | Sở thích cá nhân về đặt tên khi tên hiện tại đã rõ nghĩa | Tranh cãi vô ích, tốn vòng lặp |
 | Việc mà đặc tả **cố ý** để lại cho mã việc sau | Xem §8 "Ngoài phạm vi" của đặc tả |
-| Thiết kế kiến trúc đã được chốt trong đặc tả | Muốn đổi → góp ý cho `spec-writer`, không trả lại Gemini |
+| Thiết kế kiến trúc đã được chốt trong đặc tả | Muốn đổi → góp ý cho `spec-writer`, không trả lại người cài đặt |
 
 Mỗi mục lỗi thừa làm loãng các mục lỗi thật và tốn thêm một vòng bàn giao.
 **Một biên bản 4 lỗi đúng chỗ mạnh hơn một biên bản 20 mục.**
@@ -153,4 +199,4 @@ Mỗi mục lỗi thừa làm loãng các mục lỗi thật và tốn thêm m�
 - [ ] Phán quyết dứt khoát: ✅ ĐẠT / 🟡 ĐẠT CÓ ĐIỀU KIỆN / 🔴 TRẢ LẠI
 - [ ] Biên bản đã ghi vào `docs/review/<mã việc>.review.md`
 - [ ] Nếu là vòng ≥ 2: đã ghi nối tiếp vào cùng file, không tạo file mới
-- [ ] Nếu hết vòng 2 vẫn 🔴: đã dừng và chẩn đoán nguyên nhân gốc thay vì giao lại Gemini
+- [ ] Nếu hết vòng 2 vẫn 🔴: đã dừng và chẩn đoán nguyên nhân gốc thay vì giao lại cho người cài đặt

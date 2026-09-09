@@ -112,7 +112,7 @@ Không áp dụng. Mã việc này không sinh mã Python và không đọc `con
 | Mọi phiên bản trong requirements là thật, cài được trên ARM64 | Không có số bịa | `docker run --rm --platform linux/arm64 faceid:arm64 pip freeze > /tmp/f.txt; for p in $(grep -hoE "^[a-z0-9_-]+==[^ ]+" requirements.txt); do grep -qix "$p" /tmp/f.txt \|\| echo "KHONG KHOP: $p"; done` không in gì |
 | Build thành công | | `docker build --platform linux/arm64 -f deploy/Dockerfile.arm64 -t faceid:arm64 .` thoát mã 0 |
 | Image đúng kiến trúc ARM64 | Không phải x86 | `docker image inspect faceid:arm64 --format "{{.Architecture}}"` trả `arm64` |
-| **Dockerfile tự khai báo nền tảng** — build KHÔNG cờ vẫn ra ARM64 | Không phụ thuộc người build nhớ truyền cờ | `docker build -f deploy/Dockerfile.arm64 -t faceid:nofl . && docker image inspect faceid:nofl --format "{{.Architecture}}"` trả `arm64` |
+| **Dockerfile tự khai báo nền tảng** — build KHÔNG cờ vẫn ra ARM64 | Không phụ thuộc người build nhớ truyền cờ | `docker build -f deploy/Dockerfile.arm64 -t faceid:arm64 . && docker image inspect faceid:arm64 --format "{{.Architecture}}"` trả `arm64`. **Dùng lại đúng tag `faceid:arm64`** (R43) — bản dựng không cờ ghi đè lên chính nó, không sinh image thứ hai. Tag riêng kiểu `faceid:nofl` đã bị cấm |
 | Python trong image là 3.11 | Khớp Pi OS Bookworm | `docker run --rm --platform linux/arm64 faceid:arm64 python -V` khớp `Python 3.11.` |
 | **Cổng C của Phase 0** | Nạp được hai thư viện cốt lõi | `docker run --rm --platform linux/arm64 faceid:arm64 python -c "import cv2, onnxruntime; print('ok')"` in `ok` |
 | Không thiếu thư viện hệ thống của OpenCV | Không lỗi `libGL.so.1` | Bao gồm trong lệnh trên — nếu thiếu `libgl1` lệnh sẽ ném `ImportError` |

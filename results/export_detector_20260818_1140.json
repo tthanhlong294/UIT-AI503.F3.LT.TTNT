@@ -1,0 +1,30 @@
+{
+  "n_anh": 50,
+  "n_phep_so_sanh": 100,
+  "n_khop_so_mat": 100,
+  "iou_trung_binh": 0.9999995510575175,
+  "iou_nho_nhat": 0.9999959766387992,
+  "sai_so_diem_moc_trung_binh": 1.8447238339524018e-05,
+  "sai_so_diem_moc_lon_nhat": 6.103701886672839e-05,
+  "dat": true,
+  "theo_kich_thuoc": {
+    "320": {
+      "n_anh": 50,
+      "n_khop_so_mat": 50,
+      "iou_trung_binh": 0.9999995612093268,
+      "iou_nho_nhat": 0.9999962742557785,
+      "sai_so_diem_moc_trung_binh": 1.9229614461161672e-05,
+      "sai_so_diem_moc_lon_nhat": 3.411968959808029e-05,
+      "dat": true
+    },
+    "640": {
+      "n_anh": 50,
+      "n_khop_so_mat": 50,
+      "iou_trung_binh": 0.9999995409057081,
+      "iou_nho_nhat": 0.9999959766387992,
+      "sai_so_diem_moc_trung_binh": 1.7664862217886365e-05,
+      "sai_so_diem_moc_lon_nhat": 6.103701886672839e-05,
+      "dat": true
+    }
+  }
+}

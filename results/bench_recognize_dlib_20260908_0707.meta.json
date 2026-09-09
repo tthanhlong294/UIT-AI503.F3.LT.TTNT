@@ -1,0 +1,108 @@
+{
+  "run_id": "bench_recognize_dlib_20260908_0707",
+  "timestamp": "2026-09-08T07:07:20.928047+07:00",
+  "git_commit": "8a2215f3ad32426fb268dafca21dc04228e350db",
+  "git_dirty": false,
+  "git_dirty_toan_cay": true,
+  "script": "scripts/benchmark_recognize.py",
+  "command": "python scripts/benchmark_recognize.py --vao data/processed/lfw_original --backend dlib --tap kiem-chuc-nang --che-do-gallery chia --enroll-moi-nguoi 2 --device-name PC phát triển",
+  "device": {
+    "name": "PC phát triển",
+    "os": "Windows-11-10.0.26200-SP0",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 140 Stepping 1, GenuineIntel"
+  },
+  "moi_truong": "pc_x86",
+  "software": {
+    "python": "3.12.5",
+    "onnxruntime": "1.20.1",
+    "opencv-python": "4.13.0",
+    "numpy": "2.2.0",
+    "dlib-bin": "20.0.1"
+  },
+  "config_file": "configs/recognize.yaml",
+  "config_snapshot": {
+    "backend": "arcface",
+    "arcface": {
+      "model_path": "models/mobilefacenet.onnx",
+      "embedding_dim": 512,
+      "input_size": [
+        112,
+        112
+      ],
+      "channel_order": "rgb",
+      "mean": 127.5,
+      "scale": 128.0
+    },
+    "dlib": {
+      "model_path": "models/dlib/dlib_face_recognition_resnet_model_v1.dat",
+      "shape_predictor": "models/dlib/shape_predictor_68_face_landmarks.dat",
+      "embedding_dim": 128,
+      "num_jitters": 0
+    },
+    "threshold": "TBD",
+    "tieu_chi_chot_nguong": "FAR_adapt <= 0.01",
+    "benchmark": {
+      "so_buoc_nguong": 200,
+      "far_muc_tieu": 0.01
+    },
+    "enroll": {
+      "gallery_dir": "data/embeddings",
+      "min_images_per_user": 10,
+      "chuan_hoa_truoc_khi_trung_binh": true
+    }
+  },
+  "backend": "dlib",
+  "tap": "kiem-chuc-nang",
+  "dataset": {
+    "che_do_gallery": "chia",
+    "gallery_dir": null,
+    "gallery_commit": null,
+    "gallery_git_dirty": null,
+    "gallery_so_nguoi_da_dang_ky": null,
+    "gallery_min_images_per_user_da_dung": null,
+    "so_anh_enroll_moi_nguoi": 2,
+    "anh_dir": "data\\processed\\lfw_original",
+    "tep_danh_sach_impostor": null,
+    "so_nguoi_gallery": 8,
+    "so_anh_da_dang_ky": 16,
+    "bam_danh_sach_anh_da_dang_ky": "6f3ae582de80fd736c32cb2172177b85bd3a32afac2c8e29baf815ebad0ed2f7",
+    "so_anh_probe": 184,
+    "so_anh_bo_qua": 0,
+    "so_danh_tinh_impostor": 143,
+    "bam_danh_sach_anh_probe": "f73d5bd11dd2bfcb385990e96b8f8d6a83c5f231d0a11a6f70b9875ab47d6766"
+  },
+  "seed": 42,
+  "warmup_probes": 10,
+  "cpu_temp_start_c": null,
+  "cpu_temp_max_c": null,
+  "duration_s": 119.22360750001098,
+  "notes": "CẢNH BÁO: phép đo chạy ở môi trường 'pc_x86', không phải môi trường đích 'pi5' (Raspberry Pi 5 thật). Số liệu này KHÔNG dùng kết luận chỉ tiêu độ chính xác nhận diện của Cổng C Phase 3. Cỡ mẫu nhỏ: tổng 184 probe (genuine 22), dưới mức tối thiểu 100 mẫu (R9). Số liệu chỉ dùng kiểm chức năng. CẢNH BÁO: --tap=kiem-chuc-nang — lượt đo này KHÔNG dùng danh sách impostor tách theo val/test, chỉ phục vụ kiểm chức năng, không dùng số liệu này chốt ngưỡng chính thức.",
+  "tep_ket_qua": {
+    "tho": "bench_recognize_dlib_20260908_0707.csv",
+    "nguong": "bench_recognize_dlib_20260908_0707.nguong.csv",
+    "meta": "bench_recognize_dlib_20260908_0707.meta.json"
+  },
+  "tom_tat": {
+    "nguong_eer": 0.9216439930637877,
+    "eer": 0.044332210998877665,
+    "far_tai_eer": 0.043209876543209874,
+    "frr_tai_eer": 0.045454545454545456,
+    "nguong_far_muc_tieu": 0.9329217837084478,
+    "far_tai_nguong_chot": 0.006172839506172839,
+    "frr_tai_nguong_chot": 0.045454545454545456,
+    "accuracy_tai_nguong_chot": 0.9891304347826086,
+    "latency_tb_ms": 615.692410326554,
+    "latency_do_lech_ms": 222.23252141671676,
+    "latency_p50_ms": 553.4683000005316,
+    "latency_p95_ms": 1328.5505099949642,
+    "fps_suy_ra": 1.6241876352992806,
+    "so_nguoi_gallery": 8,
+    "so_probe_genuine": 22,
+    "so_probe_impostor": 162,
+    "far_muc_tieu": 0.01
+  },
+  "canh_bao_hieu_nang": "CẢNH BÁO: phép đo chạy ở môi trường 'pc_x86', không phải môi trường đích 'pi5' (Raspberry Pi 5 thật). Số liệu này KHÔNG dùng kết luận chỉ tiêu độ chính xác nhận diện của Cổng C Phase 3.",
+  "canh_bao_co_mau": "Cỡ mẫu nhỏ: tổng 184 probe (genuine 22), dưới mức tối thiểu 100 mẫu (R9). Số liệu chỉ dùng kiểm chức năng.",
+  "canh_bao_chia_tap": "CẢNH BÁO: --tap=kiem-chuc-nang — lượt đo này KHÔNG dùng danh sách impostor tách theo val/test, chỉ phục vụ kiểm chức năng, không dùng số liệu này chốt ngưỡng chính thức."
+}

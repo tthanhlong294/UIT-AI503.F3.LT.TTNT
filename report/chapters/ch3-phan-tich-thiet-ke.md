@@ -9,7 +9,7 @@
 |---|---|---|---|
 | 3.1 Yêu cầu chức năng và phi chức năng | ~1,5 | Phase 0 | ⬜ |
 | **3.2 Môi trường phát triển và triển khai** | ~2 | Phase 0 | ✅ **bản nháp 1** |
-| 3.3 Kiến trúc hệ thống — bốn khối | ~2,5 | Phase 6 | ⬜ |
+| **3.3 Kiến trúc hệ thống — bốn khối** | ~2,5 | Phase 6 | ✅ **nháp 1 — phần đã cài đặt** |
 | 3.4 Thiết kế cơ sở dữ liệu | ~1,5 | Phase 6 | ⬜ |
 | 3.5 Thiết kế khối chấp hành và phân quyền | ~1,5 | Phase 5 | ⬜ |
 | 3.6 Sơ đồ đấu nối phần cứng | ~1 | Phase 5 | ⬜ |
@@ -101,9 +101,124 @@ nhiệt) viết khi có Raspberry Pi 5.
 
 ## 3.3. Kiến trúc hệ thống — bốn khối
 
-`[CHƯA VIẾT]` — dàn ý: sơ đồ khối tổng thể · luồng dữ liệu từ thu hình tới chấp hành · quy tắc phụ
-thuộc một chiều giữa các khối · giao diện giữa các khối · cơ chế trừu tượng hoá phần cứng cho phép
-kiểm thử không cần thiết bị thật.
+> **Ghi chú về trạng thái.** Mục này được viết khi hệ thống đã cài đặt xong phần thu hình, phát hiện
+> và căn chỉnh, còn các khối phía sau mới ở mức thiết kế. Phần mô tả kiến trúc đã cài đặt dựa trên
+> mã nguồn thật và có thể kiểm chứng trong kho mã; phần còn lại được ghi rõ là **thiết kế dự kiến**
+> và sẽ được cập nhật khi triển khai xong.
+
+### 3.3.1. Bốn khối và trách nhiệm của từng khối
+
+Hệ thống được phân rã thành bốn khối chức năng, mỗi khối đảm nhiệm một giai đoạn của chuỗi xử lý và
+được cài đặt thành một gói mã nguồn độc lập.
+
+**Hình 3.x.** `[CHƯA VẼ]` Sơ đồ khối tổng thể — bốn khối, luồng dữ liệu một chiều từ camera tới thiết
+bị chấp hành, và các nhánh phụ đi tới khối giám sát.
+
+**Bảng 3.x.** Bốn khối, module tương ứng và trạng thái cài đặt
+
+| Khối | Trách nhiệm | Module | Trạng thái |
+|---|---|---|---|
+| 1a — Thu hình | Mở camera, cấp khung hình liên tục, xử lý mất kết nối | `src/capture/` | **Đã cài đặt** |
+| 1b — Phát hiện | Tìm khuôn mặt, trả về khung bao và 5 điểm mốc | `src/detector/` | **Đã cài đặt** |
+| — Căn chỉnh | Đưa khuôn mặt về ảnh chuẩn 112 × 112 | `src/preprocess/` | **Đã cài đặt** |
+| 1c — Chống giả mạo | Phân biệt người thật với ảnh in hoặc màn hình | `src/antispoof/` | Thiết kế dự kiến |
+| 1d — Nhận diện | Sinh vectơ đặc trưng, so khớp với danh sách đã đăng ký | `src/recognizer/` | Thiết kế dự kiến |
+| 2 — Quyết định | Áp bảng phân quyền, chống nhiễu theo thời gian | `src/decision/` | Thiết kế dự kiến |
+| 3 — Chấp hành | Điều khiển relay qua GPIO, phát mã hồng ngoại | `src/actuator/` | Thiết kế dự kiến |
+| 4 — Giám sát | Giao diện web, cảnh báo Telegram, ghi nhật ký | `src/monitor/` | Thiết kế dự kiến |
+
+Khối 1 được chia thành bốn thành phần nhỏ vì bốn thành phần này chạy nối tiếp trên cùng một khung hình
+và có thể được thay thế độc lập với nhau. Riêng bước căn chỉnh không tạo thành một khối riêng trong
+kiến trúc bốn khối, mà là cầu nối kỹ thuật giữa phát hiện và hai thành phần phía sau — cả chống giả
+mạo lẫn nhận diện đều cần ảnh khuôn mặt đã chuẩn hoá.
+
+### 3.3.2. Luồng dữ liệu qua chuỗi xử lý
+
+Dữ liệu đi một chiều qua chuỗi, và mỗi chặng chuyển giao một kiểu dữ liệu xác định:
+
+```
+Camera ──► khung hình      (mảng ảnh BGR, H × W × 3)
+       ──► phát hiện       (danh sách FaceBox: khung bao, độ tin cậy, 5 điểm mốc)
+       ──► căn chỉnh       (ảnh 112 × 112 × 3)
+       ──► chống giả mạo   (nhãn thật/giả kèm điểm số)
+       ──► nhận diện       (Identity: mã người dùng, độ tương đồng, backend)
+       ──► quyết định      (Command: thiết bị, hành động, nguồn, thời điểm)
+       ──► chấp hành       (thay đổi trạng thái thiết bị)
+```
+
+Việc quy định rõ kiểu dữ liệu tại từng ranh giới mang lại hai lợi ích. Thứ nhất, mỗi khối có thể được
+kiểm thử độc lập bằng dữ liệu dựng sẵn, không cần các khối lân cận. Thứ hai, thay thế một khối chỉ đòi
+hỏi bản cài mới tuân thủ đúng kiểu vào và kiểu ra, không kéo theo sửa đổi ở nơi khác.
+
+**Thứ tự chống giả mạo trước nhận diện là bắt buộc.** Nếu đặt ngược lại, hệ thống sẽ tốn chi phí trích
+xuất đặc trưng cho những khuôn mặt rốt cuộc bị loại vì là ảnh in hoặc màn hình. Đặt khối chống giả mạo
+lên trước cho phép loại sớm, giữ lại ngân sách tính toán cho những khung hình thực sự cần xử lý đầy đủ.
+Thứ tự này cũng đúng về mặt an ninh: quyết định "có phải người thật không" độc lập với quyết định
+"người này là ai", và câu hỏi thứ nhất cần được trả lời trước.
+
+### 3.3.3. Quy tắc phụ thuộc một chiều
+
+Kiến trúc tuân theo một quy tắc phụ thuộc chặt: **`src/common/` là nền tảng chung và không phụ thuộc
+bất kỳ khối nào; mọi khối chỉ được phép phụ thuộc vào `src/common/`, không import chéo lẫn nhau.**
+
+Gói `src/common/` chứa những thứ mọi khối đều cần: các kiểu dữ liệu chuyển giao (`FaceBox`, `Identity`,
+`Command`), cây phân cấp ngoại lệ, bộ nạp cấu hình và bộ ghi nhật ký.
+
+Quy tắc này không chỉ là quy ước trên giấy mà kiểm chứng được bằng cách quét câu lệnh `import` trong mã
+nguồn. Ở trạng thái hiện tại, ba khối đã cài đặt đều chỉ import từ `src.common` và từ chính gói của
+mình; không tồn tại đường phụ thuộc giữa hai khối bất kỳ.
+
+Ràng buộc này phục vụ trực tiếp một mục tiêu của đề tài. Chương 4 phải đối chiếu **hai phương án nhận
+diện** trên cùng điều kiện. Phép so sánh đó chỉ thực hiện được nếu khối nhận diện thay thế được mà
+không đụng tới phần còn lại của hệ thống — điều mà quy tắc phụ thuộc một chiều bảo đảm. Nếu các khối
+tham chiếu lẫn nhau, việc đổi backend nhận diện sẽ kéo theo sửa đổi lan rộng và hai phương án sẽ không
+còn chạy trên cùng một hệ thống nữa.
+
+### 3.3.4. Giao diện giữa các khối
+
+**Bảng 3.x.** Giao diện đã cài đặt và kiểm định
+
+| Khối | Giao diện |
+|---|---|
+| Thu hình | `BoThuHinh` — lớp trừu tượng với `mo()`, `doc_frame() -> ndarray`, `dong()`, `dang_mo` |
+| | `tao_bo_thu_hinh(cfg) -> BoThuHinh` — chọn bản cài theo cấu hình |
+| Phát hiện | `YoloFaceDetector.detect(khung_hinh) -> list[FaceBox]` |
+| | thuộc tính `kich_thuoc_vao` — đọc từ đồ thị mô hình, không từ cấu hình |
+| Căn chỉnh | `can_chinh(anh, diem_moc, cfg) -> ndarray` |
+| Nền tảng | `nap_cau_hinh(duong_dan) -> dict`, `lay_gia_tri(cfg, khoa)`, `lay_logger(ten)` |
+
+Các giao diện dự kiến cho những khối chưa triển khai, theo đề cương: khối nhận diện cung cấp
+`enroll(images) -> Embedding` và `identify(face) -> (user_id, score)`; khối chống giả mạo cung cấp
+`is_live(face_crop) -> (bool, score)`; khối chấp hành định nghĩa một lớp trừu tượng chung cho các bản
+cài GPIO, hồng ngoại và giả lập.
+
+Toàn bộ tham số điều chỉnh được — ngưỡng, kích thước ảnh, số luồng, đường dẫn — nằm trong các tệp cấu
+hình YAML, không viết thẳng vào mã. Nhờ vậy việc quét ngưỡng ở Chương 4 thực hiện được bằng cách đổi
+cấu hình, không phải sửa mã nguồn, và mỗi lần đo có thể ghi lại đúng cấu hình đã dùng.
+
+### 3.3.5. Trừu tượng hoá phần cứng
+
+Hệ thống phụ thuộc vào ba nhóm thiết bị: camera, chân GPIO và bộ phát hồng ngoại. Nếu mã nguồn gọi
+trực tiếp tới chúng, toàn bộ hệ thống sẽ chỉ chạy được trên thiết bị đích, và việc kiểm thử tự động
+trở nên bất khả thi.
+
+Giải pháp là **trừu tượng hoá phần cứng**: mỗi nhóm thiết bị được che sau một lớp trừu tượng, với ít
+nhất hai bản cài đặt — một bản làm việc với thiết bị thật, một bản **giả lập** dùng khi không có thiết
+bị. Việc chọn bản nào do tệp cấu hình quyết định, mã gọi không cần biết.
+
+Khối thu hình đã áp dụng khuôn mẫu này: lớp trừu tượng `BoThuHinh` có bản cài `opencv_camera` làm việc
+với camera thật và bản cài `mock_camera` sinh khung hình tổng hợp theo một seed cho trước, hoặc đọc
+lần lượt ảnh từ một thư mục.
+
+Hiệu quả của thiết kế này quan sát được trực tiếp trong quá trình phát triển: toàn bộ bộ kiểm thử tự
+động của hệ thống chạy được trên máy phát triển **không có camera**, và chạy được cả trong môi trường
+container mô phỏng kiến trúc ARM64. Nhờ đó, phần lớn công việc phát triển và kiểm định đã hoàn thành
+trước khi phần cứng đích sẵn sàng.
+
+Cùng khuôn mẫu sẽ được áp dụng cho khối chấp hành: lớp trừu tượng chung cho thao tác bật/tắt thiết bị,
+với bản cài GPIO cho thiết bị thật và bản cài giả lập ghi nhật ký thay vì tác động vật lý. Điều này đặc
+biệt cần thiết với khối chấp hành, vì lỗi lập trình ở đây có hậu quả vật lý chứ không chỉ là kết quả
+sai trên màn hình.
 
 ---
 

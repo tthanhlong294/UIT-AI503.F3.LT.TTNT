@@ -1,0 +1,182 @@
+{
+  "run_id": "bench_detect_20260903_2044",
+  "timestamp": "2026-09-03T20:44:29.620289+07:00",
+  "git_commit": "743640b06b78d24fc90d81f5e92c6d08c7e87541",
+  "git_dirty": true,
+  "script": "scripts/benchmark_detect.py",
+  "command": "python scripts/benchmark_detect.py --device-name PC phát triển --ghi-chu lượt 3/3",
+  "device": {
+    "name": "PC phát triển",
+    "os": "Windows-11-10.0.26200-SP0",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 140 Stepping 1, GenuineIntel"
+  },
+  "moi_truong": "pc_x86",
+  "software": {
+    "python": "3.12.5",
+    "onnxruntime": "1.20.1",
+    "opencv-python": "4.13.0",
+    "numpy": "2.2.0",
+    "ncnn": "1.0.20260526"
+  },
+  "config_file": "configs/detect.yaml",
+  "config_snapshot": {
+    "export": {
+      "weights_pt": "models/yolov8n-face.pt",
+      "kich_thuoc": [
+        320,
+        640
+      ],
+      "opset": 12,
+      "batch": 1,
+      "simplify": true,
+      "out_dir": "models"
+    },
+    "inference": {
+      "conf_threshold": 0.5,
+      "iou_threshold": 0.45,
+      "max_faces": 10,
+      "num_threads": 0
+    },
+    "thu_tu_diem_moc": [
+      "mat_trai",
+      "mat_phai",
+      "mui",
+      "mieng_trai",
+      "mieng_phai"
+    ]
+  },
+  "dataset": {
+    "anh_dir": "data\\impostor\\lfw_original",
+    "n_anh_tong": 110,
+    "n_frames_moi_cau_hinh": 100
+  },
+  "seed": 42,
+  "warmup_frames": 10,
+  "cpu_temp_start_c": null,
+  "cpu_temp_max_c": null,
+  "duration_s": 101.21907680000004,
+  "notes": "lượt 3/3 CẢNH BÁO: phép đo chạy ở môi trường 'pc_x86', KHÔNG phải Raspberry Pi 5 thật. Số liệu này chỉ dùng để kiểm quy trình đo và so sánh tương đối giữa các cấu hình, KHÔNG dùng kết luận chỉ tiêu >= 10 FPS của Cổng C Phase 2.",
+  "tom_tat": {
+    "00_yolov8n-face-320_t1": {
+      "n_frames": 100,
+      "latency_tb": 36.1381829992024,
+      "latency_do_lech": 5.6763312788593625,
+      "latency_p50": 34.68234999672859,
+      "latency_p95": 46.13966499673552,
+      "fps_tb": 27.671562790582772,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    },
+    "00_yolov8n-face-320_t2": {
+      "n_frames": 100,
+      "latency_tb": 23.534050999878673,
+      "latency_do_lech": 2.943936422884936,
+      "latency_p50": 22.437350002292078,
+      "latency_p95": 29.506420003235686,
+      "fps_tb": 42.49162203333184,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    },
+    "00_yolov8n-face-320_t4": {
+      "n_frames": 100,
+      "latency_tb": 22.972323000067263,
+      "latency_do_lech": 1.8590354052688602,
+      "latency_p50": 22.92259999740054,
+      "latency_p95": 25.666750004165806,
+      "fps_tb": 43.530643374510795,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    },
+    "01_yolov8n-face-640_t1": {
+      "n_frames": 100,
+      "latency_tb": 177.37913799966918,
+      "latency_do_lech": 44.62134016530725,
+      "latency_p50": 155.99565000229632,
+      "latency_p95": 272.2295700041286,
+      "fps_tb": 5.637641558512168,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": false
+    },
+    "01_yolov8n-face-640_t2": {
+      "n_frames": 100,
+      "latency_tb": 105.76494800014189,
+      "latency_do_lech": 18.176471004361435,
+      "latency_p50": 99.70390000307816,
+      "latency_p95": 135.6514350045472,
+      "fps_tb": 9.45492830005134,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": false
+    },
+    "01_yolov8n-face-640_t4": {
+      "n_frames": 100,
+      "latency_tb": 86.39004799995746,
+      "latency_do_lech": 6.042449043749553,
+      "latency_p50": 86.23584999804734,
+      "latency_p95": 96.91191499914567,
+      "fps_tb": 11.57540738952353,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    },
+    "02_yolov8n-face-320_ncnn_model_t1": {
+      "n_frames": 100,
+      "latency_tb": 42.009331999652204,
+      "latency_do_lech": 11.041352202447658,
+      "latency_p50": 44.20844999913243,
+      "latency_p95": 55.76529500467586,
+      "fps_tb": 23.804234735469706,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    },
+    "02_yolov8n-face-320_ncnn_model_t2": {
+      "n_frames": 100,
+      "latency_tb": 27.510373000404797,
+      "latency_do_lech": 8.244032954069057,
+      "latency_p50": 24.073750002571614,
+      "latency_p95": 43.52316500262532,
+      "fps_tb": 36.349925171326674,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    },
+    "02_yolov8n-face-320_ncnn_model_t4": {
+      "n_frames": 100,
+      "latency_tb": 26.223788999923272,
+      "latency_do_lech": 5.7977964142231,
+      "latency_p50": 23.78024999779882,
+      "latency_p95": 39.45055500153103,
+      "fps_tb": 38.13331475489396,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    },
+    "03_yolov8n-face-640_ncnn_model_t1": {
+      "n_frames": 100,
+      "latency_tb": 146.1752910001087,
+      "latency_do_lech": 32.04337283341418,
+      "latency_p50": 133.59175000005052,
+      "latency_p95": 204.25434499848052,
+      "fps_tb": 6.841101482734564,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": false
+    },
+    "03_yolov8n-face-640_ncnn_model_t2": {
+      "n_frames": 100,
+      "latency_tb": 119.84964999996009,
+      "latency_do_lech": 25.462072017362075,
+      "latency_p50": 117.04575000112527,
+      "latency_p95": 161.2622500040743,
+      "fps_tb": 8.343787403637249,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": false
+    },
+    "03_yolov8n-face-640_ncnn_model_t4": {
+      "n_frames": 100,
+      "latency_tb": 96.22130599957018,
+      "latency_do_lech": 10.310440861439927,
+      "latency_p50": 93.25140000146348,
+      "latency_p95": 119.58054499991702,
+      "fps_tb": 10.392708658563281,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    }
+  }
+}

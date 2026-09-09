@@ -7,3 +7,7 @@ line-length = 100
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "slow: ca cần mô hình/dữ liệu thật hoặc chạy lâu; lọc bằng -m \"not slow\"",
+]
+addopts = ["--strict-markers"]

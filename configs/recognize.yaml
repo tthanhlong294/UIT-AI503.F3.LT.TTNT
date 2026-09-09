@@ -1,0 +1,94 @@
+# Cấu hình khối nhận diện danh tính (Phase 3)
+#
+# Đề tài so sánh HAI phương án nhận diện. Chưa chốt phương án nào —
+# việc chốt phải dựa trên số đo ở Cổng C của Phase 3 (R7), không chọn trước.
+
+# Backend đang dùng: "arcface" hoặc "dlib".
+# ⚠️ Giá trị này là backend MẶC ĐỊNH khi chạy hệ thống, KHÔNG phải kết luận so sánh.
+# Script benchmark phải chạy được cả hai bất kể giá trị ở đây.
+backend: arcface
+
+# --- Phương án B: MobileFaceNet / ArcFace ---
+arcface:
+  model_path: models/mobilefacenet.onnx
+
+  # Số chiều vectơ đặc trưng — đọc được từ đồ thị ONNX, ghi ở đây để kiểm chéo.
+  # Lệch nghĩa là đã thay mô hình khác: dừng lại, đo lại chuẩn hoá.
+  embedding_dim: 512
+
+  # Kích thước ảnh đầu vào. Phải khớp output_size của configs/preprocess.yaml.
+  input_size: [112, 112]
+
+  # --- Chuẩn hoá đầu vào ---
+  # ⚠️ ĐÃ XÁC ĐỊNH BẰNG THỰC NGHIỆM 22/08/2026, xem models/README.md §3.3.
+  #
+  # Sai chuẩn hoá KHÔNG gây lỗi: mô hình vẫn trả về đủ 512 số. Nhưng dùng ảnh thô
+  # không chuẩn hoá thì mọi khuôn mặt cho độ tương đồng 0,87-0,91 với nhau — hệ thống
+  # trông vẫn chạy mà thực chất không phân biệt được ai với ai.
+  #
+  # Kết quả đo trên 60 danh tính LFW (tách biệt cùng người so với khác người):
+  #   RGB (x-127,5)/128  -> 0,6010   <- chọn phương án này
+  #   RGB x/255          -> 0,5852
+  #   BGR (x-127,5)/128  -> 0,5673
+  #   thô, không chuẩn hoá -> 0,0356
+  #
+  # Đảo kênh BGR sang RGB là BẮT BUỘC: OpenCV đọc ảnh ra BGR.
+  channel_order: rgb
+  mean: 127.5
+  scale: 128.0
+
+# --- Phương án A: dlib / ResNet ---
+# Thư viện cài qua gói `dlib-bin` — bản đóng gói sẵn của cùng mã nguồn dlib, có wheel cho cả
+# Windows x86-64 (cp312) lẫn Linux aarch64 (cp311), kiểm ngày 04/09/2026. Chọn bản này thay vì
+# `dlib` gốc vì gói gốc chỉ phát hành mã nguồn, buộc phải biên dịch trên Raspberry Pi 5.
+# ⚠️ Phải ghi rõ nguồn và giấy phép của `dlib-bin` trong báo cáo — đây là bản do bên thứ ba
+# đóng gói, không phải bản phát hành chính thức của tác giả dlib.
+dlib:
+  model_path: models/dlib/dlib_face_recognition_resnet_model_v1.dat
+  shape_predictor: models/dlib/shape_predictor_68_face_landmarks.dat
+  embedding_dim: 128
+
+  # Số lần lấy mẫu nhiễu khi trích đặc trưng. dlib chạy mô hình nhiều lần trên các biến thể
+  # xê dịch nhẹ của cùng ảnh rồi lấy trung bình: giá trị lớn hơn cho vectơ ổn định hơn nhưng
+  # thời gian tăng gần như tuyến tính.
+  # Đặt 0 để phép đo tốc độ ở Cổng C phản ánh chi phí tối thiểu của phương án này; nếu Cổng C
+  # cho thấy độ chính xác chưa đạt thì đây là tham số đầu tiên nên thử nâng.
+  num_jitters: 0
+
+# --- Ngưỡng quyết định ---
+# ⚠️ CHƯA CHỐT. Ngưỡng phải đến từ đường cong ROC đo trên dữ liệu thật (bước 3.5, 3.7c),
+# không lấy từ tài liệu mô hình và không chọn theo cảm tính (R7, R16).
+#
+# Giá trị dưới đây chỉ là chỗ giữ để mã chạy được, KHÔNG được đưa vào báo cáo
+# như ngưỡng chính thức.
+threshold: TBD
+
+# Cách chốt ngưỡng, ghi sẵn để không quên khi tới bước 3.7c:
+#   Ấn định FAR_adapt <= 1% rồi đọc FRR tương ứng.
+#   KHÔNG dùng điểm cân bằng EER — nó coi hai loại lỗi thiệt hại ngang nhau,
+#   trong khi người lạ vào được nhà nghiêm trọng hơn chủ nhà phải thử lại (xem báo cáo §2.4.4).
+tieu_chi_chot_nguong: "FAR_adapt <= 0.01"
+
+# --- Tham số quét ngưỡng (bước 3.5) ---
+benchmark:
+  # Số bước quét ngưỡng — experiment-protocol.instructions.md §5 điểm 2.
+  so_buoc_nguong: 200
+
+  # Chỉ tiêu FAR để chốt ngưỡng, dạng số để máy đọc được.
+  # Đây là bản máy-đọc-được của khoá tieu_chi_chot_nguong ở trên ("FAR_adapt <= 0.01").
+  # ⚠️ Hai khoá phải nhất quán: sửa một thì sửa cả hai.
+  far_muc_tieu: 0.01
+
+# --- Đăng ký (enrollment) ---
+enroll:
+  # Thư mục chứa vectơ đặc trưng đã đăng ký
+  gallery_dir: data/embeddings
+
+  # Số ảnh tối thiểu để đăng ký một người. Ít hơn thì vectơ trung bình
+  # không đủ ổn định trước thay đổi góc chụp và ánh sáng.
+  min_images_per_user: 10
+
+  # Chuẩn hoá L2 từng vectơ TRƯỚC khi lấy trung bình.
+  # Không chuẩn hoá trước thì ảnh có độ dài vectơ lớn sẽ lấn át phần còn lại,
+  # trong khi độ dài không mang thông tin về danh tính (xem báo cáo §2.4.1).
+  chuan_hoa_truoc_khi_trung_binh: true

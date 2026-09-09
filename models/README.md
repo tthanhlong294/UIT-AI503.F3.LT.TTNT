@@ -119,9 +119,46 @@ thức của dlib. File phát hành ở dạng nén `.bz2`, phải giải nén t
 
 ### 3.3. MobileFaceNet / ArcFace — phương án B
 
-Ghi rõ **số chiều embedding** (512) và **kích thước ảnh đầu vào** (112×112) của bản đã tải — hai
-thông số này phải khớp với `configs/recognize.yaml`. Cùng tên "MobileFaceNet" nhưng các bản phát hành
-có thể khác nhau về chuẩn hoá đầu vào; ghi lại cách chuẩn hoá (khoảng giá trị, thứ tự kênh màu).
+**Đã xác định bằng thực nghiệm ngày 22/08/2026.** Đọc trực tiếp từ đồ thị `mobilefacenet.onnx`:
+
+| Thông số | Giá trị |
+|---|---|
+| Tên đầu vào | `input.1`, hình dạng `[N, 3, 112, 112]`, kiểu `float32` |
+| Tên đầu ra | `516`, hình dạng `[1, 512]` |
+| Số chiều embedding | **512** |
+| Kích thước ảnh vào | **112 × 112** — khớp đầu ra của `src/preprocess/align.py` |
+
+**Chuẩn hoá đầu vào: thứ tự kênh RGB, công thức `(x − 127,5) / 128`.**
+
+Cách xác định: chạy 60 danh tính LFW đã căn chỉnh qua sáu phương án chuẩn hoá, đo độ tương đồng
+cosin trung bình giữa các cặp **cùng người** và **khác người**, chọn phương án tách biệt hai nhóm
+rõ nhất.
+
+| Chuẩn hoá | Cùng người | Khác người | Tách biệt |
+|---|---|---|---|
+| **RGB `(x − 127,5)/128`** | 0,6088 | 0,0079 | **0,6010** |
+| RGB `(x − 127,5)/127,5` | 0,6088 | 0,0079 | 0,6010 |
+| RGB `x/255` | 0,5964 | 0,0113 | 0,5852 |
+| BGR `(x − 127,5)/128` | 0,5799 | 0,0126 | 0,5673 |
+| BGR `x/255` | 0,5683 | 0,0179 | 0,5504 |
+| Thô, không chuẩn hoá | 0,9110 | 0,8754 | 0,0356 |
+
+Hai điều rút ra:
+
+**Thứ tự kênh RGB thắng BGR ở mọi công thức.** Ảnh do OpenCV đọc lên là BGR, nên **bắt buộc phải
+đảo kênh** trước khi đưa vào mô hình.
+
+**Dùng ảnh thô không chuẩn hoá là hỏng hoàn toàn nhưng không báo lỗi.** Mô hình vẫn trả về đủ 512
+số, và mọi khuôn mặt đều cho độ tương đồng 0,87–0,91 với nhau. Nếu ai đó chọn ngưỡng 0,9 thì hệ
+thống trông vẫn hoạt động, trong khi thực chất không phân biệt được ai với ai. Đây là lý do phép
+kiểm "cùng người phải giống hơn khác người" cần được đưa vào bộ kiểm thử của khối nhận diện.
+
+Chênh lệch giữa `/128` và `/127,5` không đáng kể vì sau khi chuẩn hoá L2 thì một hệ số tỉ lệ chung
+gần như không đổi hướng vectơ. Chọn `/128` theo quy ước phổ biến của họ InsightFace.
+
+> Cỡ mẫu của phép xác định này là 60 danh tính, 200 ảnh. Đủ để loại trừ phương án sai một cách
+> dứt khoát — khoảng cách giữa 0,6010 và 0,0356 không phải chuyện biên — nhưng nếu đổi sang bản
+> MobileFaceNet khác thì **phải đo lại**, đừng giả định.
 
 ### 3.4. MiniFASNet — chống giả mạo
 

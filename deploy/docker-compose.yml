@@ -1,5 +1,8 @@
 services:
   faceid-dev:
+    # Toàn dự án dùng đúng MỘT image (CLAUDE.md R43, §3.1). Dòng `image` bên dưới bắt buộc phải có:
+    # thiếu nó thì compose tự đặt tên riêng dạng <thư mục>-faceid-dev và sinh ra image thứ hai.
+    image: faceid:arm64
     build:
       context: ..
       dockerfile: deploy/Dockerfile.arm64

@@ -1,0 +1,183 @@
+{
+  "run_id": "bench_detect_20260905_2011",
+  "timestamp": "2026-09-05T20:11:00.226518+07:00",
+  "git_commit": "57b874cafce9fb7dd312515e4c49ee9cfa9bb9ce",
+  "git_dirty": false,
+  "git_dirty_toan_cay": true,
+  "script": "scripts/benchmark_detect.py",
+  "command": "python scripts/benchmark_detect.py --n-frames 500 --device-name Raspberry Pi 5 8GB --ghi-chu bước 2.7 — tải liên tục trên 10 phút, 500 khung mỗi ô, tản nhiệt chủ động, không preview",
+  "device": {
+    "name": "Raspberry Pi 5 8GB",
+    "os": "Linux-6.12.93+rpt-rpi-2712-aarch64-with-glibc2.36",
+    "machine": "aarch64",
+    "processor": ""
+  },
+  "moi_truong": "pi5",
+  "software": {
+    "python": "3.11.2",
+    "onnxruntime": "1.20.1",
+    "opencv-python": "4.13.0",
+    "numpy": "2.2.0",
+    "ncnn": "1.0.20260526"
+  },
+  "config_file": "configs/detect.yaml",
+  "config_snapshot": {
+    "export": {
+      "weights_pt": "models/yolov8n-face.pt",
+      "kich_thuoc": [
+        320,
+        640
+      ],
+      "opset": 12,
+      "batch": 1,
+      "simplify": true,
+      "out_dir": "models"
+    },
+    "inference": {
+      "conf_threshold": 0.5,
+      "iou_threshold": 0.45,
+      "max_faces": 10,
+      "num_threads": 0
+    },
+    "thu_tu_diem_moc": [
+      "mat_trai",
+      "mat_phai",
+      "mui",
+      "mieng_trai",
+      "mieng_phai"
+    ]
+  },
+  "dataset": {
+    "anh_dir": "data/impostor/lfw_original",
+    "n_anh_tong": 510,
+    "n_frames_moi_cau_hinh": 500
+  },
+  "seed": 42,
+  "warmup_frames": 10,
+  "cpu_temp_start_c": 43.55,
+  "cpu_temp_max_c": 65.55,
+  "duration_s": 644.3836360130008,
+  "notes": "bước 2.7 — tải liên tục trên 10 phút, 500 khung mỗi ô, tản nhiệt chủ động, không preview",
+  "tom_tat": {
+    "00_yolov8n-face-320_t1": {
+      "n_frames": 500,
+      "latency_tb": 94.32641648809658,
+      "latency_do_lech": 0.32097516802600806,
+      "latency_p50": 94.20339049938775,
+      "latency_p95": 95.05678790101229,
+      "fps_tb": 10.601484051142704,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    },
+    "00_yolov8n-face-320_t2": {
+      "n_frames": 500,
+      "latency_tb": 52.79747910612059,
+      "latency_do_lech": 0.30895056370520524,
+      "latency_p50": 52.696921999086044,
+      "latency_p95": 53.63706609896326,
+      "fps_tb": 18.94029822882347,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    },
+    "00_yolov8n-face-320_t4": {
+      "n_frames": 500,
+      "latency_tb": 36.37987584611983,
+      "latency_do_lech": 2.9367167568400427,
+      "latency_p50": 35.16035899883718,
+      "latency_p95": 43.77029254956142,
+      "fps_tb": 27.487724373491975,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    },
+    "01_yolov8n-face-640_t1": {
+      "n_frames": 500,
+      "latency_tb": 385.6731546799783,
+      "latency_do_lech": 0.7686855678896904,
+      "latency_p50": 385.50888749887235,
+      "latency_p95": 387.1653406016776,
+      "fps_tb": 2.5928690858189865,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": false
+    },
+    "01_yolov8n-face-640_t2": {
+      "n_frames": 500,
+      "latency_tb": 207.36893609388062,
+      "latency_do_lech": 0.8858611787630583,
+      "latency_p50": 206.95503649949387,
+      "latency_p95": 209.16621175110777,
+      "fps_tb": 4.822323048169941,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": false
+    },
+    "01_yolov8n-face-640_t4": {
+      "n_frames": 500,
+      "latency_tb": 150.76462327194895,
+      "latency_do_lech": 4.103372114061192,
+      "latency_p50": 148.30031749988848,
+      "latency_p95": 157.94242115061934,
+      "fps_tb": 6.632855760838548,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": false
+    },
+    "02_yolov8n-face-320_ncnn_model_t1": {
+      "n_frames": 500,
+      "latency_tb": 28.35692746003042,
+      "latency_do_lech": 0.31204723288943365,
+      "latency_p50": 28.282091001528897,
+      "latency_p95": 29.172567799651006,
+      "fps_tb": 35.26475149359948,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    },
+    "02_yolov8n-face-320_ncnn_model_t2": {
+      "n_frames": 500,
+      "latency_tb": 18.722721750018536,
+      "latency_do_lech": 0.3513511688863711,
+      "latency_p50": 18.6442594986147,
+      "latency_p95": 18.93482809991836,
+      "fps_tb": 53.41103784758271,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    },
+    "02_yolov8n-face-320_ncnn_model_t4": {
+      "n_frames": 500,
+      "latency_tb": 16.53008171014517,
+      "latency_do_lech": 0.8500207219093716,
+      "latency_p50": 16.36010549918865,
+      "latency_p95": 16.68557620105275,
+      "fps_tb": 60.49576871639178,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    },
+    "03_yolov8n-face-640_ncnn_model_t1": {
+      "n_frames": 500,
+      "latency_tb": 116.31566053395363,
+      "latency_do_lech": 0.715818504470135,
+      "latency_p50": 115.98315049923258,
+      "latency_p95": 117.83930309975403,
+      "fps_tb": 8.597294598246215,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": false
+    },
+    "03_yolov8n-face-640_ncnn_model_t2": {
+      "n_frames": 500,
+      "latency_tb": 80.92715216406214,
+      "latency_do_lech": 1.132997130006492,
+      "latency_p50": 80.52374950057128,
+      "latency_p95": 83.47137624950847,
+      "fps_tb": 12.356792167512806,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    },
+    "03_yolov8n-face-640_ncnn_model_t4": {
+      "n_frames": 500,
+      "latency_tb": 73.18496299196704,
+      "latency_do_lech": 1.9814282943972414,
+      "latency_p50": 72.48517550033284,
+      "latency_p95": 79.02063770088716,
+      "fps_tb": 13.664009095827,
+      "ti_le_phat_hien": 1.0,
+      "dat_chi_tieu": true
+    }
+  }
+}

@@ -17,8 +17,12 @@
 4. **Không tự mở rộng phạm vi.** Ngoài đề cương = không làm (xem §2.3).
 5. **Mỗi Phase có 4 cổng A→B→C→D.** Chưa qua cổng D (tài liệu) thì Phase chưa xong.
 6. Cần làm gì → tra bảng **§6 Bản đồ nhanh** để biết dùng agent/skill/prompt nào.
-7. **Gemini viết code, Claude thiết kế – kiểm định – viết báo cáo.** Bàn giao qua file, không qua
+7. **Một tác tử chuyên trách viết code, Claude thiết kế – kiểm định – viết báo cáo.** Bàn giao qua file, không qua
    hội thoại: đặc tả → code → biên bản review → commit (xem §2.9).
+8. ⭐ **Chỉ `coder` được chạy lệnh** (R42), và chỉ trong phiên riêng của nó. Các vai còn lại —
+   `code-reviewer`, `training`, `spec-writer`, `paper-writer`, phiên chính — **không chạy gì**:
+   cần số liệu thì đưa **danh sách lệnh rời**, dừng lại, chờ người dùng chạy và dán kết quả về.
+9. ⭐ **Đúng một image Docker cho cả dự án: `faceid:arm64`** (R43, §3.1).
 
 ---
 
@@ -170,42 +174,141 @@ bị chấp nhận sai thì cận trên khoảng tin cậy 95 % của FAR vẫn 
   ghi rõ phần nào cần Pi 5 thật, rồi báo cáo.
 - **R37.** Không tự ý gọi subagent hoặc workflow trừ khi người dùng yêu cầu.
 
-### 2.9. Phân vai Claude ↔ Gemini — quy trình 5 nhịp
+### 2.9. Phân vai người cài đặt ↔ người kiểm định — quy trình 5 nhịp
 
-**Gemini viết code. Claude thiết kế, kiểm định và viết báo cáo.**
-Hai công cụ **không chia sẻ ngữ cảnh hội thoại**, nên mọi bàn giao đi qua **file trong repo**.
+**Người cài đặt viết code và tự chạy phần kiểm của mình. Claude thiết kế, kiểm định và viết báo cáo.
+Khâu kiểm định do người dùng chạy.**
+Ba vai **không chia sẻ ngữ cảnh làm việc**, nên mọi bàn giao đi qua **file trong repo**.
 
 - **R38.** Claude **không viết code sản phẩm** vào `src/`, `tests/`, `scripts/`.
   Claude viết **đặc tả** (`docs/dac-ta/`) và **biên bản review** (`docs/review/`).
   *Ngoại lệ*: sửa vặt < 10 dòng — vẫn phải ghi một dòng vào biên bản review để không mất dấu vết.
-- **R39.** Mọi bàn giao qua file, **không qua hội thoại**. Câu trả lời trong phiên chat của Gemini
+- **R39.** Mọi bàn giao qua file, **không qua hội thoại**. Câu trả lời trong phiên làm việc của người cài đặt
   không lưu lại được → đặc tả mơ hồ thì **sửa đặc tả rồi commit**, không giải thích miệng.
 - **R40.** Code **chưa có biên bản review phán quyết ĐẠT** thì không được commit vào `dev`/`main`.
 - **R41.** Người review **không được tự sửa code** — nếu sửa thì không còn ai review bản sửa đó.
   Agent `code-reviewer` cố ý **không có tool `Edit`**.
+- **R42.** ⭐ **Chỉ vai `coder` được chạy lệnh, và chỉ để tự kiểm mã của chính nó**: `black`, `ruff`,
+  `pytest` trên host, `pytest` trong `faceid:arm64`, `git` chỉ-đọc, và các phép đột biến do đặc tả
+  yêu cầu. `coder` chạy trong **phiên riêng** (cửa sổ VS Code khác), không dùng chung ngữ cảnh với
+  phiên thiết kế — nó dán kết quả chạy về cho người dùng.
+  **Mọi vai còn lại không chạy gì**: `code-reviewer`, `training`, `spec-writer`, `paper-writer` và
+  phiên chính đều **đưa danh sách lệnh rời** — mỗi khối đúng một lệnh — rồi **dừng lại chờ** người
+  dùng chạy và dán kết quả về. Các vai này chỉ **đọc** kết quả đó.
+  *Vẫn được phép cho mọi vai*: `git` chỉ-đọc (`log`, `status`, `diff`, `show`) và các tool đọc file.
+  **Không vai nào** được `git commit`/`push`, dựng image Docker mới, hay chạy `pip install`.
+  ⚠️ Ranh giới chịu lực: **người viết mã không được là người chấm mã**. `coder` chạy lệnh trên mã
+  của chính nó là **tự kiểm**, không phải kiểm định; số liệu vào biên bản review phải đến từ lượt
+  chạy của người dùng.
+- **R43.** ⭐ **Toàn dự án dùng đúng MỘT image Docker: `faceid:arm64`.**
+  Cấm cờ `-t` với tên khác, cấm image tạm cho một mã việc, cấm để `docker compose` tự đặt tên.
+  Chỉ dựng lại image khi `requirements.txt` hoặc `deploy/Dockerfile.arm64` đổi — mã nguồn được gắn
+  vào container bằng `-v` nên sửa code **không** cần dựng lại.
 
 ```
 N1 ĐẶC TẢ (Claude/spec-writer) ──▶ docs/dac-ta/P<n>-<nn>-<slug>.md
         ▼
-N2 SINH MÃ (Gemini, nhánh feat/<mã> riêng, cây làm việc phải sạch, không commit)
+N2 SINH MÃ (agent coder, phiên riêng, nhánh feat/<mã>, không commit)
+   └─▶ tự chạy §9 đặc tả: black · ruff · pytest host · pytest faceid:arm64 · git status
+       · các phép đột biến ──▶ đỏ thì sửa rồi chạy lại ──▶ dán kết quả về, DỪNG
         ▼
-N3 REVIEW (Claude/code-reviewer) ──▶ docs/review/<mã>.review.md
-        ├── 🔴 TRẢ LẠI ──▶ N4 Gemini sửa ──▶ quay lại N3   (trần 2 vòng)
+N3 REVIEW (Claude/code-reviewer) ──▶ đưa DANH SÁCH LỆNH RỜI rồi DỪNG
+   └─▶ người dùng chạy, dán kết quả ──▶ biên bản docs/review/<mã>.review.md
+        ├── 🔴 TRẢ LẠI ──▶ N4 coder sửa và chạy lại ──▶ quay lại N3   (trần 2 vòng)
         ▼
 N5 ✅ ĐẠT ──▶ commit + gộp nhánh ──▶ Cổng C (đo) ──▶ Cổng D (báo cáo)
 ```
 
 **Ranh giới ghi file — kiểm được bằng `git diff --name-only`:**
 
-| Vai | Được ghi vào |
-|---|---|
-| Gemini (cài đặt) | `src/`, `tests/`, `scripts/` |
-| Claude · `spec-writer` | `docs/dac-ta/`, `configs/` |
-| Claude · `code-reviewer` | `docs/review/` — **chỉ đọc** code |
-| Claude · `training` | `results/` |
-| Claude · `paper-writer` | `report/`, `docs/nhat-ky/` |
+| Vai | Được ghi vào | Chạy lệnh |
+|---|---|---|
+| Claude · `coder` | `src/`, `tests/`, `scripts/` | **có** — chỉ để tự kiểm, xem R42 |
+| Claude · `spec-writer` | `docs/dac-ta/`, `configs/` | không |
+| Claude · `code-reviewer` | `docs/review/` — **chỉ đọc** code | không |
+| Claude · `training` | `results/`, `notebooks/` | không |
+| Claude · `paper-writer` | `report/`, `docs/nhat-ky/` | không |
+| Claude · phiên chính | `.claude/**` — khung quy trình: định nghĩa agent, prompt, instruction | không |
+| **Người dùng** | chạy khâu **kiểm định**, và là người duy nhất `git commit`/`push` | — |
 
 `configs/*.yaml` do Claude giữ vì mọi ngưỡng phải chốt từ `results/` (R7, R16) — không để AI tự chọn.
+
+**Vì sao mô hình có hình dạng này.** Hai chế độ hỏng cần chặn, và chúng đối nghịch nhau:
+
+| Chế độ hỏng | Cách chặn |
+|---|---|
+| Tác tử vừa viết mã vừa chấm mã thì không còn ai đứng ngoài | Khâu **kiểm định** do người dùng chạy; `code-reviewer` không có `Edit`, không có `Bash` |
+| Bắt người dùng chạy cả những lệnh máy vụn vặt của vòng sửa mã thì mỗi vòng lặp mất một nhịp chờ | Vòng `black`/`ruff`/`pytest` của N2 do `coder` tự chạy |
+
+Ranh giới nằm ở chỗ: **tự kiểm** là việc của người viết mã, **kiểm định** là việc của người ngoài.
+Số liệu đi vào biên bản review — và từ đó đi vào báo cáo — luôn đến từ lượt chạy của người dùng,
+đúng tinh thần R5 và R6.
+
+**Lệnh kiểm — quy ước bắt buộc:**
+
+| | Ai đưa lệnh | Ai chạy | Khi nào |
+|---|---|---|---|
+| Tự kiểm của người cài đặt | đặc tả §9 | `coder`, trong phiên của nó | sau N2 và sau mỗi lần sửa |
+| **Chạy thật script sản phẩm** | đặc tả §12b | **người dùng** | sau khi §9 xanh |
+| Kiểm định độc lập | `code-reviewer` | **người dùng** | ở N3 |
+| Đo hiệu năng | `training` | **người dùng**, trên máy đo | Cổng C |
+
+⭐ Ranh giới giữa dòng 1 và dòng 2 nằm ở **thứ lần chạy sinh ra**, không ở việc ai gõ lệnh:
+`black`/`ruff`/`pytest`/đột biến không để lại gì ngoài cây làm việc, nên `coder` chạy để rút ngắn
+vòng lặp. Còn lệnh nào **ghi vào `results/`, `models/`, `data/` hay `report/`** thì người dùng chạy —
+số liệu đi vào báo cáo phải qua mắt người ít nhất một lần (R5, R6) và `.meta.json` phải ghi đúng
+máy đã chạy (R17). `coder` **không** chạy `scripts/export_*.py`, `scripts/benchmark_*.py`,
+`scripts/collect_*.py`, `scripts/download_*.py` ở chế độ ghi thật.
+
+Lệnh do các vai không-chạy đưa ra phải: **mỗi khối đúng một lệnh** để dán về không lẫn, nêu rõ
+**kết quả mong đợi** của từng lệnh, và với phép đột biến thì kèm đủ bốn bước *sao lưu ra ngoài repo →
+sửa → chạy → khôi phục và đối chiếu `sha256`*. Không lệnh nào được `git commit`, dựng image mới,
+hay `pip install`.
+
+**Đo, vẽ và minh hoạ là ba việc tách rời — không được trộn:**
+
+| | Ai chạy | Ở đâu | Ghi ra |
+|---|---|---|---|
+| **Đo** — `scripts/benchmark_*.py`, `scripts/export_*.py` | **người dùng**, trên máy đo (Pi 5 thật) | dòng lệnh, không giao diện | `results/*.csv` + `.meta.json` |
+| **Vẽ cho báo cáo** — `scripts/plot_*.py` | **người dùng**, máy phát triển | dòng lệnh | `report/figures/*.pdf` |
+| **Minh hoạ & khám phá** — `notebooks/*.ipynb` | **người dùng**, máy phát triển | Jupyter | đầu ra lưu trong chính tệp `.ipynb`, **được commit** |
+
+Cả ba **chỉ đọc** `results/`, không tự sinh số đo. **Tuyệt đối không đo hiệu năng trong notebook**:
+Pi 5 chạy không màn hình, Jupyter thêm chi phí làm sai lệch phép đo, và thứ tự chạy ô lộn xộn
+khiến kết quả không tái lập được. Notebook để *cho xem*, script để *tạo* ra số.
+
+⭐ **Notebook là phương tiện minh hoạ chính thức của đồ án, không phải bản nháp.** Đồ án này tồn tại
+để trình bày trước hội đồng: một con số trong `results/*.json` không mở ra cho ai xem được, còn một
+notebook có đầu ra lưu sẵn thì mở ra là thấy cả pipeline. Vì vậy:
+
+- **Không dùng tệp tạm ngoài repo** để lấy dữ kiện. Mọi lượt chạy sinh ra thứ đi vào đặc tả hay báo
+  cáo đều phải để lại vết **trong đồ án** — notebook có đầu ra, hoặc tệp trong `results/`.
+- Notebook được **commit kèm đầu ra**, không xoá output trước khi commit.
+- Notebook đánh số theo thứ tự trình bày, không theo thứ tự viết: `01_` dữ liệu · `02_`–`03_` khối
+  phát hiện · `04_` so sánh môi trường · `05_` khối nhận diện · `06_` ngưỡng và ROC.
+- Notebook **được phép** chạy pipeline thật để minh hoạ (nạp mô hình, chạy một vài ảnh, vẽ khung bao
+  và điểm mốc). Ranh giới cấm chỉ là **đo thời gian**.
+
+**Ba môi trường chạy — luôn phân biệt rõ trong mọi kết quả:**
+
+| Mã | Môi trường | Số hiệu năng dùng được không |
+|---|---|---|
+| `pc_x86` | Máy phát triển Windows x86-64 | Có, nhưng **không phải phần cứng đích** |
+| `docker_arm64` | Container `faceid:arm64` qua QEMU | **Không** — QEMU giả lập, thời gian không quy đổi được |
+| `pi5` | Raspberry Pi 5 thật | **Có** — đây là số kết luận chỉ tiêu §1 |
+
+Mọi `.meta.json` phải mang trường `moi_truong` nhận một trong ba giá trị trên, để notebook
+`04_so_sanh_moi_truong.ipynb` nhóm được. Bảng ba môi trường trình bày được **tính khả chuyển**
+(cùng đầu vào, cùng kết quả nhận diện ở cả ba nơi — một luận điểm mạnh), nhưng cột `docker_arm64`
+phải ghi rõ là **số tham khảo**, không dùng kết luận chỉ tiêu. Nói trước điều này trong báo cáo là
+cẩn trọng phương pháp; để hội đồng phát hiện thì thành lỗ hổng.
+
+Notebook do Claude **viết** nhưng người dùng **chạy**. Claude đọc lại tệp `.ipynb` đã có đầu ra để
+phân tích — không tự thi hành ô nào.
+
+`.claude/**` là **khung quy trình**, không phải sản phẩm của mã việc nào. Sửa nó **nên đi commit riêng**
+với loại `chore(quy-trinh)`, không trộn vào commit của một mã việc — để sau này truy được bài học nào
+sinh ra từ mã việc nào.
 
 **Mã việc** `P<Phase>-<nn>-<slug>` xuất hiện nguyên vẹn ở 5 chỗ, tạo chuỗi truy vết:
 đặc tả → tên nhánh → biên bản review → commit message → nhật ký tuần.
@@ -219,7 +322,6 @@ N5 ✅ ĐẠT ──▶ commit + gộp nhánh ──▶ Cổng C (đo) ──▶
 ```
 UIT-AI503.F3.LT.TTNT/
 ├── CLAUDE.md                        # File này — hiến pháp repo (Claude đọc)
-├── GEMINI.md                        # Hiến pháp cài đặt mã nguồn (Gemini đọc) — tự chứa
 ├── README.md
 ├── requirements.txt                 # Pin cứng phiên bản (==)
 ├── .env.example                     # Mẫu biến môi trường (KHÔNG chứa secret thật)
@@ -227,6 +329,7 @@ UIT-AI503.F3.LT.TTNT/
 ├── .claude/
 │   ├── agents/                      # Subagent chuyên trách (§4.1)
 │   │   ├── onboarding-with-skills.md
+│   │   ├── coder.agent.md
 │   │   ├── spec-writer.agent.md
 │   │   ├── code-reviewer.agent.md
 │   │   ├── paper-writer.agent.md
@@ -238,7 +341,7 @@ UIT-AI503.F3.LT.TTNT/
 │   ├── prompts/                     # Prompt mẫu tham số hoá (§4.3)
 │   │   ├── data-pipeline.prompt.md
 │   │   ├── eda.prompt.md
-│   │   └── gemini-handoff.prompt.md # Lệnh bàn giao việc cho Gemini (§2.9)
+│   │   └── coder-handoff.prompt.md  # Lệnh bàn giao việc cho coder (§2.9)
 │   └── instructions/                # Chuẩn kỹ thuật bắt buộc (§4.4)
 │       ├── python-embedded.instructions.md
 │       ├── experiment-protocol.instructions.md
@@ -248,13 +351,17 @@ UIT-AI503.F3.LT.TTNT/
 │
 ├── docs/
 │   ├── DE-CUONG-CHI-TIET.md         # Nguồn sự thật về phạm vi
+│   ├── quy-tac-cai-dat.md           # Hiến pháp cài đặt mã nguồn — người cài đặt đọc
+│   ├── quy-uoc-du-lieu.md           # Quy ước đặt tên và tổ chức dữ liệu (Phase 1)
 │   ├── DC DATN ....pdf              # Bản gốc
 │   ├── Don DKDA ....docx            # Bản gốc
 │   ├── nguoi-tham-gia.md            # Danh sách người tham gia + ngày đồng ý (tự ghi, dạng bảng)
 │   ├── spoof-protocol.md            # Quy trình tạo bộ dữ liệu tấn công
-│   ├── dac-ta/                      # Đặc tả từng mã việc — Claude viết, Gemini thực thi (§2.9)
+│   ├── dac-ta/                      # Đặc tả từng mã việc — spec-writer viết, coder thực thi (§2.9)
 │   │   └── P0-01-nen-tang.md
 │   ├── review/                      # Biên bản review mã nguồn — Claude viết (§2.9)
+│   ├── kiem-may/                    # ĐÓNG BĂNG 27/08/2026 — di tích quy trình kịch bản .ps1
+│   │   └── README.md                #   Vì sao bỏ, và lệnh kiểm giờ nằm ở đâu
 │   └── nhat-ky/                     # Nhật ký tuần (tuan-01.md, tuan-02.md, ...)
 │
 ├── configs/                         # TẤT CẢ tham số ở đây (R16)
@@ -294,7 +401,13 @@ UIT-AI503.F3.LT.TTNT/
 ├── scripts/                         # Script CLI: enroll, benchmark, export model, collect data
 ├── tests/                           # pytest — chạy được KHÔNG cần Pi (dùng backend mock)
 │
-├── notebooks/                       # EDA, phân tích kết quả
+├── notebooks/                       # Minh hoạ pipeline cho báo cáo — commit KÈM đầu ra (§2.9)
+│   ├── 01_eda_khuon_mat.ipynb       #   Dữ liệu: phân bố, tách biệt embedding, 3 tập impostor
+│   ├── 02_phan_tich_hieu_nang_detect.ipynb
+│   ├── 03_xac_minh_export_ncnn.ipynb#   .pt vs ONNX vs NCNN trên cùng ảnh
+│   ├── 04_so_sanh_moi_truong.ipynb  #   pc_x86 · docker_arm64 · pi5
+│   ├── 05_khoi_nhan_dien.ipynb      #   Hai backend đặt cạnh nhau: điểm mốc, vectơ, tách biệt
+│   └── 06_nguong_va_roc.ipynb       #   Quét ngưỡng, ROC/DET, ba con số FAR
 ├── results/                         # Output thực nghiệm (R17) — CSV/JSON + .meta.json
 │
 ├── report/                          # Báo cáo LaTeX/Markdown
@@ -303,13 +416,33 @@ UIT-AI503.F3.LT.TTNT/
 │   ├── figures/                     # Hình sinh từ results/ (KHÔNG vẽ tay số liệu)
 │   └── refs.bib
 │
-├── deploy/
+├── deploy/                          # Đúng MỘT image cho cả dự án: faceid:arm64 (R43)
 │   ├── Dockerfile.arm64
 │   ├── docker-compose.yml
 │   └── systemd/faceid.service
 │
 └── hardware/                        # Sơ đồ đấu nối, ảnh mạch, bảng chân GPIO
 ```
+
+### 3.1. Docker — một image duy nhất (R43)
+
+| | |
+|---|---|
+| Tên image | **`faceid:arm64`** — không có tên nào khác trong toàn dự án |
+| Dựng lại khi nào | **Chỉ khi** `requirements.txt` hoặc `deploy/Dockerfile.arm64` đổi |
+| Sửa code có phải dựng lại không | **Không.** Mã nguồn gắn vào container bằng `-v`, sửa xong chạy luôn |
+
+```bash
+docker build -f deploy/Dockerfile.arm64 -t faceid:arm64 .
+```
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd)":/app -w /app faceid:arm64 pytest -q
+```
+
+Cấm: đặt tag khác (`faceid:nofl`, `faceid-arm64-review:...`), để `docker compose` tự sinh tên,
+giữ image tạm sau khi dùng xong. Mỗi image ARM64 nặng khoảng 250 MB — vài lượt là đầy đĩa, và
+tệ hơn là **không còn biết số đo lấy từ image nào**, khiến kết quả mất tính tái lập (R17).
 
 ---
 
@@ -320,15 +453,17 @@ UIT-AI503.F3.LT.TTNT/
 | File | Gọi khi nào | Nhiệm vụ |
 |---|---|---|
 | `onboarding-with-skills.md` | **Đầu mỗi phiên làm việc mới**, hoặc khi mất ngữ cảnh | Quét repo, xác định đang ở Phase nào, tổng hợp việc đã/đang/sắp làm, chỉ ra skill/prompt cần dùng tiếp |
+| `coder.agent.md` | **Nhịp 2 và 4** — cài đặt theo đặc tả, chạy trong phiên riêng | Viết code vào `src/`, `tests/`, `scripts/` theo danh sách trắng; **tự chạy** §9 đặc tả và dán kết quả về; **không commit** |
 | `spec-writer.agent.md` | **Nhịp 1** (Cổng A) — trước mọi hạng mục code | Chuyển một bước trong §5 thành đặc tả có chữ ký hàm, danh sách trắng file, ánh xạ tham số → `configs/`, tiêu chí nghiệm thu chạy được |
-| `code-reviewer.agent.md` | **Nhịp 3 và 5** — sau khi Gemini báo xong | Chạy `black`/`ruff`/`pytest` + quét mẫu vi phạm, đối chiếu đặc tả, phân loại lỗi 4 mức, ra phán quyết, ghi `docs/review/` |
-| `training.agent.md` | Cổng C của Phase 2, 3, 4, 7 | **Thiết kế giao thức đo**, chạy benchmark, phân tích số liệu, chốt ngưỡng từ ROC, ghi kết quả đúng chuẩn `results/`. *Không tự viết script — viết đặc tả cho Gemini* |
+| `code-reviewer.agent.md` | **Nhịp 3** — sau khi `coder` dán kết quả tự kiểm | Đưa danh sách lệnh kiểm định độc lập cho người dùng chạy, chờ kết quả, đối chiếu đặc tả, phân loại lỗi 4 mức, ra phán quyết, ghi `docs/review/` |
+| `training.agent.md` | Cổng C của Phase 2, 3, 4, 7 | **Thiết kế giao thức đo**, chạy benchmark, phân tích số liệu, chốt ngưỡng từ ROC, ghi kết quả đúng chuẩn `results/`. *Không tự viết script — viết đặc tả cho `coder`* |
 | `paper-writer.agent.md` | Cổng D mỗi Phase & Phase 8 | Viết/cập nhật chương báo cáo từ dữ liệu thật trong `results/`, đúng văn phong học thuật, không bịa số |
 
 > Gọi agent bằng cách nêu rõ tên trong yêu cầu, ví dụ: *"Dùng training agent chạy benchmark Phase 3"*.
 >
-> **Code do Gemini viết** — xem §2.9 và `.claude/prompts/gemini-handoff.prompt.md`.
-> Hiến pháp của Gemini là [`GEMINI.md`](GEMINI.md) ở gốc repo (tự chứa, Gemini không đọc file này).
+> **Code do agent `coder` viết** — xem §2.9 và `.claude/prompts/coder-handoff.prompt.md`.
+> Hiến pháp của người cài đặt là [`docs/quy-tac-cai-dat.md`](docs/quy-tac-cai-dat.md) — tự chứa,
+> trung lập với công cụ, không phụ thuộc file này.
 
 ### 4.2. Skills — `.claude/skills/`
 
@@ -344,7 +479,7 @@ UIT-AI503.F3.LT.TTNT/
 |---|---|
 | `data-pipeline.prompt.md` | Phase 1 — thu thập, chuẩn hoá, crop/align, kiểm chất lượng, tách train/test, đăng ký embedding |
 | `eda.prompt.md` | Phase 1 & 6 — phân tích thống kê CSDL khuôn mặt và phân tích kết quả benchmark |
-| `gemini-handoff.prompt.md` | Mọi Phase — lệnh bàn giao Nhịp 2/Nhịp 4 cho Gemini, quy ước nhánh `feat/`, xử lý sự cố (§2.9) |
+| `coder-handoff.prompt.md` | Mọi Phase — lệnh bàn giao Nhịp 2/Nhịp 4 cho `coder`, quy ước nhánh `feat/`, cách đọc kết quả nó báo về, xử lý sự cố (§2.9) |
 
 ### 4.4. Instructions — `.claude/instructions/`
 
@@ -352,7 +487,7 @@ Chuẩn kỹ thuật **luôn áp dụng** khi động vào loại file tương �
 
 | File | Áp dụng cho |
 |---|---|
-| `python-embedded.instructions.md` | Toàn bộ `src/**/*.py`, `scripts/**/*.py` — Claude tra khi **viết đặc tả**; bản rút gọn cho Gemini nằm trong `GEMINI.md` |
+| `python-embedded.instructions.md` | Toàn bộ `src/**/*.py`, `scripts/**/*.py` — Claude tra khi **viết đặc tả**; bản rút gọn nằm trong `docs/quy-tac-cai-dat.md` |
 | `experiment-protocol.instructions.md` | `scripts/benchmark*`, mọi thứ ghi vào `results/` |
 | `code-review.instructions.md` | Mọi lượt review code — rubric 4 mức, mẫu quét vi phạm, cách viết mục lỗi |
 | `hardware-safety.instructions.md` | `src/actuator/**`, `hardware/**` |
@@ -404,7 +539,8 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
 ---
 
 ### PHASE 1 — Dữ liệu khuôn mặt
-**Tuần 2 (22–28/07/2026)** · ⬅️ **Đang ở đây (24/07/2026)**
+**Tuần 2 (22–28/07/2026)** · ⚠️ **Còn mở** — phần không cần camera đã xong; các bước thu dữ liệu
+(1.3, 1.6, 1.7, 1.8, 1.10–1.13) chưa làm. Trạng thái cập nhật ở §8, không ghi mốc thời gian ở đây.
 
 | Bước | Việc cụ thể | Đầu ra |
 |---|---|---|
@@ -589,8 +725,8 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
 | Phân tích thống kê dữ liệu hoặc kết quả | prompt `eda` |
 | Export model, chạy benchmark, so sánh 2 phương án | agent `training` + `experiment-protocol.instructions` |
 | **Bắt đầu một hạng mục code mới** | agent `spec-writer` → viết `docs/dac-ta/<mã>.md` |
-| **Giao code cho Gemini viết** | prompt `gemini-handoff` |
-| **Kiểm định code Gemini vừa viết** | agent `code-reviewer` + `code-review.instructions` |
+| **Giao code cho người cài đặt** | agent `coder` + prompt `coder-handoff` |
+| **Kiểm định code vừa viết** | agent `code-reviewer` + `code-review.instructions` |
 | Tra chuẩn viết code Python cho `src/` | `python-embedded.instructions` (Claude tra khi viết đặc tả) |
 | Đấu nối / lập trình GPIO, IR | `hardware-safety.instructions` |
 | Vẽ biểu đồ, bảng, sơ đồ cho báo cáo | skill `latex-visualization` |
@@ -623,12 +759,68 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
 
 ## 8. Ghi chú vận hành
 
-- **Vị trí hiện tại (07/08/2026 — Tuần 4)**: **Phase 0 đã đóng** — tag `phase-0-done`, hoàn tất 5/6
-  bước. Bước 0.4 (cài Pi OS, bật camera) **hoãn** vì chưa có phần cứng, đã ghi vào
-  `docs/dieu-chinh-pham-vi.md`. Cổng C đã qua: container ARM64 chạy được `import cv2, onnxruntime`.
-  **Đang chuyển sang Phase 1 — Dữ liệu khuôn mặt.** Phần thu thập ảnh thật chờ camera của hệ thống;
-  quy ước đặt tên, script thu thập và tải LFW làm trước được.
-- Báo cáo: Chương 1 §1.1–1.3 xong · Chương 2 khung + §2.5 xong · Chương 3 §3.2 xong · Chương 5 khung.
-  Nhật ký tuần 1–4 đã ghi. Trọng số mô hình đã tải đủ, `models/README.md` bảng A đầy đủ.
+- **Vị trí hiện tại (06/09/2026 — Tuần 8)**: **Phase 0 đủ 6/6 bước** — bước 0.4 đóng ngày
+  05/09/2026 khi Raspberry Pi 5 và webcam USB về tới nơi.
+  **Phase 1, 2 và 3 đang mở song song**; lý do ghi ở `docs/dieu-chinh-pham-vi.md`.
+  **22 mã việc đã qua đủ 5 nhịp và gộp `dev`** — mỗi mã việc một biên bản trong `docs/review/`,
+  đếm số tệp ở đó là ra số chuẩn, đừng chép lại con số trong mục này mà không kiểm.
+  Ba mã việc gần nhất: `P3-03` (`enroll.py` + factory, bước 3.4) · `P3-04` (ghi gallery nguyên
+  khối qua thư mục tạm) · `P0-04` (giải nén chạy được trên Python 3.11.2 của Pi OS, khai báo dấu
+  `slow`, dọn phụ thuộc).
+  `P2-06d` **đã bỏ** theo quyết định ngày 04/09/2026: khối phát hiện đã qua ba vòng kiểm, thêm
+  vòng thứ tư không đổi kết luận nào.
+  Số ca kiểm thử — ghi kèm mốc, môi trường và bộ lọc theo quy ước ở
+  `.claude/agents/spec-writer.agent.md`: **555 ca thu thập** trên `dev` sau khi gộp `P0-04`;
+  `pc_x86` không lọc marker cho `555 passed`; `docker_arm64` với `-m "not slow"` cho
+  `522 passed, 1 skipped, 32 deselected`; `pi5` cùng bộ lọc cho `518 passed, 5 skipped,
+  32 deselected`. Ba môi trường cùng thu thập 555 ca.
+  **Đang cài đặt**: `P3-05` — `scripts/benchmark_recognize.py`, bước 3.5, quét ngưỡng và sinh dữ
+  liệu cho ROC/DET. **Đã có đặc tả, chưa cài đặt**: `P0-05` (dọn dẹp nền tảng sau `P0-04`).
+- **Chỉ tiêu FPS riêng module phát hiện ≥ 10: ✅ ĐẠT** — đo trên Pi 5 thật ngày 05/09/2026, ba lượt,
+  8/12 cấu hình vượt ngưỡng, cao nhất **60,6 FPS** (NCNN, 320 px, 4 luồng). Nguồn:
+  `results/bench_detect_20260905_{1911,1914,1916}.csv`. Bước 2.7 cũng xong: 10,7 phút tải liên tục,
+  `throttled=0x0`, nhiệt đỉnh 65,55 °C, hiệu năng lệch dưới 1,4 % so với lượt ngắn
+  (`results/bench_detect_20260905_2011.csv`).
+  **Cổng C Phase 2 còn thiếu đúng bước 2.5** — đo FPS từ camera thật. `benchmark_detect.py` đọc ảnh
+  từ đĩa nên số hiện có là năng lực suy luận thuần, chưa gồm chi phí thu hình và giải mã khung.
+  Cần một mã việc mới cho đường vào từ camera.
+- **Notebook còn thiếu**: `01_eda_khuon_mat.ipynb` (bước 1.13, **vẫn chặn** vì chưa thu gallery) ·
+  `04_so_sanh_moi_truong.ipynb` (**hết chặn** từ 05/09/2026 — đã có số `pi5` đặt cạnh `pc_x86` và
+  `docker_arm64`) · `06_nguong_va_roc.ipynb` (bước 3.5, chờ `P3-05` sinh dữ liệu).
+  `05_khoi_nhan_dien.ipynb` viết ngày 04/09/2026 sau khi `P3-02` đóng — minh hoạ hai backend trên
+  LFW, không sinh số cho báo cáo.
+  Notebook là phương tiện trình bày chính khi bảo vệ, không phải bản nháp — xem §2.9.
+- **Gallery hiện có**: `data/embeddings/{dlib,arcface}/`, 8 người từ LFW, dựng lại ngày 06/09/2026
+  trên commit `bfc9026` với `git_dirty: false`. ⚠️ Dựng bằng cờ `--toi-thieu 3` thay cho ngưỡng 10
+  trong cấu hình, vì không danh tính LFW nào đủ 10 ảnh. Đây là gallery **kiểm chức năng**, không
+  dùng cho bất kỳ con số nào trong báo cáo; `gallery.meta.json` ghi cả hai ngưỡng để không lẫn.
+  ⚠️⚠️ **Gallery này KHÔNG còn probe genuine nào** — `enroll.py` dùng trọn ảnh của mỗi người để
+  đăng ký, manifest cho `so_anh_dung == so_anh_tim_thay` ở cả 8 người (38 ảnh). Lấy chính những ảnh
+  đó làm probe thì mỗi ảnh được so với một vectơ trung bình **có chứa chính nó**, cho điểm cao giả
+  tạo, kéo FRR xuống gần 0 mà không gì báo lỗi. Đặc tả `P3-05` xử lý bằng chế độ `chia` và phép
+  loại trừ theo mã băm nội dung; **đừng bao giờ đo trực tiếp trên thư mục này**.
+- ⚠️ **Rủi ro tiến độ lớn nhất: chưa thu được dữ liệu khuôn mặt.** Phần cứng đã hết là lý do —
+  Pi 5 và webcam USB có từ 05/09/2026, camera mở được bằng chính mã của đồ án. Nhưng **gallery
+  2–3 người nhà (bước 1.3) và tập impostor in-domain (bước 1.6) vẫn chưa thu**, và **bốn trên sáu
+  chỉ tiêu cam kết ở §1 đều cần chúng**: độ chính xác nhận diện, ba con số FAR, tỉ lệ phát hiện
+  giả mạo, độ trễ điều khiển đầu-cuối. Đây là việc phụ thuộc lịch của người khác nên không rút
+  ngắn được bằng cách làm nhanh hơn — phải khởi động sớm nhất có thể.
+- ⚠️ **Rủi ro thứ hai: chưa có ngoại vi cho Phase 5.** Chưa có module relay, LED, LED phát IR.
+  Chỉ tiêu độ trễ điều khiển < 2 s không đo được nếu thiếu. Mua tại cửa hàng linh kiện nhanh hơn
+  đặt online đáng kể.
+- Báo cáo: Chương 1 §1.1–1.3 xong · Chương 2 xong 6/7 mục (§2.7 chặn vì chưa có thiết bị), đã bổ
+  sung §2.6.4–2.6.6 về NCNN và PNNX · Chương 3 §3.2 và §3.3 xong · Chương 5 khung.
+  **Chương 4 đã mở** (`report/chapters/ch4-trien-khai-thuc-nghiem.md`): §4.1 ba môi trường, §4.3.1
+  kiểm chứng chuyển đổi NCNN, §4.3.2 và §4.3.3 kết quả trên `pc_x86`, **§4.3.4 kết quả trên Pi 5
+  thật** (Bảng 4.4 mười hai cấu hình, Bảng 4.5 tỉ lệ tăng tốc NCNN 2,07–3,35 lần, Bảng 4.6 đối
+  chiếu hai môi trường), và **§4.6 Bảng 4.7 đối chiếu chỉ tiêu** — dòng FPS phát hiện đã ✅ Đạt,
+  bốn dòng còn lại `[CHƯA ĐO]`.
+  Một dữ kiện dùng được cho §4.1: container `faceid:arm64` chạy Python **3.11.16**, Pi OS chạy
+  **3.11.2** — cùng nhánh 3.11 nhưng khác nhau đúng ở mốc 3.11.4, nơi `tarfile.FilterError` được
+  backport. Bảy ca test xanh trong container mà đỏ trên Pi. Đây là ca cụ thể chứng minh
+  `docker_arm64` không thay thế được `pi5`, kể cả ở mức tính đúng đắn chức năng chứ không chỉ tốc độ.
+  Nhật ký tuần 1–8 đã ghi đủ. Trọng số mô hình đã tải đủ,
+  `models/README.md` bảng A đầy đủ, §3.3 đã chốt cách chuẩn hoá của mô hình nhận diện bằng
+  thực nghiệm.
 - Cập nhật mục này mỗi khi qua Phase mới.
 - Nhật ký tuần lưu ở `docs/nhat-ky/tuan-XX.md`, viết vào **cuối mỗi tuần**, không dồn.
