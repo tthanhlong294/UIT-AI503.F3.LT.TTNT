@@ -9,8 +9,18 @@ backend: auto
 # --- Camera thật ---
 opencv:
   device_index: 0 # chỉ số thiết bị, thường là 0 cho webcam đầu tiên
+  # Định dạng khung hình yêu cầu webcam trả về (mã FOURCC, đúng 4 ký tự ASCII in được).
+  # MJPG là mặc định vì webcam USB thường CHỈ cho tốc độ khung cao ở định dạng nén.
+  # Đo trên chính webcam của đồ án bằng `v4l2-ctl --list-formats-ext` (09/09/2026):
+  #   YUYV @ 1280x720 -> 10 / 5 / 1 fps       (đây là thứ OpenCV lấy khi không đặt FOURCC)
+  #   MJPG @ 1280x720 -> 30 / 25 / 24 / 20 / 15 / 10 / 5 fps
+  # Không đặt khoá này thì driver chốt YUYV và trần tốc độ khung tụt xuống 10 fps.
+  fourcc: MJPG
   width: 1280
   height: 720
+  # Tốc độ khung yêu cầu. Tập giá trị hợp lệ phụ thuộc CẢ định dạng LẪN độ phân giải,
+  # nên trong mã lệnh này được đặt SAU width/height (xem docs/dac-ta/P2-08-camera-fourcc-fps.md).
+  # Webcam có quyền từ chối im lặng — giá trị thực tế được dò lại và ghi log WARNING nếu lệch.
   fps: 30
   # Số khung hình bỏ đi sau khi mở camera. Webcam thường trả về vài khung đầu
   # thiếu sáng hoặc chưa lấy nét do cảm biến đang tự hiệu chỉnh.
