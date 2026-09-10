@@ -1,13 +1,20 @@
-"""Kiểm thử cho scripts/export_detector_ncnn.py (mã việc P2-04).
+"""Kiểm thử cho scripts/export_detector_ncnn.py (mã việc P2-04, dọn chú thích ở P0-05 §9).
 
-Ca cần export NCNN thật (`models/yolov8n-face.pt` + `ultralytics`/`torch`/`ncnn`) được
-đánh dấu `@pytest.mark.slow` và `pytest.importorskip` ba gói đó — chúng ghi thư mục NCNN
-tạm vào `tmp_path`, KHÔNG ghi vào `models/` hay `results/` thật.
+Ca cần export NCNN thật (`models/yolov8n-face.pt` + `ultralytics`/`torch`/`ncnn`) được đánh
+dấu `@pytest.mark.slow`; fixture của chúng gọi `pytest.importorskip` cho `ultralytics` và
+`ncnn` (kéo theo `torch`). Chúng ghi thư mục NCNN tạm vào `tmp_path`, KHÔNG ghi vào `models/`
+hay `results/` thật.
 
-⚠️ `ncnn`/`ultralytics`/`torch` KHÔNG BAO GIỜ được import ở mức module (xem §7.2, §8 đặc
-tả). Ba gói này không có trong `requirements.txt`/container ARM64; import ở mức module làm
-`pytest` chết ngay khâu thu thập, kéo đổ cả bộ test. Nhờ ràng buộc này,
-`pytest -m "not slow" --collect-only` chạy được kể cả khi máy không có chúng.
+Tình trạng ba gói:
+- `ncnn` CÓ trong `requirements.txt` (dòng 9) — phụ thuộc CHẠY, cần trên cả Pi lẫn máy dev.
+- `ultralytics` chỉ có trong `requirements-dev.txt`; `torch` không được ghim ở tệp nào, nó
+  đến kèm theo `ultralytics`.
+
+⚠️ Dù `ncnn` đã được ghim, cả ba gói `ncnn`/`ultralytics`/`torch` VẪN KHÔNG BAO GIỜ được
+import ở mức module (xem §7.2, §8 đặc tả P2-04): `ultralytics`/`torch` không có trên thiết bị
+đích, và ca kiểm thử không được giả định môi trường đã cài đúng bản `ncnn` đã ghim. Import ở
+mức module làm `pytest` chết ngay khâu thu thập, kéo đổ cả bộ test — nên `pytest.importorskip`
+giữ nguyên và `pytest -m "not slow" --collect-only` chạy được kể cả khi máy không có chúng.
 
 Các ca không-slow giả lập `ultralytics.YOLO` bằng cách monkeypatch
 `scripts.export_detector_ncnn._tao_mo_hinh_yolo` — hàm chỉ dẫn ở mức module đặt riêng

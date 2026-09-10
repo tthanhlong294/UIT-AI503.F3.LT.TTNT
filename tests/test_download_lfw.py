@@ -9,6 +9,7 @@ import hashlib
 import io
 import json
 import logging
+import sys
 import tarfile
 from pathlib import Path
 from unittest.mock import patch
@@ -610,6 +611,26 @@ def _tao_tgz_voi_lien_ket(duong_dan: Path, ten_lien_ket: str, muc_tieu: str) -> 
     return duong_dan
 
 
+def _tao_tgz_voi_quyen(duong_dan: Path, ten: str, noi_dung: bytes, mode: int) -> Path:
+    """Dựng tệp .tgz chứa đúng một tệp thường mang giá trị `mode` chỉ định."""
+    with tarfile.open(duong_dan, "w:gz") as tf:
+        info = tarfile.TarInfo(name=ten)
+        info.size = len(noi_dung)
+        info.mode = mode
+        tf.addfile(info, io.BytesIO(noi_dung))
+    return duong_dan
+
+
+def _bo_qua_neu_khong_posix() -> None:
+    """Bỏ qua ca kiểm thử trên nền không phải POSIX.
+
+    Bit quyền chỉ có ý nghĩa trên POSIX: trên Windows ``os.chmod`` chỉ hiểu bit chỉ-đọc nên
+    phép kiểm ``st_mode`` sẽ xanh vì lý do vô can, không chứng minh được mặt nạ quyền chạy.
+    """
+    if sys.platform == "win32":
+        pytest.skip("bit quyền chỉ có ý nghĩa trên POSIX")
+
+
 def test_29_giai_nen_nhanh_b_thanh_cong(tmp_path, monkeypatch):
     """Nhánh B (không có tarfile.data_filter) giải nén tệp hợp lệ đúng cây thư mục và trả về
     đúng thư mục gốc duy nhất bên trong tệp nén — đường thành công song song ca 03."""
@@ -750,3 +771,64 @@ def test_36_giai_nen_hai_nhanh_cung_ket_qua_thanh_cong(tmp_path, monkeypatch):
     tuong_doi_a = {p.relative_to(dich_a).as_posix() for p in dich_a.rglob("*") if p.is_file()}
     tuong_doi_b = {p.relative_to(dich_b).as_posix() for p in dich_b.rglob("*") if p.is_file()}
     assert tuong_doi_a == tuong_doi_b
+
+
+def test_37_giai_nen_nhanh_a_ten_tuyet_doi_giai_nen_vao_trong(tmp_path):
+    """Nhánh A (bộ lọc ``data``) KHÔNG ném lỗi với thành viên mang tên tuyệt đối: nó cắt ký tự
+    '/' dẫn đầu rồi giải nén vào TRONG thư mục đích — khác hẳn nhánh B (ca 32) ném LoiCauHinh.
+
+    Chốt tường minh khác biệt hành vi hai nhánh với đúng chuỗi tệp nén ca 32 dùng, để biến duy
+    nhất đổi giữa hai ca là nhánh chạy. Bỏ qua trên Python < 3.11.4 (không có nhánh A để kiểm).
+    """
+    if not hasattr(tarfile, "data_filter"):
+        pytest.skip("Python hiện tại không có tarfile.data_filter (< 3.11.4)")
+    archive = _tao_tgz(tmp_path / "a.tgz", {"/tmp/thoat.txt": b"x"})
+    dich = tmp_path / "dest"
+
+    giai_nen(archive, dich)
+
+    assert (dich / "tmp" / "thoat.txt").exists()  # 37a — giải nén vào trong đích
+    # 37b — không tệp nào rơi ra ngoài dich
+    assert not [p for p in tmp_path.rglob("thoat.txt") if not p.is_relative_to(dich)]
+
+
+def test_49_giai_nen_nhanh_b_xoa_bit_setuid(tmp_path, monkeypatch):
+    """Nhánh B áp mặt nạ quyền an toàn: bit ``setuid`` (0o4755) trong tệp nén bị xoá sau
+    giải nén. Đây là bằng chứng máy cho giả định rằng ``TarInfo`` sửa ở vòng lặp CHÍNH là đối
+    tượng ``extractall`` dùng (§5.2 đặc tả P0-05, ràng buộc 4)."""
+    _bo_qua_neu_khong_posix()
+    monkeypatch.delattr(tarfile, "data_filter", raising=False)
+    archive = _tao_tgz_voi_quyen(tmp_path / "q.tgz", "lfw/a.jpg", b"x", 0o4755)
+    dich = tmp_path / "dest"
+
+    giai_nen(archive, dich)
+
+    assert (dich / "lfw" / "a.jpg").stat().st_mode & 0o7000 == 0
+
+
+def test_50_giai_nen_nhanh_a_cung_cho_bit_cao_sach(tmp_path):
+    """Cặp đối chứng ca 49: nhánh A (bộ lọc ``data``) cũng cho bit cao sạch với CÙNG tệp nén
+    và CÙNG tham số — hai nhánh nay ĐỒNG Ý về quyền, không còn "nhánh B yếu hơn ở bit quyền".
+    Bỏ qua trên Python < 3.11.4 (không có nhánh A để kiểm)."""
+    _bo_qua_neu_khong_posix()
+    if not hasattr(tarfile, "data_filter"):
+        pytest.skip("Python hiện tại không có tarfile.data_filter (< 3.11.4)")
+    archive = _tao_tgz_voi_quyen(tmp_path / "q.tgz", "lfw/a.jpg", b"x", 0o4755)
+    dich = tmp_path / "dest"
+
+    giai_nen(archive, dich)
+
+    assert (dich / "lfw" / "a.jpg").stat().st_mode & 0o7000 == 0
+
+
+def test_51_giai_nen_nhanh_b_khong_pha_quyen_doc_tep_thuong(tmp_path, monkeypatch):
+    """Cặp đối chứng theo chiều ngược của ca 49: mặt nạ KHÔNG phá quyền đọc của tệp thường
+    (0o644) — nó chỉ xoá bit setuid/setgid/sticky và bit ghi nhóm/khác, không đụng bit đọc."""
+    _bo_qua_neu_khong_posix()
+    monkeypatch.delattr(tarfile, "data_filter", raising=False)
+    archive = _tao_tgz_voi_quyen(tmp_path / "q.tgz", "lfw/a.jpg", b"x", 0o644)
+    dich = tmp_path / "dest"
+
+    giai_nen(archive, dich)
+
+    assert (dich / "lfw" / "a.jpg").stat().st_mode & 0o400 != 0

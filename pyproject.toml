@@ -10,4 +10,4 @@ pythonpath = ["."]
 markers = [
     "slow: ca cần mô hình/dữ liệu thật hoặc chạy lâu; lọc bằng -m \"not slow\"",
 ]
-addopts = ["--strict-markers"]
+addopts = ["--strict-markers", "--strict-config"]
