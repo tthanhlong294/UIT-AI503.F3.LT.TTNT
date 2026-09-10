@@ -759,34 +759,45 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
 
 ## 8. Ghi chú vận hành
 
-- **Vị trí hiện tại (06/09/2026 — Tuần 8)**: **Phase 0 đủ 6/6 bước** — bước 0.4 đóng ngày
-  05/09/2026 khi Raspberry Pi 5 và webcam USB về tới nơi.
+- **Vị trí hiện tại (10/09/2026 — Tuần 9)**: **Phase 0 đóng trọn** — bước 0.4 đóng ngày
+  05/09/2026 khi Raspberry Pi 5 và webcam USB về tới nơi; `P0-05` gộp ngày 10/09/2026 nên
+  **không còn mã việc nào có đặc tả mà chưa cài**.
   **Phase 1, 2 và 3 đang mở song song**; lý do ghi ở `docs/dieu-chinh-pham-vi.md`.
-  **22 mã việc đã qua đủ 5 nhịp và gộp `dev`** — mỗi mã việc một biên bản trong `docs/review/`,
+  **26 mã việc đã qua đủ 5 nhịp và gộp `dev`** — mỗi mã việc một biên bản trong `docs/review/`,
   đếm số tệp ở đó là ra số chuẩn, đừng chép lại con số trong mục này mà không kiểm.
-  Ba mã việc gần nhất: `P3-03` (`enroll.py` + factory, bước 3.4) · `P3-04` (ghi gallery nguyên
-  khối qua thư mục tạm) · `P0-04` (giải nén chạy được trên Python 3.11.2 của Pi OS, khai báo dấu
-  `slow`, dọn phụ thuộc).
+  Ba mã việc gần nhất: `P2-07` (cờ `--nguon camera` cho `benchmark_detect.py`, bước 2.5) ·
+  `P2-08` (đặt FOURCC MJPG, áp `CAP_PROP_FPS`, phơi thông số camera thật) · `P0-05` (làm sạch
+  bit quyền nhánh dự phòng, thêm `--strict-config`).
   `P2-06d` **đã bỏ** theo quyết định ngày 04/09/2026: khối phát hiện đã qua ba vòng kiểm, thêm
   vòng thứ tư không đổi kết luận nào.
   Số ca kiểm thử — ghi kèm mốc, môi trường và bộ lọc theo quy ước ở
-  `.claude/agents/spec-writer.agent.md`: **555 ca thu thập** trên `dev` sau khi gộp `P0-04`;
-  `pc_x86` không lọc marker cho `555 passed`; `docker_arm64` với `-m "not slow"` cho
-  `522 passed, 1 skipped, 32 deselected`; `pi5` cùng bộ lọc cho `518 passed, 5 skipped,
-  32 deselected`. Ba môi trường cùng thu thập 555 ca.
-  **Đang cài đặt**: `P3-05` — `scripts/benchmark_recognize.py`, bước 3.5, quét ngưỡng và sinh dữ
-  liệu cho ROC/DET. **Đã có đặc tả, chưa cài đặt**: `P0-05` (dọn dẹp nền tảng sau `P0-04`).
+  `.claude/agents/spec-writer.agent.md`: **878 ca thu thập** trên `dev` sau khi gộp `P0-05`;
+  `pc_x86` không lọc marker cho `875 passed, 3 skipped`; `docker_arm64` với `-m "not slow"` cho
+  `845 passed, 1 skipped, 32 deselected`; `pi5` **[CHƯA ĐO Ở MỐC NÀY]** — mốc gần nhất là
+  `518 passed, 5 skipped, 32 deselected` tại `P0-04`, đã lạc hậu 323 ca. Ba ca skip trên
+  `pc_x86` là 49, 50, 51 của `P0-05`, gác theo nền tảng vì bit quyền chỉ có nghĩa trên POSIX.
+  **Còn nợ trên `pi5`**: §14b của `P0-05` — chỉ cần chạy `pytest`, không cần camera.
 - **Chỉ tiêu FPS riêng module phát hiện ≥ 10: ✅ ĐẠT** — đo trên Pi 5 thật ngày 05/09/2026, ba lượt,
   8/12 cấu hình vượt ngưỡng, cao nhất **60,6 FPS** (NCNN, 320 px, 4 luồng). Nguồn:
   `results/bench_detect_20260905_{1911,1914,1916}.csv`. Bước 2.7 cũng xong: 10,7 phút tải liên tục,
   `throttled=0x0`, nhiệt đỉnh 65,55 °C, hiệu năng lệch dưới 1,4 % so với lượt ngắn
   (`results/bench_detect_20260905_2011.csv`).
-  **Cổng C Phase 2 còn thiếu đúng bước 2.5** — đo FPS từ camera thật. `benchmark_detect.py` đọc ảnh
-  từ đĩa nên số hiện có là năng lực suy luận thuần, chưa gồm chi phí thu hình và giải mã khung.
-  Cần một mã việc mới cho đường vào từ camera.
+  **Bước 2.5 đã đo lần đầu ngày 09/09/2026** trên Pi 5 với camera thật, ba lượt 300 khung, NCNN
+  320 px 4 luồng, 1,0 m: `fps_tb` **51,2** (vượt ngưỡng 10 gấp năm lần), `fps_tong_tb` **10,02**,
+  lấy khung p50 **80 ms**, nhiệt 42,2 → 43,9 °C, `throttled=0x0`.
+  ⚠️ **Ba tệp kết quả lượt đó còn nằm trên Pi, chưa vào `results/`** — phải copy về và commit,
+  vì chúng là đối chứng "trước FOURCC" cho lượt đo lại.
+  Lấy khung 80 ms là do webcam chạy YUYV: `v4l2-ctl` cho thấy ở 1280×720 định dạng này **chỉ có
+  10/5/1 fps**, còn MJPG có 30 fps. `P2-08` đặt FOURCC sang MJPG để nới trần; **cần đo lại ba
+  lượt** rồi mới chốt Cổng C. Kỳ vọng lấy khung p50 xuống ≈ 33 ms và `fps_tong_tb` lên ≈ 19;
+  vượt 27 thì phải nghi bộ đệm khung trả về khung cũ.
+  ⚠️ `benchmark_detect.py` **chưa ghi `fourcc_thuc_te` vào `.meta.json`** (mục 🔵-2 biên bản
+  `P2-08`). Bằng chứng định dạng thật lấy từ dòng log `mo()` in ra đầu mỗi lượt, dán vào nhật ký.
 - **Notebook còn thiếu**: `01_eda_khuon_mat.ipynb` (bước 1.13, **vẫn chặn** vì chưa thu gallery) ·
   `04_so_sanh_moi_truong.ipynb` (**hết chặn** từ 05/09/2026 — đã có số `pi5` đặt cạnh `pc_x86` và
-  `docker_arm64`) · `06_nguong_va_roc.ipynb` (bước 3.5, chờ `P3-05` sinh dữ liệu).
+  `docker_arm64`) · `06_nguong_va_roc.ipynb` (bước 3.5, **hết chặn** từ 08/09/2026 — `P3-05` đã
+  sinh `results/bench_recognize_{dlib,arcface}_20260908_0707.{csv,nguong.csv}`, nhưng đó là mẻ
+  **kiểm chức năng trên LFW**, không phải số báo cáo).
   `05_khoi_nhan_dien.ipynb` viết ngày 04/09/2026 sau khi `P3-02` đóng — minh hoạ hai backend trên
   LFW, không sinh số cho báo cáo.
   Notebook là phương tiện trình bày chính khi bảo vệ, không phải bản nháp — xem §2.9.
