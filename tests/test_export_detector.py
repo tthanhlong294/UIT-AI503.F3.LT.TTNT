@@ -39,10 +39,14 @@ _DUONG_DAN_LFW_THAT = Path("data/impostor/lfw_original")
 _TOI_THIEU_ANH_LAY_MAU = 100
 
 
-def _bo_qua_neu_thieu(duong_dan: Path) -> None:
-    """Bỏ qua ca kiểm thử (có thông báo) nếu đường dẫn dữ liệu/model thật chưa có trên máy."""
+def _bo_qua_neu_thieu_weights_pt(duong_dan: Path) -> None:
+    """Bỏ qua ca kiểm thử (có thông báo) nếu tệp trọng số `.pt` thật chưa có trên máy.
+
+    Trọng số `.pt` là đầu vào tải thủ công, không phải đầu ra của script nào — vì vậy
+    thông báo chỉ sang tài liệu nguồn tải, không chỉ sang một script.
+    """
     if not duong_dan.exists():
-        pytest.skip(f"chưa có {duong_dan}, chạy scripts/export_detector.py trước")
+        pytest.skip(f"chưa có {duong_dan}; xem models/README.md để tải trọng số")
 
 
 def _bo_qua_neu_lfw_thieu_anh() -> None:
@@ -75,7 +79,7 @@ def _cfg_co_ban() -> dict:
 
 def _sao_chep_weights_tam(thu_muc: Path) -> Path:
     """Sao chép trọng số .pt thật vào thư mục tạm — export không ghi vào models/ thật."""
-    _bo_qua_neu_thieu(_DUONG_DAN_WEIGHTS_THAT)
+    _bo_qua_neu_thieu_weights_pt(_DUONG_DAN_WEIGHTS_THAT)
     dich = thu_muc / "yolov8n-face.pt"
     shutil.copy2(_DUONG_DAN_WEIGHTS_THAT, dich)
     return dich
@@ -578,3 +582,19 @@ def test_dong44_chon_mau_anh_thu_muc_rong(tmp_path):
     trả về [] khiến ca 39 xanh giả và ca 40 đỏ) — để lần sau không ai phải suy đoán lại.
     """
     assert _chon_mau_anh(tmp_path, 20, 42) == []
+
+
+# ============================================================================
+# §7 P0-05 — hàm gác trọng số .pt chỉ đúng đường lấy trọng số (dòng 55)
+# ============================================================================
+
+
+def test_dong55_gac_trong_so_pt_chi_dung_duong_dan(tmp_path):
+    """Thông báo `skip` của hàm gác trọng số `.pt` chỉ sang tài liệu nguồn tải, không còn chỉ
+    sang một script — tệp `.pt` là ĐẦU VÀO của script export, không phải đầu ra, nên lời khuyên
+    cũ khiến người đọc mất một vòng thử.
+    """
+    with pytest.raises(pytest.skip.Exception) as e:
+        _bo_qua_neu_thieu_weights_pt(tmp_path / "khong_co.pt")
+    assert "models/README.md" in str(e.value)  # 55a — chỉ đúng đường
+    assert "export_detector.py" not in str(e.value)  # 55b — không còn chỉ sai đường

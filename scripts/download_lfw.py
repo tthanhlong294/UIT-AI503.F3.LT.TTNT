@@ -98,6 +98,10 @@ _MSG_KHONG_AN_TOAN = (
     "đã chặn giải nén: {archive}"
 )
 
+# Mặt nạ quyền của nhánh dự phòng — xoá setuid/setgid/sticky và bit ghi của nhóm/khác,
+# đúng những gì bộ lọc "data" của thư viện chuẩn làm (tài liệu tarfile, mục Extraction filters).
+_MASK_QUYEN_AN_TOAN = 0o755
+
 
 def giai_nen(archive: Path, dich: Path) -> Path:
     """Giải nén tệp .tgz vào thư mục đích, trả về thư mục gốc vừa giải nén.
@@ -145,13 +149,20 @@ def giai_nen(archive: Path, dich: Path) -> Path:
                     # đích) nên phải bắt TRƯỚC TarError, không thì không bao giờ tới nhánh này.
                     raise LoiCauHinh(_MSG_VUOT_RA_NGOAI.format(archive=archive)) from e
             else:
-                # Nhánh B — dự phòng cho Python < 3.11.4. Tự kiểm từng thành viên nằm trong
-                # thư mục đích trước khi giải nén thủ công (không có tham số filter=).
+                # Nhánh B — dự phòng cho Python < 3.11.4 (Raspberry Pi OS Bookworm đóng gói
+                # 3.11.2). Với mỗi thành viên: kiểm nằm trong thư mục đích, VÀ làm sạch bit
+                # quyền an toàn (xoá setuid/setgid/sticky và bit ghi nhóm/khác) đúng phần bộ
+                # lọc "data" của nhánh A làm sẵn. Nhánh B KHÔNG xử lý uid/gid — extractall áp
+                # chủ sở hữu ghi trong tệp nén khi tiến trình chạy bằng root; đây là chủ ý,
+                # xem §5.1 đặc tả P0-05. Do đó KHÔNG chạy scripts/download_lfw.py bằng sudo:
+                # không cần, và là cách rẻ nhất để khác biệt còn lại ở uid/gid không bao giờ
+                # có tác dụng.
                 dich_that = dich.resolve()
                 for tv in thanh_vien:
                     duong_dan_tv = (dich / tv.name).resolve()
                     if not duong_dan_tv.is_relative_to(dich_that):
                         raise LoiCauHinh(_MSG_VUOT_RA_NGOAI.format(archive=archive))
+                    tv.mode &= _MASK_QUYEN_AN_TOAN
                 tf.extractall(dich)  # không có filter= — tham số này chưa tồn tại ở 3.11.2
     except tarfile.TarError as e:
         raise LoiCauHinh(_MSG_HONG.format(archive=archive)) from e
