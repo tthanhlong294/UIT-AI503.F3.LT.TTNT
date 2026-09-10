@@ -66,22 +66,39 @@ thêm ca mới, hoặc là đổi chuỗi thông báo, hoặc là siết chặt 
 
 ### 3.1. Mốc kho
 
-Theo quy ước mới ở 🔵-5 biên bản `P0-04`, mọi con số ca dưới đây ghi kèm mốc, môi trường và bộ lọc.
+Theo quy ước mới ở 🔵-5 biên bản `P0-04`, mọi con số ca dưới đây ghi kèm **mốc commit, môi trường và
+bộ lọc marker**. Một con số trần không xác định được điều gì.
 
-> **555 ca thu thập** trên **`dev` sau commit gộp `P0-04`** (cây mã = `bfc9026` + nhánh
-> `feat/p0-04-tuong-thich-pi-os`), môi trường **`pc_x86`**, lệnh `pytest -q` **không lọc marker**.
-
-Ba lượt chạy khác trên **cùng mốc đó**, đã đo ngày 06/09/2026:
+**Mốc của mã việc này** — đỉnh `dev` = **`e4b7b85`** (commit gộp `P2-08`), đo ngày **10/09/2026**:
 
 | Môi trường | Python | Lệnh | Kết quả |
+|---|---|---|---|
+| `pc_x86` (Windows) | 3.12.5 | `pytest -q` — **không** lọc marker | **`870 passed`** |
+| `docker_arm64` (`faceid:arm64`) | 3.11.16 | `pytest -q -m "not slow"` | **`837 passed, 1 skipped, 32 deselected`** |
+| `pc_x86` (Windows) | 3.12.5 | `pytest -q -m "not slow"` | `[CHƯA ĐO Ở MỐC NÀY]` |
+| `pi5` | 3.11.2 | `pytest -q -m "not slow"` | `[CHƯA ĐO Ở MỐC NÀY]` |
+
+⚠️ Hai ô `[CHƯA ĐO Ở MỐC NÀY]` **không được suy ra bằng phép trừ** từ hai ô đã đo (kiểu "870 trừ 32
+deselected"): số ca mang dấu `slow` và số ca `skip` phụ thuộc nền tảng đều đã đổi từ mốc cũ, và R5
+cấm đưa số suy diễn vào tài liệu. Ai cần hai con số đó thì **đo**, rồi ghi lại nguyên văn.
+
+**Mốc lịch sử — chỉ để tham chiếu, KHÔNG phải mốc của mã việc này.** Đặc tả soạn ngày 06/09/2026,
+khi đỉnh `dev` còn ở commit gộp `P0-04` (cây mã = `bfc9026` + nhánh `feat/p0-04-tuong-thich-pi-os`).
+Khi ấy cả bốn môi trường cùng thu thập **555 ca**:
+
+| Môi trường | Python | Lệnh | Kết quả (mốc `P0-04`, 06/09/2026) |
 |---|---|---|---|
 | `pc_x86` (Windows) | 3.12.5 | `pytest -q` | `555 passed` |
 | `pc_x86` (Windows) | 3.12.5 | `pytest -q -m "not slow"` | `523 passed, 32 deselected` |
 | `docker_arm64` (`faceid:arm64`) | 3.11.16 | `pytest -q -m "not slow"` | `522 passed, 1 skipped, 32 deselected` |
 | `pi5` | 3.11.2 | `pytest -q -m "not slow"` | `518 passed, 5 skipped, 32 deselected` |
 
-Ba con số tổng đều bằng **555**; khác nhau ở cách phân bổ `passed`/`skipped` vì các người gác
-`skip` phụ thuộc nền tảng. Đây là mốc để đối chiếu, **không** phải con số phải đạt lại.
+Từ mốc lịch sử đó, `dev` đã nhận thêm ba mã việc — `P3-05`, `P2-07`, `P2-08` — nên số ca trên
+`pc_x86` không lọc marker đã tăng **315 ca** (555 → 870). Con số **555 nay chỉ còn giá trị lịch sử**;
+mọi phép đối chiếu của mã việc này dựa trên mốc đo tại **§11.0**, không dựa trên bảng lịch sử này.
+
+Trong từng mốc, các môi trường khác nhau ở cách phân bổ `passed`/`skipped` vì những người gác `skip`
+phụ thuộc nền tảng. Mốc là thứ để **trừ**, **không** phải con số phải đạt lại.
 
 ### 3.2. Một số hiệu = một hàm test
 
@@ -95,8 +112,24 @@ không bao giờ trùng giữa các tệp.
 
 ### 3.3. Số ca mong đợi sau mã việc
 
-**555 + 8 = 563 ca thu thập** trên mốc §3.1 cộng nhánh này. Phân bổ dự đoán cho từng môi trường ở
-§11, bảng [4]–[7].
+Mã việc thêm đúng **8 hàm test** (§3.2), không ca nào mang dấu `slow`, nên số ca **thu thập** tăng
+đúng **8** ở mọi môi trường và mọi bộ lọc:
+
+| Môi trường | Lệnh | Phép cộng | Kết quả mong đợi |
+|---|---|---|---|
+| `pc_x86` | `pytest -q` — không lọc marker | **870 + 8** | **878** ca thu thập |
+| `docker_arm64` | `pytest -q -m "not slow"` | **837 + 8** | **845** `passed` (tổng thu thập `878`) |
+| `pc_x86` | `pytest -q -m "not slow"` | mốc `[CHƯA ĐO]` + 8 | không chốt được — xem §11 [5] |
+| `pi5` | `pytest -q -m "not slow"` | mốc `[CHƯA ĐO]` + 8 | không chốt được — xem §14b |
+
+Dòng `docker_arm64` cộng vào `passed` chứ không vào tổng-đã-lọc, vì cả tám ca mới đều **chạy** ở môi
+trường đó (Linux, có `tarfile.data_filter`) và không ca nào mang dấu `slow`; `skipped` giữ nguyên
+`1`, `deselected` giữ nguyên `32`. Phân bổ chi tiết ở §11 [7].
+
+Hai con số `878` và `845` là **suy ra từ mốc in ở §3.1**, tức từ lượt đo ngày 10/09/2026. Chúng chỉ
+đúng nếu `dev` không nhận thêm mã việc nào giữa lúc soạn đặc tả và lúc cài đặt. Vì vậy **§11.0 bắt
+buộc đo lại mốc trước khi sửa dòng nào**: thứ phải đúng là **phép trừ bằng 8**, không phải hai con
+số tuyệt đối trên.
 
 ⚠️ Nếu người cài đặt đo ra con số khác, **không được tự chỉnh cho khớp**: báo lại nguyên văn con
 số đo được kèm mốc và lệnh đã chạy. Hai mã việc trước đều lệch ở đúng chỗ này.
@@ -337,6 +370,37 @@ trường. Nếu một ca cũ đổi trạng thái, đó là dấu hiệu đã �
 Mỗi khối đúng một lệnh. Chạy lại toàn bộ sau **mỗi** lần sửa. Không lệnh nào commit, dựng image
 hay `pip install`.
 
+### 11.0. Lấy mốc TRƯỚC khi sửa dòng nào — bắt buộc
+
+Ba lệnh dưới đây chạy **trên cây mã chưa sửa**, ngay sau khi rẽ nhánh `feat/p0-05-don-dep-nen-tang`
+từ đỉnh `dev`. Ghi lại **nguyên văn** đầu ra của cả ba vào báo cáo tự kiểm, rồi mới bắt đầu sửa.
+
+```bash
+git rev-parse --short HEAD
+```
+[M0] Hash mốc thật của lượt này. Đặc tả soạn ở `e4b7b85`; nếu khác thì `dev` đã đi tiếp — vẫn làm
+bình thường, chỉ cần mọi phép trừ dưới đây dựa trên **[M1]/[M2] đo được**, không dựa trên hash cũ.
+
+```bash
+pytest -q
+```
+[M1] Mốc `pc_x86`, **không** lọc marker. Ở `e4b7b85` cho `870 passed`.
+
+```bash
+MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd)":/app -w /app faceid:arm64 pytest -q -m "not slow"
+```
+[M2] Mốc `docker_arm64`, lọc marker. Ở `e4b7b85` cho `837 passed, 1 skipped, 32 deselected`.
+
+⚠️ **Nếu [M1]/[M2] khác `870`/`837` thì con số đo được LÀ mốc thật của lượt này.** Dùng nó cho mọi
+phép trừ ở [4], [5], [7]; **không** dùng con số in trong đặc tả. Đặc tả này soạn ngày 06/09/2026 và
+đã một lần lạc hậu vì `dev` nhận thêm ba mã việc (§3.1) — đây là cơ chế để nó không lạc hậu lần nữa.
+Ghi rõ trong báo cáo: mốc bao nhiêu, sau khi sửa bao nhiêu, hiệu bằng bao nhiêu.
+
+Hai mã việc gần nhất — `P2-07` và `P2-08` — đều mở đầu bằng bước lấy mốc này; nhờ đó phép trừ luôn
+có nghĩa kể cả khi con số tuyệt đối đã đổi.
+
+### 11.1. Lệnh chạy sau khi sửa
+
 ```bash
 black --check --line-length 100 src tests scripts
 ```
@@ -355,14 +419,29 @@ python -VV
 ```bash
 pytest -q
 ```
-[4] `pc_x86`, không lọc marker. Mong đợi: **563 ca thu thập** = `560 passed, 3 skipped`.
-Ba ca skip là 49, 50, 51 (người gác POSIX). Mốc cũ: `555 passed`.
+[4] `pc_x86`, không lọc marker. **Đối chiếu bằng phép trừ với [M1], không bằng con số tuyệt đối:**
+
+| Đại lượng | Kỳ vọng | Ở mốc `e4b7b85` thì ra |
+|---|---|---|
+| Tổng ca thu thập | **[M1] cộng đúng 8** | `870 + 8 = 878` |
+| `skipped` | **[M1] cộng đúng 3** — ba ca 49, 50, 51 bị người gác POSIX chặn trên Windows | `0 + 3 = 3` |
+| `passed` | **[M1] cộng đúng 5** — năm ca 37, 52, 53, 54, 55 | `870 + 5 = 875` |
+| `failed`, `errors` | **0** | 0 |
 
 ```bash
 pytest -q -m "not slow"
 ```
-[5] `pc_x86`, lọc marker. Mong đợi: `528 passed, 3 skipped, 32 deselected` — tổng **563**.
-Mốc cũ: `523 passed, 32 deselected`.
+[5] `pc_x86`, lọc marker. Mốc cho lệnh này **chưa đo** (§3.1), nên **không** đối chiếu tổng tuyệt
+đối. Ba điều kiện dưới đây kiểm được **trong chính lượt chạy này**, không cần mốc riêng:
+
+| # | Điều kiện | Vì sao đủ để bắt lỗi |
+|---|---|---|
+| 5a | `passed + skipped + deselected` **bằng đúng tổng thu thập của [4]** | Bộ lọc marker chỉ đổi cách phân loại, không đổi tập ca được thu thập |
+| 5b | `skipped` bằng đúng phần `skipped` của [4] (ba ca 49, 50, 51) | Không ca nào trong tám ca mới mang dấu `slow`, nên chúng không bị `deselected` |
+| 5c | `deselected` **không đổi** so với [M1] chạy lại có lọc marker — nếu không đo mốc này thì chỉ cần khẳng định mã việc **không thêm và không xoá** dấu `slow` nào | Mã việc này không đụng khoá `markers` (§8.2) |
+
+Nếu muốn đối chiếu cả tổng, hãy chạy `pytest -q -m "not slow"` **trước khi sửa** như một mốc bổ
+sung [M3], rồi trừ đúng 8.
 
 ```bash
 pytest tests/test_download_lfw.py tests/test_export_detector.py tests/test_cau_hinh_pytest.py -q
@@ -373,9 +452,17 @@ pytest tests/test_download_lfw.py tests/test_export_detector.py tests/test_cau_h
 ```bash
 MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd)":/app -w /app faceid:arm64 pytest -q -m "not slow"
 ```
-[7] `docker_arm64`, Python 3.11.16. Mong đợi: `530 passed, 1 skipped, 32 deselected` — tổng
-**563**. Ba ca quyền **chạy** ở đây (Linux), ca 37 và 50 cũng chạy (có `data_filter`). Ca skip duy
-nhất vẫn là ca 43 như mốc cũ.
+[7] `docker_arm64`, Python 3.11.16. **Đối chiếu bằng phép trừ với [M2]:**
+
+| Đại lượng | Kỳ vọng | Ở mốc `e4b7b85` thì ra |
+|---|---|---|
+| Tổng ca thu thập | **[M2] cộng đúng 8** | `(837 + 1 + 32) + 8 = 878` |
+| `passed` | **[M2] cộng đúng 8** — cả tám ca mới đều chạy ở đây | `837 + 8 = 845` |
+| `skipped` | **[M2] không đổi** — vẫn đúng ca 43 | `1` |
+| `deselected` | **[M2] không đổi** | `32` |
+
+Cả tám ca mới đều `passed` ở môi trường này: ba ca quyền 49/50/51 chạy vì là Linux, ca 37 và 50
+chạy vì Python 3.11.16 **có** `tarfile.data_filter`.
 ⚠️ **Không dựng lại image.** Mã việc không đụng `requirements.txt` lẫn `deploy/Dockerfile.arm64`
 (§2), nên theo R43 image hiện có là đúng image. Nếu người cài đặt thấy một lý do bắt buộc phải sửa
 hai tệp đó → **dừng lại, báo cáo**, không tự quyết.
@@ -383,7 +470,10 @@ hai tệp đó → **dừng lại, báo cáo**, không tự quyết.
 ```bash
 git status --short --untracked-files=all
 ```
-[8] Mong đợi: đúng **6** dòng, đúng sáu tệp của §2. Không dòng thứ bảy.
+[8] Mong đợi: đúng **sáu tệp của §2 ở trạng thái đã sửa (`M`)**, **cộng đúng hai dòng untracked
+`??` là hai tệp `.docx` trong `docs/bao-cao-tuan/`** — hai tệp này có từ trước mã việc, không do
+`coder` tạo, và **không được xoá cũng không được commit**. Tổng cộng **8 dòng**, không phải 6.
+Bất kỳ dòng thứ chín nào = sửa tệp ngoài danh sách trắng, lỗi CHẶN-A.
 
 ```bash
 git diff --numstat dev...HEAD
@@ -493,13 +583,27 @@ Không ca nào của mã việc này được gọi `subprocess` tới `git`, đ
 
 ### 14b. Lượt của người dùng — sau khi §11, §12, §13 xanh
 
-Chạy trên **Raspberry Pi 5** (Python 3.11.2 — môi trường duy nhất chạy nhánh B tự nhiên):
+Chạy trên **Raspberry Pi 5** (Python 3.11.2 — môi trường duy nhất chạy nhánh B tự nhiên).
 
-```bash
-python3 -m pytest -q -m "not slow"
-```
-Mong đợi: `524 passed, 7 skipped, 32 deselected` — tổng **563**. Bảy ca skip = năm ca của mốc cũ
-cộng ca 37 và ca 50 (Pi không có `data_filter`, không có nhánh A để kiểm).
+⚠️ **Mốc `pi5` ở `e4b7b85` CHƯA ĐO** (§3.1). Có hai cách đối chiếu, chọn một:
+
+**Cách 1 — đo mốc trước, đo sau, rồi trừ** (chặt hơn, nên dùng): trên cây mã **chưa gộp nhánh**
+chạy `python3 -m pytest -q -m "not slow"` lấy mốc `[M4]`, ghi nguyên văn; rồi chạy lại trên cây mã
+đã có nhánh. Kỳ vọng: tổng thu thập **[M4] cộng 8**, `passed` **[M4] cộng 6**, `skipped` **[M4]
+cộng 2** (ca 37 và ca 50 — Pi không có `tarfile.data_filter` nên không có nhánh A để kiểm),
+`deselected` **không đổi**.
+
+**Cách 2 — chỉ đối chiếu phân bổ, không đối chiếu tổng**: nếu không tiện đo mốc, chấp nhận **không
+kết luận về tổng**, và chỉ kiểm ba điều kiện nội tại của lượt chạy:
+
+| # | Điều kiện |
+|---|---|
+| a | `failed` và `errors` đều bằng **0** |
+| b | Ca **37** và ca **50** ở trạng thái `skipped`, lý do skip nêu thiếu `tarfile.data_filter` |
+| c | Ca **49** và ca **51** ở trạng thái `passed` |
+
+Tuyệt đối **không** suy tổng của `pi5` bằng cách trừ từ số của `pc_x86` hay `docker_arm64` — ba môi
+trường phân bổ `skipped` khác nhau, và R5 cấm số suy diễn.
 
 ```bash
 python3 -m pytest tests/test_download_lfw.py -q
