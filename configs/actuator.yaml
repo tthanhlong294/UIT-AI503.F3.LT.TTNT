@@ -1,0 +1,61 @@
+# Cấu hình KHỐI 3 — chấp hành: đèn qua relay/GPIO và tivi qua hồng ngoại (IR).
+# Mọi tham số điều khiển thiết bị nằm ở đây, không hardcode trong mã nguồn (R16, G1).
+#
+# ⛔ KHOÁ `backend` KHÔNG CÓ GIÁ TRỊ `auto`.
+# Khối thu hình có `auto` (mở thử camera thật, hỏng thì rơi về `mock`) vì "mở được camera"
+# là một phép dò có ý nghĩa. Khối chấp hành KHÔNG có phép dò tương đương: mở một chân GPIO
+# thành công trên mọi Raspberry Pi, kể cả khi không có sợi dây nào cắm vào chân đó. Nghĩa là
+# `auto` chỉ có thể rơi về giả lập TRONG IM LẶNG, và hậu quả là hệ thống ghi log "đã bật đèn
+# cho u01", dashboard hiện đèn sáng, biên bản đo độ trễ (bước 5.6) cho ra một con số đẹp —
+# trong khi không có dòng điện nào đi qua relay. Vì vậy backend phải được khai TƯỜNG MINH.
+#
+#   mock : bắt buộc giả lập — không chạm phần cứng, dùng cho PC/Docker/kiểm thử
+#   gpio : bắt buộc phần cứng thật — CHƯA CÀI ĐẶT, thuộc mã việc P5-03
+backend: mock
+
+# --- Hai nhóm thiết bị đại diện theo đề cương MT5 ---
+# `loai` là khoá duy nhất mà mã việc P5-01 kiểm; các khối con `gpio:` / `ir:` do P5-03 đọc.
+#   relay : đóng/ngắt qua chân GPIO (đèn)
+#   ir    : phát lệnh hồng ngoại (tivi) — MỘT CHIỀU, không có phản hồi
+devices:
+  den_phong_khach:
+    loai: relay
+    mo_ta: "Đèn phòng khách — giai đoạn thử nghiệm dùng LED 5 V mô phỏng"
+    gpio:
+      # TBD — chốt ở P5-03 sau khi đấu nối và ghi hardware/gpio-pinout.md.
+      # Tránh GPIO 2/3 (I2C) và GPIO 14/15 (UART).
+      pin: TBD
+      # Đa số module relay giá rẻ kích hoạt khi chân xuống mức LOW.
+      # Đặt sai khoá này thì đèn bật/tắt ngược mà phần mềm không hề báo lỗi.
+      active_low: true
+
+  tivi_phong_khach:
+    loai: ir
+    mo_ta: "Tivi phòng khách — phát lệnh NEC qua LED IR, trạng thái là GIẢ ĐỊNH"
+    ir:
+      pin: TBD # TBD — chốt ở P5-03, cần transistor khuếch đại (2N2222/S8050)
+      tan_so_hz: 38000 # sóng mang chuẩn phổ biến; một số hãng dùng 36 000 / 40 000
+      # TBD — ghi bằng module thu VS1838B + irrecord từ chính remote thật,
+      # lưu vào hardware/ir-codes/<hãng>.conf (bước 5.3).
+      ma_bat: TBD
+      ma_tat: TBD
+
+# --- Backend giả lập ---
+mock:
+  # Độ trễ mô phỏng cho MỖI lời ghi phần cứng, đơn vị giây.
+  # Mặc định 0.0 để bộ kiểm thử chạy nhanh. Đặt > 0 khi cần dựng lại kịch bản
+  # "phần cứng chậm" cho phép đo độ trễ đầu-cuối ở bước 5.6 mà không cần Pi 5.
+  # Phải là số thực hữu hạn, không âm.
+  do_tre_gia_lap_giay: 0.0
+
+# --- Khối quyết định (KHỐI 2) ---
+# ⚠️ Nhánh này THUỘC MÃ VIỆC P5-02, không phải P5-01. Mã việc P5-01 phải BỎ QUA nó
+# hoàn toàn — đây chính là phép kiểm "cấu hình có khoá lạ ở mức trên cùng vẫn nạp được".
+# Bảng phân quyền `user_id -> {devices, actions}` sẽ do P5-02 bổ sung vào đây.
+decision:
+  # Ba tham số chống nhiễu bắt buộc theo hardware-safety.instructions.md §4.
+  # Giá trị dưới đây là TẠM — chốt lại ở bước 5.5/5.6 từ số đo trong results/,
+  # và phải nêu trong báo cáo vì chúng cộng thẳng vào độ trễ đầu-cuối.
+  n_frame_xac_nhan: 3 # TBD — cần N khung liên tiếp cùng danh tính mới kích hoạt
+  cooldown_giay: 10 # TBD — khoá thiết bị sau mỗi lần tác động, chống relay đóng/ngắt liên tục
+  timeout_vang_mat_giay: 30 # TBD — vắng mặt bao lâu mới tự tắt
