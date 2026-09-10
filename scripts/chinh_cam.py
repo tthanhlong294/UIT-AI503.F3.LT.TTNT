@@ -12,9 +12,9 @@ Qua SSH thì đặt trước:
     export DISPLAY=:0 XDG_RUNTIME_DIR=/run/user/$(id -u) QT_QPA_PLATFORM=xcb
 
 Dùng:
-    python3 scripts/chinh-cam.py                      # có khung bao, /dev/video0
-    python3 scripts/chinh-cam.py --thiet-bi 1         # webcam ở /dev/video1
-    python3 scripts/chinh-cam.py --khong-detect       # chỉ video thô, nhẹ và mượt
+    python3 scripts/chinh_cam.py                      # có khung bao, /dev/video0
+    python3 scripts/chinh_cam.py --thiet-bi 1         # webcam ở /dev/video1
+    python3 scripts/chinh_cam.py --khong-detect       # chỉ video thô, nhẹ và mượt
 
 Bấm `q` trong cửa sổ để thoát — phím bấm trên bàn phím cắm vào Pi, không phải trong
 terminal SSH; ở terminal thì dùng Ctrl+C. Tắt hẳn script trước khi chạy benchmark, nếu
@@ -29,9 +29,9 @@ import cv2
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.common.config import nap_cau_hinh  # noqa: E402
-from src.common.exceptions import LoiCauHinh, LoiMoHinh  # noqa: E402
-from src.detector import tao_bo_phat_hien  # noqa: E402
+from src.common.config import nap_cau_hinh
+from src.common.exceptions import LoiCauHinh, LoiMoHinh
+from src.detector import tao_bo_phat_hien
 
 RONG_YEU_CAU = 1280
 CAO_YEU_CAU = 720
