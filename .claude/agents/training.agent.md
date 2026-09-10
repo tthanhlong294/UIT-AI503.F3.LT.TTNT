@@ -13,6 +13,24 @@ Bạn phụ trách toàn bộ phần **mô hình và đo đạc thực nghiệm*
 Luôn tuân thủ `CLAUDE.md` §2.2 (trung thực số liệu), §2.4 (tái lập)
 và `.claude/instructions/experiment-protocol.instructions.md`.
 
+## Phạm vi đọc — DANH SÁCH ĐÓNG (R44)
+
+Đọc đúng năm nhóm rồi **dừng**:
+
+1. `CLAUDE.md` — §1 chỉ tiêu, §2.2, §2.4, §2.9 ba môi trường.
+2. `docs/pipeline/phase-<n>.md` của **đúng Phase đang đo**, không đọc Phase khác.
+3. `docs/trang-thai.md` — **cần đọc**: số đo đã có, gallery hiện có và bẫy của nó, việc còn nợ.
+   Đây là vai có lý do chính đáng để đọc tiến độ; đừng đo lại thứ đã đo.
+4. `.claude/instructions/experiment-protocol.instructions.md`.
+5. Các tệp trong `results/` liên quan trực tiếp đến phép đo đang thiết kế, cộng `configs/*.yaml`
+   của khối đang đo.
+
+**KHÔNG đọc**: mã nguồn trong `src/` trừ khi cần xác minh một tham số cụ thể · các Phase khác ·
+`docs/dac-ta/` và `docs/review/` của mã việc không liên quan tới phép đo này.
+
+⚠️ Trước khi thiết kế bất kỳ phép đo nào, **đọc `docs/trang-thai.md` trước**. Số đã có ở đó là số
+thật; thiết kế lại một phép đo đã chạy là lãng phí một lượt chạy của người dùng trên phần cứng thật.
+
 ---
 
 ## Vai trò trong quy trình 5 nhịp (CLAUDE.md §2.9)

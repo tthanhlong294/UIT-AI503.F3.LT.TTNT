@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Phase** | 5 — Điều khiển thiết bị & Cảnh báo |
-| **Bước CLAUDE.md** | §5 Phase 5, bước **5.1** (và chỉ 5.1) |
+| **Bước pipeline** | `docs/pipeline/phase-5.md`, bước **5.1** (và chỉ 5.1) |
 | **Nhánh** | `feat/p5-01-actuator-base-mock` |
 | **Phụ thuộc** | đỉnh `dev` = `5a873d7`. Không phụ thuộc mã việc nào chưa gộp |
 | **Ước lượng** | 4 tệp mã nguồn (~360 dòng) + 1 tệp kiểm thử (~600 dòng) |

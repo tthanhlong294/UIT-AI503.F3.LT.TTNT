@@ -1,6 +1,6 @@
 ---
 name: onboarding-with-skills
-description: Định vị trạng thái đồ án đầu mỗi phiên làm việc. Quét repo, xác định đang ở Phase nào trong pipeline CLAUDE.md, tổng hợp việc đã xong / đang dở / cần làm tiếp, và chỉ ra chính xác skill-prompt-instruction nào cần dùng. Dùng khi mở phiên mới, khi mất ngữ cảnh, hoặc khi hỏi "giờ tôi nên làm gì tiếp".
+description: Định vị trạng thái đồ án đầu mỗi phiên làm việc. Đọc docs/trang-thai.md rồi đối chiếu với bằng chứng thật trong repo, xác định đang ở Phase nào, tổng hợp việc đã xong / đang dở / cần làm tiếp, và chỉ ra chính xác skill-prompt-instruction nào cần dùng. Dùng khi mở phiên mới, khi mất ngữ cảnh, hoặc khi hỏi "giờ tôi nên làm gì tiếp".
 tools: Read, Glob, Grep, Bash
 model: sonnet
 ---
@@ -27,13 +27,20 @@ Trong ≤ 5 phút, trả lời được 4 câu hỏi:
 ## Quy trình quét (theo đúng thứ tự)
 
 ### Bước 1 — Nạp ngữ cảnh nền
-- Đọc `CLAUDE.md` (bộ quy tắc + pipeline 8 Phase + chỉ tiêu cam kết).
+
+Bạn là vai **duy nhất** được đọc rộng, vì việc của bạn đúng là định vị. Nhưng vẫn theo thứ tự:
+
+- Đọc `docs/trang-thai.md` **trước tiên** — vị trí Phase được ghi nhận gần nhất, số đo đã có,
+  việc còn nợ. Đây là nguồn chính của bạn.
+- Đọc `CLAUDE.md` (bộ quy tắc R1–R43 + chỉ tiêu cam kết + chỉ mục 8 Phase).
+- Đọc `docs/pipeline/phase-<n>.md` của **Phase đang mở** và Phase kế tiếp. Không đọc cả tám tệp.
 - Đọc `docs/DE-CUONG-CHI-TIET.md` (phạm vi, mốc thời gian, bảng tiến độ).
-- Đọc mục `§8 Ghi chú vận hành` trong `CLAUDE.md` để lấy vị trí Phase được ghi nhận gần nhất.
 
 ### Bước 2 — Quét bằng chứng thực tế trong repo
 
-Không tin mục §8 một cách mù quáng — **đối chiếu với bằng chứng thật**:
+Không tin `docs/trang-thai.md` một cách mù quáng — **đối chiếu với bằng chứng thật**.
+Tệp đó do người viết bằng tay nên có thể lạc hậu; đếm tệp trong `docs/review/` và đọc `git log`
+mới là số chuẩn:
 
 | Bằng chứng cần tìm | Lệnh / cách tìm | Suy ra |
 |---|---|---|
@@ -110,7 +117,7 @@ Báo cáo vi phạm dưới dạng cảnh báo, **không tự sửa**.
 - <việc> — *chặn bởi: <lý do, ví dụ: chưa có Pi 5 / người nhà chưa chụp đủ ảnh / chưa tải LFW>*
 
 ### ▶️ 3 VIỆC TIẾP THEO (theo thứ tự ưu tiên)
-1. **<việc cụ thể>** — bước <x.y> trong CLAUDE.md · ước tính <thời gian>
+1. **<việc cụ thể>** — bước <x.y> trong `docs/pipeline/phase-<n>.md` · ước tính <thời gian>
    → Dùng: `<tài nguyên .claude/>`
 2. ...
 3. ...

@@ -13,6 +13,19 @@ Bạn là **người cài đặt** cho đồ án "Nhận diện khuôn mặt tr�
 **Việc đầu tiên, không có ngoại lệ**: đọc `docs/quy-tac-cai-dat.md` — hiến pháp cài đặt của dự án.
 Sau đó đọc **đúng một file đặc tả** được giao trong `docs/dac-ta/`.
 
+## Phạm vi đọc — DANH SÁCH ĐÓNG (R44)
+
+Đọc đúng ba nhóm rồi **dừng**:
+
+1. `docs/quy-tac-cai-dat.md` — **tự chứa**, đã gồm mọi ràng buộc cài đặt bạn cần.
+2. **Đúng một** tệp đặc tả trong `docs/dac-ta/` (ở Nhịp 4 thì thêm biên bản `docs/review/` tương ứng).
+3. Các tệp trong **danh sách trắng §2** của đặc tả, cộng những tệp mà đặc tả nêu đích danh
+   (interface đã có, `configs/*.yaml` phải đọc).
+
+**KHÔNG đọc**: `CLAUDE.md` · `docs/pipeline/` · `docs/trang-thai.md` · `docs/DE-CUONG-CHI-TIET.md` ·
+biên bản review của mã việc khác. Đặc tả đã tự chứa mọi thứ bạn cần; thiếu thì **dừng và báo**,
+đừng đi tìm ở tệp khác — thứ bạn tìm được có thể mâu thuẫn với đặc tả và bạn sẽ không biết bên nào đúng.
+
 ---
 
 ## ⛔ Sáu điều cấm

@@ -1,6 +1,6 @@
 ---
 name: spec-writer
-description: Viết đặc tả kỹ thuật cho từng mã việc trước khi giao cho người cài đặt. Chuyển một bước trong pipeline CLAUDE.md §5 thành bản đặc tả có chữ ký hàm, danh sách trắng file, ánh xạ tham số sang configs/ và tiêu chí nghiệm thu chạy được. Dùng ở Nhịp 1 (Cổng A) của mọi hạng mục code.
+description: Viết đặc tả kỹ thuật cho từng mã việc trước khi giao cho người cài đặt. Chuyển một bước trong docs/pipeline/phase-<n>.md thành bản đặc tả có chữ ký hàm, danh sách trắng file, ánh xạ tham số sang configs/ và tiêu chí nghiệm thu chạy được. Dùng ở Nhịp 1 (Cổng A) của mọi hạng mục code.
 tools: Read, Write, Edit, Glob, Grep
 model: opus
 ---
@@ -50,14 +50,19 @@ là nơi vòng lặp sinh ra.
 
 ---
 
-## Phạm vi đọc — đọc ít, đọc đúng
+## Phạm vi đọc — DANH SÁCH ĐÓNG (R44)
 
-Khi soạn một đặc tả, **chỉ đọc ba nhóm** rồi dừng:
+Khi soạn một đặc tả, **chỉ đọc bốn nhóm** rồi **dừng**:
 
 1. **File mà chính đặc tả động tới** — mã nguồn trong danh sách trắng, `configs/*.yaml` liên quan,
    interface trong `src/common/types.py`, và đặc tả + biên bản review của mã việc **liền trước**.
-2. **`CLAUDE.md`** — phạm vi, chỉ tiêu, quy tắc R1–R43.
-3. **`docs/DE-CUONG-CHI-TIET.md`** — nguồn sự thật về phạm vi.
+2. **`CLAUDE.md`** — phạm vi, chỉ tiêu, quy tắc R1–R43. Chỉ tệp lõi này.
+3. **`docs/pipeline/phase-<n>.md`** của **đúng Phase đang viết đặc tả** — bảng bước, Cổng C, Cổng D.
+4. **`docs/DE-CUONG-CHI-TIET.md`** — mục tương ứng, nguồn sự thật về phạm vi.
+
+**KHÔNG đọc**: các tệp `docs/pipeline/phase-*.md` của Phase khác · `docs/trang-thai.md` (tiến độ
+không quyết định nội dung đặc tả; mốc số ca kiểm thử lấy từ commit ở dòng "Phụ thuộc") ·
+`docs/checklist-nop.md` · `docs/review/` của mã việc không liền trước.
 
 Không quét lại toàn repo, không mở file chỉ vì "có vẻ liên quan". Đọc thừa thì đốt ngữ cảnh và
 làm loãng đặc tả bằng chi tiết không dùng đến — mà ngữ cảnh chính là thứ bạn cần để nghĩ kỹ ở mục trên.
@@ -86,8 +91,9 @@ P<số Phase>-<số thứ tự 2 chữ số>-<slug>
 ```
 Ví dụ: `P0-01-nen-tang`, `P2-03-detector`, `P3-02-dlib-backend`.
 
-- Số thứ tự đánh **theo trình tự bàn giao thực tế**, không nhất thiết trùng số bước trong CLAUDE.md
-  (một bước có thể tách thành nhiều mã việc) — nhưng **phải ghi rõ ánh xạ về bước nào**.
+- Số thứ tự đánh **theo trình tự bàn giao thực tế**, không nhất thiết trùng số bước trong
+  `docs/pipeline/phase-<n>.md` (một bước có thể tách thành nhiều mã việc) — nhưng **phải ghi rõ
+  ánh xạ về bước nào**.
 - Mã việc này xuất hiện **nguyên vẹn** ở 4 chỗ, tạo thành chuỗi truy vết:
   `docs/dac-ta/<mã>.md` → tên nhánh `feat/<mã viết thường>` → `docs/review/<mã>.review.md`
   → commit message → `docs/nhat-ky/tuan-XX.md`.
@@ -96,7 +102,8 @@ Ví dụ: `P0-01-nen-tang`, `P2-03-detector`, `P3-02-dlib-backend`.
 
 ## Quy trình 6 bước
 
-1. **Đọc nguồn**: mục tương ứng trong `CLAUDE.md` §5 và `docs/DE-CUONG-CHI-TIET.md`.
+1. **Đọc nguồn**: `docs/pipeline/phase-<n>.md` của **đúng Phase đang làm** và mục tương ứng trong
+   `docs/DE-CUONG-CHI-TIET.md`.
    Đọc `.claude/instructions/python-embedded.instructions.md` để lấy đúng chuẩn kiến trúc.
 2. **Đọc code đã có** — trong phạm vi §"Phạm vi đọc" ở trên: `Grep` **có mục tiêu** để biết
    interface nào đã tồn tại, đặc tả mới phải khớp với cái đang có, **không được định nghĩa lại**
@@ -118,7 +125,7 @@ Ví dụ: `P0-01-nen-tang`, `P2-03-detector`, `P3-02-dlib-backend`.
 | | |
 |---|---|
 | **Phase** | <n> — <tên Phase> |
-| **Bước CLAUDE.md** | §5 Phase <n>, bước <x.y> |
+| **Bước pipeline** | `docs/pipeline/phase-<n>.md`, bước <x.y> |
 | **Nhánh** | `feat/<mã viết thường>` |
 | **Phụ thuộc** | <mã việc phải xong trước, hoặc "không"> |
 | **Ước lượng** | <số file> file, ~<n> dòng |
@@ -316,7 +323,7 @@ docs/quy-tac-cai-dat.md: G1, G2, G4, G5, ... — <chỉ liệt kê mã liên qua
 
 ## Checklist trước khi bàn giao đặc tả
 
-- [ ] Mã việc đúng quy ước, có ánh xạ về bước trong CLAUDE.md §5
+- [ ] Mã việc đúng quy ước, có ánh xạ về bước trong `docs/pipeline/phase-<n>.md`
 - [ ] Danh sách trắng đầy đủ và **không dư** — có cả file test
 - [ ] Mọi chữ ký hàm có type hints, khớp kiểu dữ liệu đã có trong `src/common/types.py`
 - [ ] Mọi con số đã được đẩy vào bảng tham số → config; trong §3/§5 không còn số magic

@@ -7,6 +7,20 @@
 > File này là **hiến pháp** của repo. Claude Code đọc file này đầu mỗi phiên.
 > Phạm vi và chỉ tiêu lấy từ [`docs/DE-CUONG-CHI-TIET.md`](docs/DE-CUONG-CHI-TIET.md) — **không được tự ý mở rộng**.
 
+**Bản đồ tài liệu.** File này giữ thứ **hiếm khi đổi**: bối cảnh, chỉ tiêu, bộ quy tắc R1–R43,
+phân vai. Thứ **đổi thường xuyên** nằm ở nơi khác, đọc khi cần chứ không nạp mặc định:
+
+| Cần gì | Ở đâu |
+|---|---|
+| Kế hoạch chi tiết một Phase | [`docs/pipeline/phase-<n>.md`](docs/pipeline/) — chỉ đọc Phase đang làm |
+| Đang ở đâu, số đo đã có, việc còn nợ | [`docs/trang-thai.md`](docs/trang-thai.md) |
+| Checklist trước khi nộp | [`docs/checklist-nop.md`](docs/checklist-nop.md) — chỉ dùng ở Phase 8 |
+| Chuẩn viết mã cho người cài đặt | [`docs/quy-tac-cai-dat.md`](docs/quy-tac-cai-dat.md) — tự chứa |
+
+⚠️ **Đọc ít, đọc đúng.** Làm việc thuộc Phase nào thì đọc **đúng tệp Phase đó**, không đọc các Phase
+khác. Vai nào không cần tiến độ thì không đọc `docs/trang-thai.md`. Danh sách đọc của từng vai ghi
+ngay trong tệp agent tương ứng ở `.claude/agents/`.
+
 ---
 
 ## 0. TL;DR — Đọc 30 giây
@@ -62,7 +76,7 @@
 > 2. **Không so sánh trực tiếp** con số accuracy của đồ án với các công trình dùng gallery lớn.
 > 3. **Nêu rõ hạn chế này** ở Chương 4 §4.2 và Chương 5 — hội đồng chắc chắn sẽ hỏi.
 
-### Ba nguồn impostor và vai trò từng nguồn
+### Ba nguồn impostor
 
 | Nguồn | Ký hiệu | Cỡ mẫu | Vai trò |
 |---|---|---|---|
@@ -74,11 +88,10 @@
 và ta có quyền tin con số `FAR_adapt` đo trên 100+ danh tính. Nếu lệch xa → adaptation chưa đủ tốt,
 phải điều chỉnh lại tham số hoặc báo cáo trung thực khoảng chênh lệch.
 
-⚠️ **In-domain KHÔNG thay thế được LFW.** Với 5–7 danh tính, theo quy tắc số 3, nếu không có mẫu nào
-bị chấp nhận sai thì cận trên khoảng tin cậy 95 % của FAR vẫn ~3/7 ≈ 43 %. Tức là in-domain chỉ
-**bắt được lỗi nghiêm trọng**, không đo được mức 1 %. Sức mạnh thống kê đến từ LFW.
-
 ⚠️ **5–7 người in-domain TUYỆT ĐỐI KHÔNG được đưa vào gallery** — họ là người lạ về mặt hệ thống.
+
+> Lập luận đầy đủ (vì sao in-domain không thay thế được LFW, vì sao cần cả ba) nằm ở
+> [`docs/pipeline/phase-1.md`](docs/pipeline/phase-1.md) — chỉ đọc khi làm Phase 1 hoặc Phase 3.
 
 ---
 
@@ -173,6 +186,11 @@ bị chấp nhận sai thì cận trên khoảng tin cậy 95 % của FAR vẫn 
 - **R36.** Khi bị chặn bởi thiếu phần cứng → **làm hết phần không phụ thuộc phần cứng**,
   ghi rõ phần nào cần Pi 5 thật, rồi báo cáo.
 - **R37.** Không tự ý gọi subagent hoặc workflow trừ khi người dùng yêu cầu.
+- **R44.** ⭐ **Mỗi vai có danh sách đọc đóng**, ghi trong tệp agent của nó ở `.claude/agents/`.
+  Đọc hết danh sách đó thì **dừng**, không quét thêm cho "chắc". Đọc rộng không làm chất lượng
+  tăng: nó pha loãng chú ý bằng thứ không liên quan và làm mỗi lượt đắt hơn.
+  Cụ thể: **không đọc Phase khác Phase đang làm**, và không đọc `docs/trang-thai.md` nếu vai của
+  mình không cần tiến độ.
 
 ### 2.9. Phân vai người cài đặt ↔ người kiểm định — quy trình 5 nhịp
 
@@ -228,7 +246,7 @@ N5 ✅ ĐẠT ──▶ commit + gộp nhánh ──▶ Cổng C (đo) ──▶
 | Claude · `code-reviewer` | `docs/review/` — **chỉ đọc** code | không |
 | Claude · `training` | `results/`, `notebooks/` | không |
 | Claude · `paper-writer` | `report/`, `docs/nhat-ky/` | không |
-| Claude · phiên chính | `.claude/**` — khung quy trình: định nghĩa agent, prompt, instruction | không |
+| Claude · phiên chính | `.claude/**` — khung quy trình: định nghĩa agent, prompt, instruction; và `CLAUDE.md`, `docs/pipeline/`, `docs/trang-thai.md` | không |
 | **Người dùng** | chạy khâu **kiểm định**, và là người duy nhất `git commit`/`push` | — |
 
 `configs/*.yaml` do Claude giữ vì mọi ngưỡng phải chốt từ `results/` (R7, R16) — không để AI tự chọn.
@@ -262,7 +280,7 @@ máy đã chạy (R17). `coder` **không** chạy `scripts/export_*.py`, `script
 
 Lệnh do các vai không-chạy đưa ra phải: **mỗi khối đúng một lệnh** để dán về không lẫn, nêu rõ
 **kết quả mong đợi** của từng lệnh, và với phép đột biến thì kèm đủ bốn bước *sao lưu ra ngoài repo →
-sửa → chạy → khôi phục và đối chiếu `sha256`*. Không lệnh nào được `git commit`, dựng image mới,
+sửa → chạy → khôi phục và đối chiếu*. Không lệnh nào được `git commit`, dựng image mới,
 hay `pip install`.
 
 **Đo, vẽ và minh hoạ là ba việc tách rời — không được trộn:**
@@ -308,7 +326,7 @@ phân tích — không tự thi hành ô nào.
 
 `.claude/**` là **khung quy trình**, không phải sản phẩm của mã việc nào. Sửa nó **nên đi commit riêng**
 với loại `chore(quy-trinh)`, không trộn vào commit của một mã việc — để sau này truy được bài học nào
-sinh ra từ mã việc nào.
+sinh ra từ mã việc nào. `CLAUDE.md`, `docs/pipeline/` và `docs/trang-thai.md` cũng theo quy ước này.
 
 **Mã việc** `P<Phase>-<nn>-<slug>` xuất hiện nguyên vẹn ở 5 chỗ, tạo chuỗi truy vết:
 đặc tả → tên nhánh → biên bản review → commit message → nhật ký tuần.
@@ -321,107 +339,56 @@ sinh ra từ mã việc nào.
 
 ```
 UIT-AI503.F3.LT.TTNT/
-├── CLAUDE.md                        # File này — hiến pháp repo (Claude đọc)
-├── README.md
-├── requirements.txt                 # Pin cứng phiên bản (==)
-├── .env.example                     # Mẫu biến môi trường (KHÔNG chứa secret thật)
+├── CLAUDE.md              # Hiến pháp repo — bối cảnh, quy tắc, phân vai
+├── requirements.txt       # Pin cứng phiên bản (==)
+├── .env.example           # Mẫu biến môi trường (KHÔNG chứa secret thật)
 │
-├── .claude/
-│   ├── agents/                      # Subagent chuyên trách (§4.1)
-│   │   ├── onboarding-with-skills.md
-│   │   ├── coder.agent.md
-│   │   ├── spec-writer.agent.md
-│   │   ├── code-reviewer.agent.md
-│   │   ├── paper-writer.agent.md
-│   │   └── training.agent.md
-│   ├── skills/                      # Kỹ năng tái sử dụng (§4.2)
-│   │   ├── latex-visualization/SKILL.md
-│   │   ├── report-drafting/SKILL.md
-│   │   └── academic-editing/SKILL.md
-│   ├── prompts/                     # Prompt mẫu tham số hoá (§4.3)
-│   │   ├── data-pipeline.prompt.md
-│   │   ├── eda.prompt.md
-│   │   └── coder-handoff.prompt.md  # Lệnh bàn giao việc cho coder (§2.9)
-│   └── instructions/                # Chuẩn kỹ thuật bắt buộc (§4.4)
-│       ├── python-embedded.instructions.md
-│       ├── experiment-protocol.instructions.md
-│       ├── code-review.instructions.md
-│       ├── hardware-safety.instructions.md
-│       └── academic-writing.instructions.md
+├── .claude/               # Khung quy trình — agents/ skills/ prompts/ instructions/ (§4)
 │
 ├── docs/
-│   ├── DE-CUONG-CHI-TIET.md         # Nguồn sự thật về phạm vi
-│   ├── quy-tac-cai-dat.md           # Hiến pháp cài đặt mã nguồn — người cài đặt đọc
-│   ├── quy-uoc-du-lieu.md           # Quy ước đặt tên và tổ chức dữ liệu (Phase 1)
-│   ├── DC DATN ....pdf              # Bản gốc
-│   ├── Don DKDA ....docx            # Bản gốc
-│   ├── nguoi-tham-gia.md            # Danh sách người tham gia + ngày đồng ý (tự ghi, dạng bảng)
-│   ├── spoof-protocol.md            # Quy trình tạo bộ dữ liệu tấn công
-│   ├── dac-ta/                      # Đặc tả từng mã việc — spec-writer viết, coder thực thi (§2.9)
-│   │   └── P0-01-nen-tang.md
-│   ├── review/                      # Biên bản review mã nguồn — Claude viết (§2.9)
-│   ├── kiem-may/                    # ĐÓNG BĂNG 27/08/2026 — di tích quy trình kịch bản .ps1
-│   │   └── README.md                #   Vì sao bỏ, và lệnh kiểm giờ nằm ở đâu
-│   └── nhat-ky/                     # Nhật ký tuần (tuan-01.md, tuan-02.md, ...)
+│   ├── DE-CUONG-CHI-TIET.md   # Nguồn sự thật về phạm vi
+│   ├── pipeline/              # Kế hoạch 8 Phase — phase-0.md … phase-8.md (§5)
+│   ├── trang-thai.md          # Đang ở đâu, số đo đã có, việc còn nợ
+│   ├── checklist-nop.md       # Kiểm 100 % trước khi nộp (Phase 8)
+│   ├── quy-tac-cai-dat.md     # Hiến pháp cài đặt mã — người cài đặt đọc, tự chứa
+│   ├── quy-uoc-du-lieu.md     # Quy ước đặt tên và tổ chức dữ liệu (Phase 1)
+│   ├── nguoi-tham-gia.md      # Danh sách người tham gia + ngày đồng ý
+│   ├── spoof-protocol.md      # Quy trình tạo bộ dữ liệu tấn công
+│   ├── dac-ta/                # Đặc tả từng mã việc — spec-writer viết, coder thực thi
+│   ├── review/                # Biên bản review — code-reviewer viết
+│   ├── kiem-may/              # ĐÓNG BĂNG 27/08/2026 — di tích quy trình kịch bản .ps1
+│   └── nhat-ky/               # Nhật ký tuần (tuan-01.md, …)
 │
-├── configs/                         # TẤT CẢ tham số ở đây (R16)
-│   ├── detect.yaml
-│   ├── recognize.yaml
-│   ├── antispoof.yaml
-│   ├── actuator.yaml
-│   └── system.yaml
+├── configs/               # TẤT CẢ tham số ở đây (R16): detect · recognize · antispoof · actuator · system
 │
-├── data/                            # GITIGNORED
-│   ├── raw/                         # Gallery: data/raw/<user_id>/*.jpg — 2–3 người nhà
-│   ├── impostor/                    # Người lạ — KHÔNG BAO GIỜ vào gallery
-│   │   ├── lfw_original/            #   ① LFW gốc, ≥100 danh tính
-│   │   ├── lfw_adapted/             #   ② LFW sau domain adaptation
-│   │   └── indomain/                #   ③ 5–7 người quen có đồng ý, chụp bằng camera hệ thống
-│   ├── processed/                   # Ảnh đã crop/align 112x112 (cả gallery lẫn impostor)
-│   ├── embeddings/                  # Vector đặc trưng đã đăng ký (gallery 2–3 người)
-│   ├── splits/                      # enroll · val · test · impostor_{lfw,adapt,indomain}_{val,test}
-│   └── spoof/                       # Bộ tấn công: print/ · screen/ · live/
+├── data/                  # GITIGNORED
+│   ├── raw/               #   Gallery: data/raw/<user_id>/*.jpg — 2–3 người nhà
+│   ├── impostor/          #   Người lạ, KHÔNG BAO GIỜ vào gallery: lfw_original/ · lfw_adapted/ · indomain/
+│   ├── processed/         #   Ảnh đã crop/align 112×112 (cả gallery lẫn impostor)
+│   ├── embeddings/        #   Vector đặc trưng đã đăng ký
+│   ├── splits/            #   enroll · val · test · impostor_{lfw,adapt,indomain}_{val,test}
+│   └── spoof/             #   Bộ tấn công: print/ · screen/ · live/
 │
-├── models/                          # GITIGNORED (weights) — kèm models/README.md ghi link tải
-│   ├── yolov8n-face.onnx
-│   ├── mobilefacenet.onnx
-│   └── minifasnet.onnx
+├── models/                # GITIGNORED (weights) — kèm models/README.md ghi link tải
 │
-├── src/
-│   ├── capture/                     # KHỐI 1a — camera
-│   ├── detector/                    # KHỐI 1b — YOLOv8n-face
-│   ├── antispoof/                   # KHỐI 1c — MiniFASNet
-│   ├── recognizer/                  # KHỐI 1d — dlib | arcface (2 backend so sánh)
-│   ├── decision/                    # KHỐI 2 — quyết định & phân quyền
-│   ├── actuator/                    # KHỐI 3 — gpio/ir/mqtt (+ backend mock, R22)
-│   ├── monitor/                     # KHỐI 4 — Flask web + Telegram + log DB
-│   ├── common/                      # config loader, logging, types dùng chung
-│   └── main.py                      # Điểm vào — vòng lặp chính
+├── src/                   # Kiến trúc 4 khối (R21)
+│   ├── capture/           #   KHỐI 1a — camera
+│   ├── detector/          #   KHỐI 1b — YOLOv8n-face
+│   ├── antispoof/         #   KHỐI 1c — MiniFASNet
+│   ├── recognizer/        #   KHỐI 1d — dlib | arcface (2 backend so sánh)
+│   ├── decision/          #   KHỐI 2 — quyết định & phân quyền
+│   ├── actuator/          #   KHỐI 3 — gpio/ir/mqtt (+ backend mock, R22)
+│   ├── monitor/           #   KHỐI 4 — Flask web + Telegram + log DB
+│   ├── common/            #   config loader, logging, types dùng chung
+│   └── main.py            #   Điểm vào — vòng lặp chính
 │
-├── scripts/                         # Script CLI: enroll, benchmark, export model, collect data
-├── tests/                           # pytest — chạy được KHÔNG cần Pi (dùng backend mock)
-│
-├── notebooks/                       # Minh hoạ pipeline cho báo cáo — commit KÈM đầu ra (§2.9)
-│   ├── 01_eda_khuon_mat.ipynb       #   Dữ liệu: phân bố, tách biệt embedding, 3 tập impostor
-│   ├── 02_phan_tich_hieu_nang_detect.ipynb
-│   ├── 03_xac_minh_export_ncnn.ipynb#   .pt vs ONNX vs NCNN trên cùng ảnh
-│   ├── 04_so_sanh_moi_truong.ipynb  #   pc_x86 · docker_arm64 · pi5
-│   ├── 05_khoi_nhan_dien.ipynb      #   Hai backend đặt cạnh nhau: điểm mốc, vectơ, tách biệt
-│   └── 06_nguong_va_roc.ipynb       #   Quét ngưỡng, ROC/DET, ba con số FAR
-├── results/                         # Output thực nghiệm (R17) — CSV/JSON + .meta.json
-│
-├── report/                          # Báo cáo LaTeX/Markdown
-│   ├── main.tex
-│   ├── chapters/
-│   ├── figures/                     # Hình sinh từ results/ (KHÔNG vẽ tay số liệu)
-│   └── refs.bib
-│
-├── deploy/                          # Đúng MỘT image cho cả dự án: faceid:arm64 (R43)
-│   ├── Dockerfile.arm64
-│   ├── docker-compose.yml
-│   └── systemd/faceid.service
-│
-└── hardware/                        # Sơ đồ đấu nối, ảnh mạch, bảng chân GPIO
+├── scripts/               # Script CLI: enroll, benchmark, export model, collect data
+├── tests/                 # pytest — chạy được KHÔNG cần Pi (dùng backend mock)
+├── notebooks/             # Minh hoạ pipeline — commit KÈM đầu ra (§2.9)
+├── results/               # Output thực nghiệm (R17) — CSV/JSON + .meta.json
+├── report/                # Báo cáo: main.tex · chapters/ · figures/ · refs.bib
+├── deploy/                # Đúng MỘT image: faceid:arm64 (R43) + systemd/faceid.service
+└── hardware/              # Sơ đồ đấu nối, ảnh mạch, bảng chân GPIO
 ```
 
 ### 3.1. Docker — một image duy nhất (R43)
@@ -448,50 +415,31 @@ tệ hơn là **không còn biết số đo lấy từ image nào**, khiến k�
 
 ## 4. Tài nguyên trong `.claude/`
 
-### 4.1. Agents — `.claude/agents/`
+**Agents** (`.claude/agents/`) — mỗi tệp tự khai **danh sách đọc đóng** của vai đó (R44):
 
-| File | Gọi khi nào | Nhiệm vụ |
+| Agent | Gọi khi nào | Nhiệm vụ |
 |---|---|---|
-| `onboarding-with-skills.md` | **Đầu mỗi phiên làm việc mới**, hoặc khi mất ngữ cảnh | Quét repo, xác định đang ở Phase nào, tổng hợp việc đã/đang/sắp làm, chỉ ra skill/prompt cần dùng tiếp |
-| `coder.agent.md` | **Nhịp 2 và 4** — cài đặt theo đặc tả, chạy trong phiên riêng | Viết code vào `src/`, `tests/`, `scripts/` theo danh sách trắng; **tự chạy** §9 đặc tả và dán kết quả về; **không commit** |
-| `spec-writer.agent.md` | **Nhịp 1** (Cổng A) — trước mọi hạng mục code | Chuyển một bước trong §5 thành đặc tả có chữ ký hàm, danh sách trắng file, ánh xạ tham số → `configs/`, tiêu chí nghiệm thu chạy được |
-| `code-reviewer.agent.md` | **Nhịp 3** — sau khi `coder` dán kết quả tự kiểm | Đưa danh sách lệnh kiểm định độc lập cho người dùng chạy, chờ kết quả, đối chiếu đặc tả, phân loại lỗi 4 mức, ra phán quyết, ghi `docs/review/` |
-| `training.agent.md` | Cổng C của Phase 2, 3, 4, 7 | **Thiết kế giao thức đo**, chạy benchmark, phân tích số liệu, chốt ngưỡng từ ROC, ghi kết quả đúng chuẩn `results/`. *Không tự viết script — viết đặc tả cho `coder`* |
-| `paper-writer.agent.md` | Cổng D mỗi Phase & Phase 8 | Viết/cập nhật chương báo cáo từ dữ liệu thật trong `results/`, đúng văn phong học thuật, không bịa số |
+| `onboarding-with-skills` | Đầu phiên mới, hoặc khi mất ngữ cảnh | Định vị Phase, tổng hợp việc đã/đang/sắp làm, chỉ ra tài nguyên cần dùng |
+| `spec-writer` | **Nhịp 1** (Cổng A) | Chuyển một bước của Phase thành đặc tả có chữ ký hàm, danh sách trắng file, tiêu chí nghiệm thu chạy được |
+| `coder` | **Nhịp 2 và 4**, phiên riêng | Viết code theo danh sách trắng; **tự chạy** §9 đặc tả và dán kết quả về; **không commit** |
+| `code-reviewer` | **Nhịp 3** | Đưa lệnh kiểm định cho người dùng chạy, đối chiếu đặc tả, phân loại lỗi 4 mức, ghi `docs/review/` |
+| `training` | Cổng C của Phase 2, 3, 4, 7 | Thiết kế giao thức đo, phân tích số liệu, chốt ngưỡng từ ROC. *Không tự viết script* |
+| `paper-writer` | Cổng D mỗi Phase & Phase 8 | Viết chương báo cáo từ dữ liệu thật trong `results/`, không bịa số |
+
+**Skills** (`.claude/skills/`): `latex-visualization` (biểu đồ, bảng booktabs, TikZ) ·
+`report-drafting` (dàn ý chương, ngân sách trang) · `academic-editing` (văn phong, trích dẫn IEEE).
+
+**Prompts** (`.claude/prompts/`): `data-pipeline` (Phase 1) · `eda` (Phase 1 & 6) ·
+`coder-handoff` (lệnh bàn giao Nhịp 2/4, quy ước nhánh `feat/`, xử lý sự cố).
+
+**Instructions** (`.claude/instructions/`) — chuẩn kỹ thuật **luôn áp dụng** khi động vào loại file
+tương ứng: `python-embedded` (`src/`, `scripts/`) · `experiment-protocol` (`results/`) ·
+`code-review` (rubric 4 mức) · `hardware-safety` (`src/actuator/`, `hardware/`) ·
+`academic-writing` (`report/`, `docs/`).
 
 > Gọi agent bằng cách nêu rõ tên trong yêu cầu, ví dụ: *"Dùng training agent chạy benchmark Phase 3"*.
->
-> **Code do agent `coder` viết** — xem §2.9 và `.claude/prompts/coder-handoff.prompt.md`.
 > Hiến pháp của người cài đặt là [`docs/quy-tac-cai-dat.md`](docs/quy-tac-cai-dat.md) — tự chứa,
-> trung lập với công cụ, không phụ thuộc file này.
-
-### 4.2. Skills — `.claude/skills/`
-
-| Skill | Kích hoạt khi | Nội dung |
-|---|---|---|
-| `latex-visualization` | Cần biểu đồ/bảng/sơ đồ cho báo cáo | Chuẩn vẽ biểu đồ từ `results/`, bảng booktabs, TikZ sơ đồ kiến trúc & đấu nối, quy ước màu/font |
-| `report-drafting` | Soạn thảo chương/mục báo cáo | Dàn ý chuẩn từng chương, checklist nội dung, cách chèn số liệu có trích nguồn |
-| `academic-editing` | Rà soát, biên tập văn bản đã viết | Sửa văn phong học thuật tiếng Việt, thống nhất thuật ngữ, chuẩn trích dẫn IEEE, checklist trước nộp |
-
-### 4.3. Prompts — `.claude/prompts/`
-
-| Prompt | Dùng cho |
-|---|---|
-| `data-pipeline.prompt.md` | Phase 1 — thu thập, chuẩn hoá, crop/align, kiểm chất lượng, tách train/test, đăng ký embedding |
-| `eda.prompt.md` | Phase 1 & 6 — phân tích thống kê CSDL khuôn mặt và phân tích kết quả benchmark |
-| `coder-handoff.prompt.md` | Mọi Phase — lệnh bàn giao Nhịp 2/Nhịp 4 cho `coder`, quy ước nhánh `feat/`, cách đọc kết quả nó báo về, xử lý sự cố (§2.9) |
-
-### 4.4. Instructions — `.claude/instructions/`
-
-Chuẩn kỹ thuật **luôn áp dụng** khi động vào loại file tương ứng:
-
-| File | Áp dụng cho |
-|---|---|
-| `python-embedded.instructions.md` | Toàn bộ `src/**/*.py`, `scripts/**/*.py` — Claude tra khi **viết đặc tả**; bản rút gọn nằm trong `docs/quy-tac-cai-dat.md` |
-| `experiment-protocol.instructions.md` | `scripts/benchmark*`, mọi thứ ghi vào `results/` |
-| `code-review.instructions.md` | Mọi lượt review code — rubric 4 mức, mẫu quét vi phạm, cách viết mục lỗi |
-| `hardware-safety.instructions.md` | `src/actuator/**`, `hardware/**` |
-| `academic-writing.instructions.md` | `report/**`, `docs/**/*.md` |
+> trung lập với công cụ, **không phụ thuộc file này**.
 
 ---
 
@@ -518,201 +466,24 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
 > **Quy tắc chặn**: chưa qua cổng D thì **không được bắt đầu Phase sau**.
 > Ngoại lệ duy nhất: Phase 3 và Phase 4 có thể chồng lấn nếu phần cứng chưa về.
 
----
+### 5.1. Chỉ mục 8 Phase
 
-### PHASE 0 — Khởi tạo & Môi trường
-**Tuần 1 (15–21/07/2026)** · Trạng thái: cần hoàn tất trước mọi việc khác
+⭐ **Bảng các bước, Cổng C, Cổng D và công cụ của từng Phase nằm trong tệp riêng.**
+Làm việc thuộc Phase nào thì **đọc đúng tệp đó và chỉ tệp đó** (R44).
 
-| Bước | Việc cụ thể | Đầu ra |
-|---|---|---|
-| 0.1 | Tạo cây thư mục theo §3, tạo `.gitignore` (chặn `data/`, `models/*.onnx`, `.env`, `results/*.jpg`) | Repo có cấu trúc chuẩn |
-| 0.2 | `requirements.txt` pin cứng: `ultralytics`, `onnxruntime`, `opencv-python`, `numpy`, `flask`, `pyyaml`, `python-telegram-bot`, `pytest`, `black`, `ruff` | File dependency |
-| 0.3 | Viết `deploy/Dockerfile.arm64` + `docker-compose.yml` — môi trường giả lập ARM64 | Container build thành công |
-| 0.4 | Cài Raspberry Pi OS 64-bit + Python venv trên Pi 5; bật camera; test `libcamera-hello` | Pi 5 sẵn sàng |
-| 0.5 | `src/common/config.py` (loader YAML) + `src/common/logging.py` | Module nền tảng |
-| 0.6 | Viết `.env.example`, `models/README.md` (link tải weights) | Tài liệu setup |
+| Phase | Tên | Tuần | Kế hoạch chi tiết |
+|---|---|---|---|
+| 0 | Khởi tạo & Môi trường | 1 (15–21/07) | [`docs/pipeline/phase-0.md`](docs/pipeline/phase-0.md) |
+| 1 | Dữ liệu khuôn mặt | 2 (22–28/07) | [`docs/pipeline/phase-1.md`](docs/pipeline/phase-1.md) |
+| 2 | Phát hiện khuôn mặt (YOLOv8n-face) | 2–3 (22/07–04/08) | [`docs/pipeline/phase-2.md`](docs/pipeline/phase-2.md) |
+| 3 | ⭐ Nhận diện & So sánh 2 phương án | 3–5 (29/07–18/08) | [`docs/pipeline/phase-3.md`](docs/pipeline/phase-3.md) |
+| 4 | Chống giả mạo (Anti-spoofing) | 4–5 (05–18/08) | [`docs/pipeline/phase-4.md`](docs/pipeline/phase-4.md) |
+| 5 | Điều khiển thiết bị & Cảnh báo | 5–7 (12/08–01/09) | [`docs/pipeline/phase-5.md`](docs/pipeline/phase-5.md) |
+| 6 | Web giám sát & Tích hợp | 7–8 (26/08–08/09) | [`docs/pipeline/phase-6.md`](docs/pipeline/phase-6.md) |
+| 7 | Kiểm thử toàn hệ thống & Benchmark tổng | 8–9 (02–15/09) | [`docs/pipeline/phase-7.md`](docs/pipeline/phase-7.md) |
+| 8 | Báo cáo, Slide & Bảo vệ | 9–10 (09–22/09) | [`docs/pipeline/phase-8.md`](docs/pipeline/phase-8.md) |
 
-**Cổng C:** container ARM64 chạy được `python -c "import cv2, onnxruntime"` · Pi 5 mở được camera.
-**Cổng D:** `docs/nhat-ky/tuan-01.md` + Chương 3 §Môi trường triển khai (nháp).
-**Công cụ:** `onboarding-with-skills` agent · `python-embedded.instructions.md`
-
----
-
-### PHASE 1 — Dữ liệu khuôn mặt
-**Tuần 2 (22–28/07/2026)** · ⚠️ **Còn mở** — phần không cần camera đã xong; các bước thu dữ liệu
-(1.3, 1.6, 1.7, 1.8, 1.10–1.13) chưa làm. Trạng thái cập nhật ở §8, không ghi mốc thời gian ở đây.
-
-| Bước | Việc cụ thể | Đầu ra |
-|---|---|---|
-| 1.1 | Thiết kế quy ước dữ liệu: `data/raw/<user_id>/<user_id>_<condition>_<idx>.jpg`; `condition` ∈ {frontal, left, right, up, down} × {bright, dim} | Tài liệu quy ước |
-| 1.2 | Viết `scripts/collect_faces.py` — chụp có hướng dẫn từng tư thế, đếm đủ số ảnh/điều kiện | Script thu thập |
-| 1.3 | Thu thập **gallery: 2–3 người** (bản thân + gia đình), tối thiểu **100 ảnh/người**, phủ đủ 5 góc × 2 mức sáng | `data/raw/` |
-| 1.4 | Ghi nhận danh sách người tham gia + ngày đồng ý vào `docs/nguoi-tham-gia.md` | Bảng ghi nhận |
-| 1.5 | **Tập impostor ①**: tải LFW, lấy **≥ 100 danh tính** → `data/impostor/lfw_original/` | Impostor quy mô lớn |
-| 1.6 | **Tập impostor ③**: mời **5–7 người quen** (bạn cùng lớp/người quen) đứng trước **chính camera hệ thống** ~1 phút, ≥ 20 ảnh/người, cùng điều kiện góc & ánh sáng như gallery → `data/impostor/indomain/` | Impostor in-domain |
-| 1.7 | **Đo đặc trưng miền dữ liệu** của camera thật: phân bố kích thước bbox (px), độ nét (Laplacian var), độ sáng, nhiệt độ màu, mức nhiễu — từ `data/raw/` + `data/impostor/indomain/` | `results/domain_stats_*.json` |
-| 1.8 | **Tập impostor ②**: viết `scripts/adapt_domain.py` — xử lý LFW cho khớp thống kê đo ở 1.7 → `data/impostor/lfw_adapted/`. **Kiểm chứng**: phân bố độ nét/độ sáng của LFW đã adapt phải chồng lấn với in-domain | LFW domain-adapted |
-| 1.9 | Viết `scripts/preprocess.py` — detect → crop → align 5 điểm → resize 112×112 → `data/processed/` (áp dụng **đồng nhất** cho cả 4 nguồn dữ liệu) | Dữ liệu chuẩn hoá |
-| 1.10 | Kiểm chất lượng: loại ảnh mờ, ảnh không có mặt, trùng lặp | Báo cáo QC |
-| 1.11 | Chia tập: `enroll/val/test` cho gallery; mỗi tập impostor chia đôi `_val` / `_test` không trùng danh tính | `data/splits/*.txt` |
-| 1.12 | Thu thập **bộ tấn công**: ≥ 30 ảnh in + ≥ 30 màn hình ĐT + ≥ 30 mẫu live → `data/spoof/` | Bộ test giả mạo |
-| 1.13 | Chạy **EDA** — phân bố dữ liệu, tách biệt embedding, so sánh 3 phân bố impostor | `notebooks/01_eda_khuon_mat.ipynb` |
-
-> ⚠️ **Vì sao cần cả ba nguồn impostor**
-> - Gallery chỉ 2–3 người → **không thể giữ lại người nhà nào làm "người lạ"** → bắt buộc phải có
->   dữ liệu impostor từ ngoài, nếu không thì **không đo được FAR**.
-> - **LFW** cho **sức mạnh thống kê** (≥ 100 danh tính) nhưng là ảnh web — khác điều kiện camera thật.
-> - **Domain adaptation** thu hẹp khoảng cách đó.
-> - **In-domain 5–7 người** **kiểm chứng** rằng bước adaptation là hợp lệ. Cỡ mẫu quá nhỏ để tự nó
->   đo được FAR ở mức 1 %, nhưng đủ để phát hiện nếu adaptation sai lệch nghiêm trọng.
->
-> ❌ **Không** bổ sung impostor bằng cách trích ảnh người qua đường từ camera an ninh (R28b) —
-> vi phạm quy định dữ liệu cá nhân **và** không dùng được vì thiếu nhãn danh tính.
-
-**Cổng C:** gallery 2–3 người × ≥ 100 ảnh · impostor ≥ 100 danh tính LFW (gốc + adapted) +
-5–7 người in-domain × ≥ 20 ảnh · adaptation đã kiểm chứng bằng thống kê · mọi ảnh `processed/`
-đúng 112×112 · bộ spoof ≥ 90 mẫu.
-**Cổng D:** `docs/nhat-ky/tuan-02.md` + Chương 4 §Xây dựng cơ sở dữ liệu khuôn mặt.
-**Công cụ:** `prompts/data-pipeline.prompt.md` · `prompts/eda.prompt.md`
-
----
-
-### PHASE 2 — Phát hiện khuôn mặt (YOLOv8n-face)
-**Tuần 2–3 (22/07–04/08/2026)**
-
-| Bước | Việc cụ thể | Đầu ra |
-|---|---|---|
-| 2.1 | Tải `yolov8n-face.pt`, chạy thử trên PC, xác nhận chất lượng detect | Baseline PC |
-| 2.2 | Export **ONNX** (`imgsz=320` và `640`, `opset=12`) và **NCNN**; ghi lại kích thước file | `models/*.onnx`, `*.ncnn` |
-| 2.3 | Viết `src/detector/yolo_face.py` — interface `detect(frame) -> List[FaceBox]` (bbox, conf, landmarks) | Module detector |
-| 2.4 | Test trên Docker ARM64 với video mẫu; `pytest tests/test_detector.py` | Test xanh |
-| 2.5 | Deploy lên **Pi 5 thật**, đo FPS realtime từ camera | Số đo FPS |
-| 2.6 | **Benchmark ma trận**: {ONNX, NCNN} × {320, 640} × {1, 2, 4 thread} → chọn cấu hình tối ưu | `results/bench_detect_*.csv` |
-| 2.7 | Ghi nhận nhiệt độ CPU + throttling trong 10 phút chạy liên tục | Log nhiệt độ |
-
-**Cổng C — chỉ tiêu chặn: ≥ 10 FPS trên Pi 5.** Chưa đạt → giảm `imgsz`, đổi sang NCNN, bật quantization.
-**Cổng D:** Chương 2 §YOLOv8n-face + Chương 4 §Kết quả phát hiện khuôn mặt.
-**Công cụ:** `training.agent.md` · `experiment-protocol.instructions.md`
-
----
-
-### PHASE 3 — Nhận diện danh tính & So sánh 2 phương án ⭐
-**Tuần 3–5 (29/07–18/08/2026)** · **Đây là đóng góp khoa học chính của đồ án**
-
-| Bước | Việc cụ thể | Đầu ra |
-|---|---|---|
-| 3.1 | Định nghĩa interface chung `src/recognizer/base.py`: `enroll(images) -> Embedding`, `identify(face) -> (user_id, score)` | Interface |
-| 3.2 | **Phương án A**: `src/recognizer/dlib_backend.py` dùng `face_recognition` (128-D) | Backend A |
-| 3.3 | **Phương án B**: `src/recognizer/arcface_backend.py` dùng MobileFaceNet/ArcFace ONNX (512-D, cosine similarity) | Backend B |
-| 3.4 | `scripts/enroll.py` — sinh embedding trung bình từ tập enroll cho từng người, lưu `data/embeddings/` | Gallery |
-| 3.5 | **Quét ngưỡng**: với mỗi backend, quét threshold → vẽ ROC/DET, chọn điểm cân bằng FAR/FRR | Đường cong ROC |
-| 3.6 | **Kịch bản đo thống nhất** (cùng CSDL, cùng ánh sáng, cùng phần cứng Pi 5), đo: Accuracy, Precision, Recall, **FAR** (nhận nhầm), **FRR**, FPS, latency (p50/p95) | `results/bench_recognize_*.csv` |
-| 3.7 | **Đo FAR trên cả ba tập impostor** → `FAR_lfw`, `FAR_adapt`, `FAR_indomain`. **Đây là chỉ số quan trọng nhất** vì gallery chỉ 2–3 người | Số liệu open-set ⭐ |
-| 3.7b | **Kiểm chứng domain adaptation**: so `FAR_adapt` với `FAR_indomain`. Khớp → adaptation hợp lệ, dùng `FAR_adapt` làm số báo cáo chính. Lệch xa → điều chỉnh tham số adaptation ở bước 1.8 rồi đo lại, hoặc báo cáo trung thực khoảng chênh lệch | Kết luận kiểm chứng ⭐ |
-| 3.7c | Chốt ngưỡng **theo `FAR_adapt` ≤ 1 %**, không theo accuracy | Ngưỡng chính thức |
-| 3.8 | **Lập bảng so sánh A vs B + kết luận chọn phương án chính thức** (có lý do định lượng) | Bảng benchmark ⭐ |
-| 3.9 | Chốt backend, ghi vào `configs/recognize.yaml` | Config chính thức |
-
-**Cổng C — chỉ tiêu chặn: độ chính xác ≥ 95 % với người đã đăng ký.**
-**Cổng D:** Chương 2 §Trích xuất đặc trưng + **Chương 4 §Bảng so sánh thực nghiệm** (mục quan trọng nhất báo cáo).
-**Công cụ:** `training.agent.md` · `skills/latex-visualization` (vẽ ROC, bảng) · `prompts/eda.prompt.md`
-
----
-
-### PHASE 4 — Chống giả mạo (Anti-spoofing)
-**Tuần 4–5 (05–18/08/2026)** · có thể chạy song song Phase 3
-
-| Bước | Việc cụ thể | Đầu ra |
-|---|---|---|
-| 4.1 | Tích hợp MiniFASNet ONNX → `src/antispoof/minifasnet.py`, interface `is_live(face_crop) -> (bool, score)` | Module |
-| 4.2 | Đặt module **sau detect, trước recognize** trong pipeline (thứ tự này bắt buộc — tiết kiệm tài nguyên) | Pipeline đúng thứ tự |
-| 4.3 | Chạy trên bộ `data/spoof/` — đo riêng cho **ảnh in** và **màn hình điện thoại** | Kết quả 2 loại tấn công |
-| 4.4 | Đo **APCER** (tấn công lọt), **BPCER** (người thật bị từ chối), **ACER** | `results/bench_antispoof_*.csv` |
-| 4.5 | Tinh chỉnh ngưỡng liveness — ưu tiên giảm APCER, chấp nhận BPCER cao hơn (an ninh trước tiện dụng) | Threshold đã chốt |
-| 4.6 | Đo **chi phí FPS** khi bật anti-spoofing so với khi tắt | Số liệu overhead |
-
-**Cổng C — chỉ tiêu chặn: phát hiện ≥ 90 % tấn công (cả 2 loại).**
-**Cổng D:** Chương 2 §Liveness detection + Chương 4 §Kết quả chống giả mạo.
-**Công cụ:** `training.agent.md` · `experiment-protocol.instructions.md`
-
----
-
-### PHASE 5 — Điều khiển thiết bị & Cảnh báo
-**Tuần 5–7 (12/08–01/09/2026)**
-
-| Bước | Việc cụ thể | Đầu ra |
-|---|---|---|
-| 5.1 | `src/actuator/base.py` — interface trừu tượng + **backend `mock`** (R22) chạy được trên PC | Abstraction layer |
-| 5.2 | `gpio_backend.py` — relay/LED qua GPIO. Đấu nối theo `hardware/gpio-pinout.md` | Điều khiển đèn |
-| 5.3 | `ir_backend.py` — phát lệnh IR cho tivi (LIRC hoặc `pigpio`); ghi lại mã IR của remote thật | Điều khiển tivi |
-| 5.4 | `src/decision/policy.py` — **phân quyền theo danh tính**: bảng `user_id → {devices, actions}` trong `configs/actuator.yaml` | Khối quyết định |
-| 5.5 | Logic chống nhiễu: cần **N frame liên tiếp** cùng danh tính mới kích hoạt; **cooldown** tránh bật/tắt liên tục | Ổn định hoá |
-| 5.6 | **Đo độ trễ end-to-end**: từ frame có mặt → thiết bị đổi trạng thái, ≥ 30 lần lặp | `results/bench_latency_*.csv` |
-| 5.7 | Cảnh báo người lạ: chụp ảnh → lưu `results/alerts/` → ghi log DB → gửi **Telegram bot** | Module cảnh báo |
-| 5.8 | Rate-limit cảnh báo (không spam khi người lạ đứng lâu trước camera) | Chống spam |
-
-**Cổng C — chỉ tiêu chặn: độ trễ điều khiển < 2 s.** Điều khiển đúng theo phân quyền.
-**Cổng D:** Chương 3 §Thiết kế khối chấp hành + Chương 4 §Kết quả điều khiển thiết bị.
-**Công cụ:** `hardware-safety.instructions.md` · `python-embedded.instructions.md`
-
----
-
-### PHASE 6 — Web giám sát & Tích hợp hệ thống
-**Tuần 7–8 (26/08–08/09/2026)**
-
-| Bước | Việc cụ thể | Đầu ra |
-|---|---|---|
-| 6.1 | Thiết kế CSDL SQLite: bảng `users`, `recognition_log`, `alerts`, `device_state` | Schema |
-| 6.2 | Flask app `src/monitor/webapp.py`: **Dashboard** (trạng thái thiết bị, FPS hiện tại), **Lịch sử nhận diện**, **Ảnh cảnh báo**, **Quản lý người dùng đăng ký** | 4 màn hình |
-| 6.3 | Đăng ký người dùng mới **qua web** (upload ảnh → enroll → sinh embedding) | Luồng enroll web |
-| 6.4 | Xác thực đăng nhập cho trang quản trị (không để mở trong LAN) | Bảo mật cơ bản |
-| 6.5 | **Tích hợp toàn hệ thống** `src/main.py`: vòng lặp capture → detect → antispoof → recognize → decision → actuate → log | Hệ thống hợp nhất |
-| 6.6 | `deploy/systemd/faceid.service` — **tự khởi động cùng thiết bị**, auto-restart khi crash | Service |
-| 6.7 | Tối ưu hiệu năng: đa luồng (capture riêng thread), frame skipping, cache embedding | FPS cải thiện |
-| 6.8 | ⚠️ **Chỉ khi đã đạt 6.1–6.7**: mở rộng MQTT (`mqtt_backend.py`) | Mở rộng (tuỳ chọn) |
-
-**Cổng C:** web truy cập được từ máy khác trong LAN · reboot Pi → hệ thống tự chạy lại · **FPS toàn pipeline ≥ 5**.
-**Cổng D:** Chương 3 §Thiết kế khối giám sát + Chương 4 §Tích hợp hệ thống.
-**Công cụ:** `python-embedded.instructions.md`
-
----
-
-### PHASE 7 — Kiểm thử toàn hệ thống & Benchmark tổng
-**Tuần 8–9 (02–15/09/2026)**
-
-| Bước | Việc cụ thể | Đầu ra |
-|---|---|---|
-| 7.1 | Viết **kịch bản kiểm thử** chuẩn: 3 tình huống × 2 điều kiện ánh sáng × ≥ 3 khoảng cách (0,5 / 1 / 2 m) | `tests/scenarios.md` |
-| 7.2 | **Tình huống 1 — Người hợp lệ**: mỗi người ≥ 20 lượt → tỉ lệ nhận đúng, thời gian phản hồi | Kết quả TH1 |
-| 7.3 | **Tình huống 2 — Người lạ**: ≥ 20 lượt → tỉ lệ từ chối đúng + cảnh báo có gửi không | Kết quả TH2 |
-| 7.4 | **Tình huống 3 — Tấn công giả mạo**: ảnh in + màn hình ĐT, ≥ 20 lượt mỗi loại | Kết quả TH3 |
-| 7.5 | Chạy **ổn định 2 giờ liên tục** — theo dõi rò rỉ bộ nhớ, nhiệt độ, throttling | Log ổn định |
-| 7.6 | **Lập bảng benchmark tổng hợp** — đối chiếu từng chỉ tiêu §1 với số đo thực tế: Đạt/Không đạt | Bảng benchmark ⭐ |
-| 7.7 | Vẽ toàn bộ biểu đồ cho báo cáo từ `results/` | `report/figures/*` |
-
-**Cổng C:** đủ số liệu cho **cả 5 chỉ tiêu cam kết**, mỗi chỉ tiêu có kết luận Đạt/Không đạt kèm bằng chứng.
-**Cổng D:** Chương 4 hoàn chỉnh.
-**Công cụ:** `training.agent.md` · `skills/latex-visualization` · `experiment-protocol.instructions.md`
-
----
-
-### PHASE 8 — Báo cáo, Slide & Bảo vệ
-**Tuần 9–10 (09–22/09/2026)** · Nộp **23–24/09** · Bảo vệ **~10/10**
-
-| Bước | Việc cụ thể | Hạn |
-|---|---|---|
-| 8.1 | Hợp nhất các chương đã viết rải rác ở cổng D → `report/main.tex` (~50 trang) | 12/09 |
-| 8.2 | Viết Mở đầu + **Chương 5 Kết luận & Hướng phát triển** (nêu MQTT, ReactJS, nhận diện đa người) | 14/09 |
-| 8.3 | Rà soát bằng `academic-editing`: văn phong, thuật ngữ nhất quán, trích dẫn IEEE đầy đủ | 16/09 |
-| 8.4 | Kiểm tra **mọi số liệu** trong báo cáo khớp với `results/` (R6) | 17/09 |
-| 8.5 | Dọn mã nguồn, viết `README.md` hướng dẫn cài đặt, đẩy GitHub | 18/09 |
-| 8.6 | Quay **video demo** (đủ 3 tình huống), làm **slide** (15–20 slide) | 20/09 |
-| 8.7 | Gửi GVHD duyệt, chỉnh sửa theo góp ý | 21/09 |
-| 8.8 | **Nộp báo cáo** | **23–24/09** |
-| 8.9 | Luyện trình bày, chuẩn bị câu hỏi phản biện | 25/09–09/10 |
-
-**Cổng D:** báo cáo + slide + video + repo GitHub công khai.
-**Công cụ:** `paper-writer.agent.md` · `skills/report-drafting` · `skills/academic-editing` · `skills/latex-visualization`
+Phase 3 là **đóng góp khoa học chính**. Chỉ tiêu chặn của từng Cổng C ghi trong tệp Phase tương ứng.
 
 ---
 
@@ -721,6 +492,8 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
 | Tôi muốn... | Dùng |
 |---|---|
 | Bắt đầu phiên làm việc, không nhớ đang ở đâu | agent `onboarding-with-skills` |
+| Biết đang ở đâu, còn nợ gì | `docs/trang-thai.md` |
+| Xem kế hoạch chi tiết một Phase | `docs/pipeline/phase-<n>.md` |
 | Thu thập / chuẩn hoá dữ liệu khuôn mặt | prompt `data-pipeline` |
 | Phân tích thống kê dữ liệu hoặc kết quả | prompt `eda` |
 | Export model, chạy benchmark, so sánh 2 phương án | agent `training` + `experiment-protocol.instructions` |
@@ -731,107 +504,22 @@ Mỗi Phase **bắt buộc** đi qua 4 cổng, theo đúng thứ tự:
 | Đấu nối / lập trình GPIO, IR | `hardware-safety.instructions` |
 | Vẽ biểu đồ, bảng, sơ đồ cho báo cáo | skill `latex-visualization` |
 | Viết một chương báo cáo | agent `paper-writer` + skill `report-drafting` |
-| Rà soát văn bản trước khi nộp | skill `academic-editing` |
+| Rà soát văn bản trước khi nộp | skill `academic-editing` + `docs/checklist-nop.md` |
 
 ---
 
-## 7. Checklist trước khi nộp (kiểm 100 %)
+## 7. Checklist trước khi nộp
 
-- [ ] Mọi số liệu trong báo cáo truy được về file trong `results/`
-- [ ] Bảng so sánh 2 phương án nhận diện đầy đủ (Accuracy, FAR, FRR, FPS, latency)
-- [ ] Kết quả anti-spoofing tách riêng cho ảnh in và màn hình điện thoại
-- [ ] Đủ 5 chỉ tiêu cam kết, mỗi chỉ tiêu có kết luận Đạt / Không đạt
-- [ ] Kiểm thử trong ≥ 2 điều kiện ánh sáng
-- [ ] Không có secret / ảnh khuôn mặt / weights lớn trong git history
-- [ ] `README.md` cho phép người khác dựng lại hệ thống từ đầu
-- [ ] Trích dẫn IEEE đầy đủ, không tài liệu tham khảo "mồ côi"
-- [ ] Video demo đủ 3 tình huống
-- [ ] Danh sách người tham gia + ngày đồng ý đã ghi nhận (`docs/nguoi-tham-gia.md`)
-- [ ] **Đã nêu rõ hạn chế gallery 2–3 người** ở Chương 4 §4.2 và Chương 5
-- [ ] **Đã báo cáo đủ 3 con số FAR** (`FAR_lfw`, `FAR_adapt`, `FAR_indomain`), không chỉ accuracy
-- [ ] Đã trình bày **kết luận kiểm chứng domain adaptation**
-- [ ] Đã mô tả **quy trình domain adaptation** đủ chi tiết để tái lập
-- [ ] Đã trích dẫn nguồn và giấy phép bộ dữ liệu LFW
-- [ ] Đã nêu điều chỉnh phạm vi so với đề cương gốc và lý do
-- [ ] Không có ảnh của người chưa đồng ý trong toàn bộ dữ liệu (R28b)
+→ [`docs/checklist-nop.md`](docs/checklist-nop.md). Chỉ dùng ở bước 8.4 của Phase 8, nên không nằm
+trong tệp mà mọi vai nạp lại ở mỗi lượt.
 
 ---
 
 ## 8. Ghi chú vận hành
 
-- **Vị trí hiện tại (10/09/2026 — Tuần 9)**: **Phase 0 đóng trọn** — bước 0.4 đóng ngày
-  05/09/2026 khi Raspberry Pi 5 và webcam USB về tới nơi; `P0-05` gộp ngày 10/09/2026 nên
-  **không còn mã việc nào có đặc tả mà chưa cài**.
-  **Phase 1, 2 và 3 đang mở song song**; lý do ghi ở `docs/dieu-chinh-pham-vi.md`.
-  **26 mã việc đã qua đủ 5 nhịp và gộp `dev`** — mỗi mã việc một biên bản trong `docs/review/`,
-  đếm số tệp ở đó là ra số chuẩn, đừng chép lại con số trong mục này mà không kiểm.
-  Ba mã việc gần nhất: `P2-07` (cờ `--nguon camera` cho `benchmark_detect.py`, bước 2.5) ·
-  `P2-08` (đặt FOURCC MJPG, áp `CAP_PROP_FPS`, phơi thông số camera thật) · `P0-05` (làm sạch
-  bit quyền nhánh dự phòng, thêm `--strict-config`).
-  `P2-06d` **đã bỏ** theo quyết định ngày 04/09/2026: khối phát hiện đã qua ba vòng kiểm, thêm
-  vòng thứ tư không đổi kết luận nào.
-  Số ca kiểm thử — ghi kèm mốc, môi trường và bộ lọc theo quy ước ở
-  `.claude/agents/spec-writer.agent.md`: **878 ca thu thập** trên `dev` sau khi gộp `P0-05`;
-  `pc_x86` không lọc marker cho `875 passed, 3 skipped`; `docker_arm64` với `-m "not slow"` cho
-  `845 passed, 1 skipped, 32 deselected`; `pi5` **[CHƯA ĐO Ở MỐC NÀY]** — mốc gần nhất là
-  `518 passed, 5 skipped, 32 deselected` tại `P0-04`, đã lạc hậu 323 ca. Ba ca skip trên
-  `pc_x86` là 49, 50, 51 của `P0-05`, gác theo nền tảng vì bit quyền chỉ có nghĩa trên POSIX.
-  **Còn nợ trên `pi5`**: §14b của `P0-05` — chỉ cần chạy `pytest`, không cần camera.
-- **Chỉ tiêu FPS riêng module phát hiện ≥ 10: ✅ ĐẠT** — đo trên Pi 5 thật ngày 05/09/2026, ba lượt,
-  8/12 cấu hình vượt ngưỡng, cao nhất **60,6 FPS** (NCNN, 320 px, 4 luồng). Nguồn:
-  `results/bench_detect_20260905_{1911,1914,1916}.csv`. Bước 2.7 cũng xong: 10,7 phút tải liên tục,
-  `throttled=0x0`, nhiệt đỉnh 65,55 °C, hiệu năng lệch dưới 1,4 % so với lượt ngắn
-  (`results/bench_detect_20260905_2011.csv`).
-  **Bước 2.5 đã đo lần đầu ngày 09/09/2026** trên Pi 5 với camera thật, ba lượt 300 khung, NCNN
-  320 px 4 luồng, 1,0 m: `fps_tb` **51,2** (vượt ngưỡng 10 gấp năm lần), `fps_tong_tb` **10,02**,
-  lấy khung p50 **80 ms**, nhiệt 42,2 → 43,9 °C, `throttled=0x0`.
-  ⚠️ **Ba tệp kết quả lượt đó còn nằm trên Pi, chưa vào `results/`** — phải copy về và commit,
-  vì chúng là đối chứng "trước FOURCC" cho lượt đo lại.
-  Lấy khung 80 ms là do webcam chạy YUYV: `v4l2-ctl` cho thấy ở 1280×720 định dạng này **chỉ có
-  10/5/1 fps**, còn MJPG có 30 fps. `P2-08` đặt FOURCC sang MJPG để nới trần; **cần đo lại ba
-  lượt** rồi mới chốt Cổng C. Kỳ vọng lấy khung p50 xuống ≈ 33 ms và `fps_tong_tb` lên ≈ 19;
-  vượt 27 thì phải nghi bộ đệm khung trả về khung cũ.
-  ⚠️ `benchmark_detect.py` **chưa ghi `fourcc_thuc_te` vào `.meta.json`** (mục 🔵-2 biên bản
-  `P2-08`). Bằng chứng định dạng thật lấy từ dòng log `mo()` in ra đầu mỗi lượt, dán vào nhật ký.
-- **Notebook còn thiếu**: `01_eda_khuon_mat.ipynb` (bước 1.13, **vẫn chặn** vì chưa thu gallery) ·
-  `04_so_sanh_moi_truong.ipynb` (**hết chặn** từ 05/09/2026 — đã có số `pi5` đặt cạnh `pc_x86` và
-  `docker_arm64`) · `06_nguong_va_roc.ipynb` (bước 3.5, **hết chặn** từ 08/09/2026 — `P3-05` đã
-  sinh `results/bench_recognize_{dlib,arcface}_20260908_0707.{csv,nguong.csv}`, nhưng đó là mẻ
-  **kiểm chức năng trên LFW**, không phải số báo cáo).
-  `05_khoi_nhan_dien.ipynb` viết ngày 04/09/2026 sau khi `P3-02` đóng — minh hoạ hai backend trên
-  LFW, không sinh số cho báo cáo.
-  Notebook là phương tiện trình bày chính khi bảo vệ, không phải bản nháp — xem §2.9.
-- **Gallery hiện có**: `data/embeddings/{dlib,arcface}/`, 8 người từ LFW, dựng lại ngày 06/09/2026
-  trên commit `bfc9026` với `git_dirty: false`. ⚠️ Dựng bằng cờ `--toi-thieu 3` thay cho ngưỡng 10
-  trong cấu hình, vì không danh tính LFW nào đủ 10 ảnh. Đây là gallery **kiểm chức năng**, không
-  dùng cho bất kỳ con số nào trong báo cáo; `gallery.meta.json` ghi cả hai ngưỡng để không lẫn.
-  ⚠️⚠️ **Gallery này KHÔNG còn probe genuine nào** — `enroll.py` dùng trọn ảnh của mỗi người để
-  đăng ký, manifest cho `so_anh_dung == so_anh_tim_thay` ở cả 8 người (38 ảnh). Lấy chính những ảnh
-  đó làm probe thì mỗi ảnh được so với một vectơ trung bình **có chứa chính nó**, cho điểm cao giả
-  tạo, kéo FRR xuống gần 0 mà không gì báo lỗi. Đặc tả `P3-05` xử lý bằng chế độ `chia` và phép
-  loại trừ theo mã băm nội dung; **đừng bao giờ đo trực tiếp trên thư mục này**.
-- ⚠️ **Rủi ro tiến độ lớn nhất: chưa thu được dữ liệu khuôn mặt.** Phần cứng đã hết là lý do —
-  Pi 5 và webcam USB có từ 05/09/2026, camera mở được bằng chính mã của đồ án. Nhưng **gallery
-  2–3 người nhà (bước 1.3) và tập impostor in-domain (bước 1.6) vẫn chưa thu**, và **bốn trên sáu
-  chỉ tiêu cam kết ở §1 đều cần chúng**: độ chính xác nhận diện, ba con số FAR, tỉ lệ phát hiện
-  giả mạo, độ trễ điều khiển đầu-cuối. Đây là việc phụ thuộc lịch của người khác nên không rút
-  ngắn được bằng cách làm nhanh hơn — phải khởi động sớm nhất có thể.
-- ⚠️ **Rủi ro thứ hai: chưa có ngoại vi cho Phase 5.** Chưa có module relay, LED, LED phát IR.
-  Chỉ tiêu độ trễ điều khiển < 2 s không đo được nếu thiếu. Mua tại cửa hàng linh kiện nhanh hơn
-  đặt online đáng kể.
-- Báo cáo: Chương 1 §1.1–1.3 xong · Chương 2 xong 6/7 mục (§2.7 chặn vì chưa có thiết bị), đã bổ
-  sung §2.6.4–2.6.6 về NCNN và PNNX · Chương 3 §3.2 và §3.3 xong · Chương 5 khung.
-  **Chương 4 đã mở** (`report/chapters/ch4-trien-khai-thuc-nghiem.md`): §4.1 ba môi trường, §4.3.1
-  kiểm chứng chuyển đổi NCNN, §4.3.2 và §4.3.3 kết quả trên `pc_x86`, **§4.3.4 kết quả trên Pi 5
-  thật** (Bảng 4.4 mười hai cấu hình, Bảng 4.5 tỉ lệ tăng tốc NCNN 2,07–3,35 lần, Bảng 4.6 đối
-  chiếu hai môi trường), và **§4.6 Bảng 4.7 đối chiếu chỉ tiêu** — dòng FPS phát hiện đã ✅ Đạt,
-  bốn dòng còn lại `[CHƯA ĐO]`.
-  Một dữ kiện dùng được cho §4.1: container `faceid:arm64` chạy Python **3.11.16**, Pi OS chạy
-  **3.11.2** — cùng nhánh 3.11 nhưng khác nhau đúng ở mốc 3.11.4, nơi `tarfile.FilterError` được
-  backport. Bảy ca test xanh trong container mà đỏ trên Pi. Đây là ca cụ thể chứng minh
-  `docker_arm64` không thay thế được `pi5`, kể cả ở mức tính đúng đắn chức năng chứ không chỉ tốc độ.
-  Nhật ký tuần 1–8 đã ghi đủ. Trọng số mô hình đã tải đủ,
-  `models/README.md` bảng A đầy đủ, §3.3 đã chốt cách chuẩn hoá của mô hình nhận diện bằng
-  thực nghiệm.
-- Cập nhật mục này mỗi khi qua Phase mới.
-- Nhật ký tuần lưu ở `docs/nhat-ky/tuan-XX.md`, viết vào **cuối mỗi tuần**, không dồn.
+→ [`docs/trang-thai.md`](docs/trang-thai.md) — vị trí hiện tại, số ca kiểm thử theo mốc, số đo đã
+có, gallery hiện có và bẫy của nó, rủi ro tiến độ, trạng thái từng chương báo cáo.
+
+Tệp đó **dài thêm sau mỗi mã việc**, nên nó nằm ngoài hiến pháp. Chỉ phiên chính,
+`onboarding-with-skills`, `training` và `paper-writer` cần đọc. Cập nhật mỗi khi qua Phase mới hoặc
+gộp xong một mã việc; diễn biến đã khép lại thì đẩy về `docs/nhat-ky/tuan-XX.md`.

@@ -13,6 +13,21 @@ khuôn mặt trên Raspberry Pi 5 ứng dụng điều khiển thiết bị tron
 
 **Toàn bộ nội dung viết bằng tiếng Việt học thuật.**
 
+## Phạm vi đọc — DANH SÁCH ĐÓNG (R44)
+
+Đọc đúng năm nhóm rồi **dừng**:
+
+1. `CLAUDE.md` — §1 bối cảnh và chỉ tiêu, cảnh báo gallery nhỏ, §2.1–2.3 văn phong và phạm vi.
+2. `docs/trang-thai.md` — **cần đọc**: chương nào đã viết tới đâu, số nào đã có, số nào `[CHƯA ĐO]`.
+3. `docs/pipeline/phase-<n>.md` của **đúng Phase đang viết chương**, không đọc Phase khác.
+4. Các tệp trong `results/` mà chương đang viết trích dẫn, cộng chương đang sửa trong `report/`.
+5. `.claude/instructions/academic-writing.instructions.md`.
+
+**KHÔNG đọc**: `docs/dac-ta/` · `docs/review/` · mã nguồn trong `src/` trừ khi Chương 3 cần mô tả
+một interface cụ thể · các Phase khác Phase đang viết.
+
+Ở Phase 8 thì đọc thêm `docs/checklist-nop.md` và mọi chương trong `report/`.
+
 ---
 
 ## ⛔ Quy tắc số một: KHÔNG BỊA SỐ LIỆU

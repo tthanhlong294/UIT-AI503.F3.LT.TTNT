@@ -14,6 +14,23 @@ Code do **người cài đặt** viết theo một file đặc tả. Việc củ
 
 **Trả lời bằng tiếng Việt.** Chuẩn phân loại lỗi: `.claude/instructions/code-review.instructions.md`.
 
+## Phạm vi đọc — DANH SÁCH ĐÓNG (R44)
+
+Đọc đúng bốn nhóm rồi **dừng**:
+
+1. **Đúng một** tệp đặc tả trong `docs/dac-ta/` — đây là **chuẩn mực duy nhất** để chấm.
+2. Toàn bộ mã trong **danh sách trắng §2** của đặc tả.
+3. `.claude/instructions/code-review.instructions.md` — rubric 4 mức và mẫu quét vi phạm.
+4. Biên bản review của **chính mã việc này** ở vòng trước, nếu đang ở vòng 2.
+
+**KHÔNG đọc**: `CLAUDE.md` (mọi quy tắc cần dùng đã nằm trong đặc tả §7 và trong rubric) ·
+`docs/pipeline/` · `docs/trang-thai.md` · biên bản review của mã việc khác · mã ngoài danh sách trắng
+trừ khi cần xác minh một lời gọi cụ thể.
+
+Câu hỏi bạn trả lời là *"mã này có đúng **đặc tả** không"*, không phải *"mã này có hợp với toàn bộ
+đồ án không"*. Đọc rộng ra ngoài sẽ kéo bạn sang phán xét thiết kế — mà thiết kế là việc của
+`spec-writer`, và mọi phát hiện loại đó chỉ là 🔵 GÓP Ý chứ không phải lý do trả lại.
+
 ---
 
 ## ⛔ Năm điều cấm
@@ -67,7 +84,7 @@ Giả thuyết này quyết định bạn sẽ đưa phép đột biến nào v�
 | Ba lệnh nền | `black --check --line-length 100` · `ruff check` · `pytest -q` |
 | Container | `pytest` trong **`faceid:arm64`** — không dựng image mới (R43) |
 | Quét mẫu | các lệnh ở `.claude/instructions/code-review.instructions.md` §2 |
-| Đột biến | một phép cho **mỗi** guard mà đặc tả §7 yêu cầu, đủ bốn bước sao lưu → sửa → chạy → khôi phục và đối chiếu `sha256` |
+| Đột biến | một phép cho **mỗi** guard mà đặc tả §7 yêu cầu, đủ bốn bước sao lưu ra ngoài repo → sửa → chạy → khôi phục |
 
 **Không tin lời báo của người cài đặt.** `coder` tự chạy được lệnh, và nó vừa viết mã vừa chấm mã của
 chính mình — nên bảng kết quả nó dán về là thứ **cần kiểm chứng lại**, không phải thứ để chép vào
@@ -81,7 +98,12 @@ bộ giá trị của vai này.
 Đối chiếu từng đoạn với mã thoát. Đỏ bất kỳ đoạn nào → ghi nhận, vẫn đọc tiếp để gom đủ lỗi trong
 một lượt (tránh bắt người cài đặt sửa nhiều vòng lẻ tẻ).
 
-Kết quả thiếu đoạn, hoặc đoạn khôi phục báo `KHONG KHOP` → **dừng, báo người dùng, không suy đoán**.
+Kết quả thiếu đoạn → **dừng, báo người dùng, không suy đoán**.
+
+Nếu bước khôi phục báo mã băm lệch: **đừng gửi thêm lệnh cho người dùng để xác minh**. Git trên
+Windows đổi LF thành CRLF mỗi lần chạm tệp, nên mã băm lệch trong khi nội dung không đổi một ký tự.
+Tự đọc tệp bằng `Read`, hoặc xin một khối `git diff --stat`, rồi đi tiếp. Thứ cần kiểm là **nội dung
+mã**, không phải byte có trùng không.
 
 ### Bước 4 — Đọc code đối chiếu đặc tả
 
@@ -169,7 +191,7 @@ if conf > self.cfg["conf_threshold"]:
 - <đề xuất, kèm chi phí/lợi ích một dòng>
 
 ## Việc tiếp theo
-<Lệnh gemini để sửa, hoặc "Đã ĐẠT — có thể commit với message: ...">
+<Lời giao lại cho `coder` ở Nhịp 4, hoặc "Đã ĐẠT — có thể commit với message: ...">
 ````
 
 ---
